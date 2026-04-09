@@ -19,3 +19,20 @@
 - [ ] 每个站点独立 SEO meta 信息与 sitemap 方案
 - [ ] 响应式设计体系，覆盖桌面端与移动端
 - [x] 统一平台设计方法论与产品 PRD 文档
+- [ ] 替换当前模板占位首页，建设统一平台真实首页与多站点入口体验
+- [x] 按最新 V1.0 PRD 将当前单体草稿升级为 Monorepo（推荐 pnpm workspace / Turborepo）
+- [x] 将现有 React + Vite 管理后台迁移至 apps/admin，并保留统一中台能力
+- [x] 设计并落地 brands 基础表，建立 brand_id / tenant_id 多租户隔离模型
+- [x] 重构 Users、Products、Orders 等核心表，强制绑定 brand_id 并区分 B2B / B2C 账户类型
+- [ ] 规划并建设 apps/web-b2b（Next.js App Router）用于 SSR SEO 官网体系
+- [ ] 规划并建设独立移动交易端（Taro 或等效跨端方案）作为微信小程序商城入口
+- [ ] 设计 Sprint 1 的小程序 API 路由集合，包括商品列表、下单、支付创建与订单查询接口
+- [ ] 设计微信支付 JSAPI、信用卡 / 分期优先展示与对公转账凭证上传审核闭环
+- [ ] 设计环洗朵 B2B 阶梯定价、iCloush LAB. 周期购 / 订阅制的数据结构
+- [ ] 设计 SEO 官网首屏、客户 Logo 墙、询价表单与线索入后台的统一机制
+- [x] 输出可评审的 Monorepo 目录结构方案与更新后的 Drizzle Schema 核心表结构草案
+- [x] 实施 Sprint 1 Step 1：完成 Monorepo 包管理初始化与目录结构重构
+- [x] 将现有管理后台整体迁移至 apps/admin 并保持可运行
+- [x] 实施 Sprint 1 Step 2：将 Drizzle 数据模型迁移至 packages/database 并完成多租户改造
+- [x] 生成最新的多租户 Schema migration 脚本并验证可执行性
+- [x] 输出最新目录树与核心 Schema 代码供审查

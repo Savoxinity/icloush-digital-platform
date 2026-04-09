@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/auth",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo auth build pending",
+    "check": "echo auth check pending",
+    "test": "echo auth test pending"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@icloush/database",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:push": "pnpm db:generate && pnpm db:migrate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.5",
+    "mysql2": "^3.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "5.9.3"
+  }
+}

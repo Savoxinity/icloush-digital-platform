@@ -1,0 +1,12 @@
+{
+  "name": "@icloush/web-b2b",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo web-b2b scaffold pending",
+    "build": "echo web-b2b build pending",
+    "check": "echo web-b2b check pending",
+    "test": "echo web-b2b test pending"
+  }
+}

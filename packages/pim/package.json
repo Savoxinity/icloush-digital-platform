@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/pim",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo pim build pending",
+    "check": "echo pim check pending",
+    "test": "echo pim test pending"
+  }
+}

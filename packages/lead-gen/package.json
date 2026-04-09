@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/lead-gen",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo lead-gen build pending",
+    "check": "echo lead-gen check pending",
+    "test": "echo lead-gen test pending"
+  }
+}

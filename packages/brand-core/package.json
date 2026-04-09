@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/brand-core",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo brand-core build pending",
+    "check": "echo brand-core check pending",
+    "test": "echo brand-core test pending"
+  }
+}

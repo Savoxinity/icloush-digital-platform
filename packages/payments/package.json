@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/payments",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo payments build pending",
+    "check": "echo payments check pending",
+    "test": "echo payments test pending"
+  }
+}

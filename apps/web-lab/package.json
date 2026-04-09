@@ -1,0 +1,12 @@
+{
+  "name": "@icloush/web-lab",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo web-lab scaffold pending",
+    "build": "echo web-lab build pending",
+    "check": "echo web-lab check pending",
+    "test": "echo web-lab test pending"
+  }
+}

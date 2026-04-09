@@ -1,0 +1,12 @@
+{
+  "name": "@icloush/mini-huanxiduo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo mini-huanxiduo scaffold pending",
+    "build": "echo mini-huanxiduo build pending",
+    "check": "echo mini-huanxiduo check pending",
+    "test": "echo mini-huanxiduo test pending"
+  }
+}

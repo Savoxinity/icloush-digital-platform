@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/cms",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo cms build pending",
+    "check": "echo cms check pending",
+    "test": "echo cms test pending"
+  }
+}

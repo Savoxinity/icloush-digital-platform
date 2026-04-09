@@ -1,0 +1,12 @@
+{
+  "name": "@icloush/mini-lab",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo mini-lab scaffold pending",
+    "build": "echo mini-lab build pending",
+    "check": "echo mini-lab check pending",
+    "test": "echo mini-lab test pending"
+  }
+}

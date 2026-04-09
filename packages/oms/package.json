@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/oms",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo oms build pending",
+    "check": "echo oms check pending",
+    "test": "echo oms test pending"
+  }
+}

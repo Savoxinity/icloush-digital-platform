@@ -1,0 +1,11 @@
+{
+  "name": "@icloush/ui",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo ui build pending",
+    "check": "echo ui check pending",
+    "test": "echo ui test pending"
+  }
+}

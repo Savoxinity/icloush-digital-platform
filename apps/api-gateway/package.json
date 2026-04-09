@@ -1,0 +1,12 @@
+{
+  "name": "@icloush/api-gateway",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo api-gateway scaffold pending",
+    "build": "echo api-gateway build pending",
+    "check": "echo api-gateway check pending",
+    "test": "echo api-gateway test pending"
+  }
+}

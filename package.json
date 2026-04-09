@@ -13,7 +13,11 @@
     "db:migrate": "pnpm --filter @icloush/database db:migrate",
     "db:push": "pnpm --filter @icloush/database db:push",
     "admin:dev": "pnpm --filter @icloush/admin dev",
-    "admin:build": "pnpm --filter @icloush/admin build"
+    "admin:build": "pnpm --filter @icloush/admin build",
+    "api:dev": "pnpm --filter @icloush/api-gateway dev",
+    "api:build": "pnpm --filter @icloush/api-gateway build",
+    "api:check": "pnpm --filter @icloush/api-gateway check",
+    "api:test": "pnpm --filter @icloush/api-gateway test"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

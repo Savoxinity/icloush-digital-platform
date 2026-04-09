@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./apps/admin" },
+    { "path": "./apps/api-gateway" },
     { "path": "./packages/database" }
   ],
   "compilerOptions": {

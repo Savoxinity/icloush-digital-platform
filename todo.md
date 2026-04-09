@@ -26,9 +26,9 @@
 - [x] 重构 Users、Products、Orders 等核心表，强制绑定 brand_id 并区分 B2B / B2C 账户类型
 - [ ] 规划并建设 apps/web-b2b（Next.js App Router）用于 SSR SEO 官网体系
 - [ ] 规划并建设独立移动交易端（Taro 或等效跨端方案）作为微信小程序商城入口
-- [ ] 设计 Sprint 1 的小程序 API 路由集合，包括商品列表、下单、支付创建与订单查询接口
-- [ ] 设计微信支付 JSAPI、信用卡 / 分期优先展示与对公转账凭证上传审核闭环
-- [ ] 设计环洗朵 B2B 阶梯定价、iCloush LAB. 周期购 / 订阅制的数据结构
+- [x] 设计 Sprint 1 的小程序 API 路由集合，包括商品列表、下单、支付创建与订单查询接口
+- [x] 设计微信支付 JSAPI、信用卡 / 分期优先展示与对公转账凭证上传审核闭环
+- [x] 设计环洗朵 B2B 阶梯定价、iCloush LAB. 周期购 / 订阅制的数据结构
 - [ ] 设计 SEO 官网首屏、客户 Logo 墙、询价表单与线索入后台的统一机制
 - [x] 输出可评审的 Monorepo 目录结构方案与更新后的 Drizzle Schema 核心表结构草案
 - [x] 实施 Sprint 1 Step 1：完成 Monorepo 包管理初始化与目录结构重构
@@ -36,3 +36,11 @@
 - [x] 实施 Sprint 1 Step 2：将 Drizzle 数据模型迁移至 packages/database 并完成多租户改造
 - [x] 生成最新的多租户 Schema migration 脚本并验证可执行性
 - [x] 输出最新目录树与核心 Schema 代码供审查
+- [x] 搭建 apps/api-gateway 统一接口层并接入共享数据库与多租户上下文识别
+- [x] 实现根据请求头 brand_id 或域名自动识别租户上下文的中间件/上下文构建
+- [x] 实现环洗朵 B2B 商品查询接口与阶梯定价计算逻辑
+- [x] 实现创建订单核心接口并预留微信 JSAPI 支付参数生成结构
+- [x] 实现支持信用卡付款与分期付款扩展字段的支付意图骨架
+- [x] 实现上传线下打款凭证 URL 并将订单扭转为待审核状态的接口
+- [x] 为 API Gateway 核心链路编写并运行 Vitest 单元测试
+- [x] 输出 API Gateway Router 结构与接口文档供评审

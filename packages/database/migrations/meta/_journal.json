@@ -15,6 +15,13 @@
       "when": 1775840409706,
       "tag": "0001_slim_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1775848423012,
+      "tag": "0002_sour_zuras",
+      "breakpoints": true
     }
   ]
 }

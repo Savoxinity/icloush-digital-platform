@@ -257,7 +257,7 @@ export async function listOrderReviewQueue(args: {
     };
   }
 
-  const orderIds = [...new Set(matchedReceipts.map((receipt) => receipt.orderId))];
+  const orderIds = Array.from(new Set(matchedReceipts.map((receipt) => receipt.orderId)));
   const [matchedOrders, matchedItems, matchedPayments] = await Promise.all([
     args.db.select().from(orders).where(inArray(orders.id, orderIds)),
     args.db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds)),

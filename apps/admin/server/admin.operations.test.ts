@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getDbMock = vi.hoisted(() => vi.fn(async () => ({}) as never));
 const getPlatformSnapshotMock = vi.hoisted(() => vi.fn());
 const getAdminOperationsSnapshotMock = vi.hoisted(() => vi.fn());
+const upsertSiteContactConfigMock = vi.hoisted(() => vi.fn());
 
 vi.mock("./db", () => ({
   getDb: getDbMock,
   getPlatformSnapshot: getPlatformSnapshotMock,
   getAdminOperationsSnapshot: getAdminOperationsSnapshotMock,
+  upsertSiteContactConfig: upsertSiteContactConfigMock,
 }));
 
 import { appRouter } from "./routers";
@@ -52,6 +54,7 @@ describe("admin operations router", () => {
     getDbMock.mockClear();
     getPlatformSnapshotMock.mockReset();
     getAdminOperationsSnapshotMock.mockReset();
+    upsertSiteContactConfigMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -132,5 +135,62 @@ describe("admin operations router", () => {
       code: "FORBIDDEN",
     });
     expect(getAdminOperationsSnapshotMock).not.toHaveBeenCalled();
+  });
+
+  it("allows admin users to update lab contact config", async () => {
+    upsertSiteContactConfigMock.mockResolvedValue({
+      siteKey: "lab",
+      headline: "更新后的 LAB 联系入口",
+      description: "用于验证后台内容治理的联系配置保存能力。",
+      primaryCtaLabel: "提交合作需求",
+      primaryCtaHref: "/account",
+      secondaryCtaLabel: "查看共创表单",
+      secondaryCtaHref: "/shop",
+      contactEmail: "lab@icloush.com",
+      contactPhone: "400-820-2026",
+      contactWechat: "iCloushLAB",
+      contactAddress: "上海市闵行区研发协同中心 3F",
+      serviceHours: "周一至周五 09:00-18:00",
+      responseSla: "1 个工作日内答复",
+    });
+
+    const caller = appRouter.createCaller(createContext(createUser({ globalRole: "admin" })));
+    const input = {
+      siteKey: "lab" as const,
+      contactScene: "business",
+      headline: "更新后的 LAB 联系入口",
+      description: "用于验证后台内容治理的联系配置保存能力。",
+      primaryCtaLabel: "提交合作需求",
+      primaryCtaHref: "/account",
+      secondaryCtaLabel: "查看共创表单",
+      secondaryCtaHref: "/shop",
+      contactEmail: "lab@icloush.com",
+      contactPhone: "400-820-2026",
+      contactWechat: "iCloushLAB",
+      contactAddress: "上海市闵行区研发协同中心 3F",
+      serviceHours: "周一至周五 09:00-18:00",
+      responseSla: "1 个工作日内答复",
+    };
+
+    const result = await caller.site.updateContactConfig(input);
+
+    expect(upsertSiteContactConfigMock).toHaveBeenCalledWith(input);
+    expect(result.headline).toBe("更新后的 LAB 联系入口");
+  });
+
+  it("blocks non-admin users from updating lab contact config", async () => {
+    const caller = appRouter.createCaller(createContext(createUser({ globalRole: "user" })));
+
+    await expect(
+      caller.site.updateContactConfig({
+        siteKey: "lab",
+        contactScene: "business",
+        headline: "无权限更新",
+        description: "普通用户不应具备联系配置写入能力。",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(upsertSiteContactConfigMock).not.toHaveBeenCalled();
   });
 });

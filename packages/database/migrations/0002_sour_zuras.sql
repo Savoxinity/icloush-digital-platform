@@ -1,0 +1,41 @@
+CREATE TABLE `siteCaseStudies` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`brandId` int NOT NULL,
+	`siteKey` enum('shop','lab','tech','care') NOT NULL,
+	`title` varchar(255) NOT NULL,
+	`subtitle` varchar(255),
+	`summary` text NOT NULL,
+	`location` varchar(120),
+	`segment` varchar(120),
+	`partnerName` varchar(255),
+	`status` enum('draft','published','archived') NOT NULL DEFAULT 'published',
+	`sortOrder` int NOT NULL DEFAULT 0,
+	`metaJson` json,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `siteCaseStudies_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `siteContactConfigs` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`brandId` int NOT NULL,
+	`siteKey` enum('shop','lab','tech','care') NOT NULL,
+	`contactScene` varchar(100) NOT NULL DEFAULT 'general',
+	`headline` varchar(255),
+	`description` text,
+	`primaryCtaLabel` varchar(120),
+	`primaryCtaHref` varchar(500),
+	`secondaryCtaLabel` varchar(120),
+	`secondaryCtaHref` varchar(500),
+	`contactEmail` varchar(320),
+	`contactPhone` varchar(64),
+	`contactWechat` varchar(120),
+	`contactAddress` varchar(255),
+	`serviceHours` varchar(255),
+	`responseSla` varchar(120),
+	`metaJson` json,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `siteContactConfigs_id` PRIMARY KEY(`id`),
+	CONSTRAINT `siteContactConfigs_brand_site_scene_unique` UNIQUE(`brandId`,`siteKey`,`contactScene`)
+);

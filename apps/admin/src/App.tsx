@@ -57,7 +57,7 @@ type ShopProduct = {
   leadTime: string;
   price: string;
   pricingHint: string;
-  badges: string[];
+  badges: readonly string[];
 };
 
 type PlatformSiteKey = "shop" | "lab" | "tech" | "care";
@@ -1111,6 +1111,59 @@ export function mapCatalogProducts(snapshot: PublicCatalogSnapshot | undefined):
   }));
 }
 
+export type LabContactDraft = {
+  headline: string;
+  description: string;
+  primaryCtaLabel: string;
+  primaryCtaHref: string;
+  secondaryCtaLabel: string;
+  secondaryCtaHref: string;
+  contactEmail: string;
+  contactPhone: string;
+  contactWechat: string;
+  contactAddress: string;
+  serviceHours: string;
+  responseSla: string;
+};
+
+export function buildLabContactConfigPayload(draft: LabContactDraft) {
+  return {
+    siteKey: "lab" as const,
+    contactScene: "business" as const,
+    headline: draft.headline,
+    description: draft.description,
+    primaryCtaLabel: draft.primaryCtaLabel,
+    primaryCtaHref: draft.primaryCtaHref,
+    secondaryCtaLabel: draft.secondaryCtaLabel,
+    secondaryCtaHref: draft.secondaryCtaHref,
+    contactEmail: draft.contactEmail,
+    contactPhone: draft.contactPhone,
+    contactWechat: draft.contactWechat,
+    contactAddress: draft.contactAddress,
+    serviceHours: draft.serviceHours,
+    responseSla: draft.responseSla,
+  };
+}
+
+export function getLabContactUpdateSuccessMessage() {
+  return "LAB 联系配置已更新，前台联系入口会同步展示最新内容。";
+}
+
+export function getLabContactUpdateErrorMessage(error: { message?: string | null } | null | undefined) {
+  return error?.message || "联系配置更新失败，请稍后重试。";
+}
+
+export async function syncLabContactConfigAfterSave(refetchers: ReadonlyArray<() => Promise<unknown> | unknown>) {
+  await Promise.all(refetchers.map((refetch) => refetch()));
+}
+
+export function submitLabContactConfigUpdate(
+  mutate: (payload: ReturnType<typeof buildLabContactConfigPayload>) => unknown,
+  draft: LabContactDraft,
+) {
+  return mutate(buildLabContactConfigPayload(draft));
+}
+
 function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
   if (snapshotState === "loading") {
     return [
@@ -1981,9 +2034,33 @@ export function ShopPage({ initialCategory }: { initialCategory?: string } = {})
 
 export function LabPage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const labContactQuery = trpc.site.contactConfig.useQuery({ siteKey: "lab", contactScene: "business" });
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const labSnapshot = getSiteSnapshot(platformSnapshot, "lab");
   const labSnapshotState = resolveSnapshotState(labSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
+  const labContact = labContactQuery.data as
+    | {
+        source: "database" | "fallback";
+        headline: string;
+        description: string;
+        primaryCtaLabel: string | null;
+        primaryCtaHref: string | null;
+        secondaryCtaLabel: string | null;
+        secondaryCtaHref: string | null;
+        contactEmail: string | null;
+        contactPhone: string | null;
+        contactWechat: string | null;
+        contactAddress: string | null;
+        serviceHours: string | null;
+        responseSla: string | null;
+      }
+    | undefined;
+  const labContactCards = [
+    { label: "联系邮箱", value: labContact?.contactEmail },
+    { label: "联系电话", value: labContact?.contactPhone },
+    { label: "微信沟通", value: labContact?.contactWechat },
+    { label: "响应承诺", value: labContact?.responseSla },
+  ].filter(item => Boolean(item.value));
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#0f172a_0%,#111827_45%,#f8fafc_45%,#f8fafc_100%)] text-white">
@@ -2004,14 +2081,14 @@ export function LabPage() {
               以研发可信度构建品牌壁垒，让实验能力成为商业说服力。
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300 md:text-lg">
-              LAB 站点承担品牌介绍、研发能力展示、产品线认知与商务联系入口。本轮进一步补齐了研发能力卡片、产品线与商务联系区块，使其更贴近真实官网首页结构。
+              LAB 站点承担品牌介绍、研发能力展示、产品线认知与商务联系入口。本轮已将联系方式从静态占位改为可配置内容，方便后续在后台维护商务与研发沟通入口。
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {[
                 { label: "真实商品", value: formatMetricValue(labSnapshot?.productCount, "个", labSnapshotState, "等待商品同步") },
                 { label: "品牌订单", value: formatMetricValue(labSnapshot?.orderCount, "笔", labSnapshotState, "等待订单同步") },
                 { label: "商务线索", value: formatMetricValue(labSnapshot?.leadCount, "条", labSnapshotState, "等待线索同步") },
-              ].map((item) => (
+              ].map(item => (
                 <div key={item.label} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur">
                   <p className="text-xs uppercase tracking-[0.2em] text-violet-200/70">{item.label}</p>
                   <p className="mt-3 text-sm leading-7 text-slate-100">{item.value}</p>
@@ -2051,7 +2128,7 @@ export function LabPage() {
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {labCapabilities.map((item) => (
+            {labCapabilities.map(item => (
               <div key={item} className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
                 <Beaker className="h-6 w-6 text-violet-300" />
                 <p className="mt-4 text-sm leading-7 text-slate-200">{item}</p>
@@ -2079,7 +2156,7 @@ export function LabPage() {
                     title: "高端消费洗护延展产品线",
                     desc: "承接未来会员复购、订阅与品牌延展的消费级产品。",
                   },
-                ].map((line) => (
+                ].map(line => (
                   <div key={line.title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <p className="font-medium text-slate-950">{line.title}</p>
                     <p className="mt-2 text-sm leading-7 text-slate-600">{line.desc}</p>
@@ -2088,35 +2165,73 @@ export function LabPage() {
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)]">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">联系入口</p>
-              <h3 className="mt-4 text-2xl font-semibold tracking-tight">为合作、研发共创与技术交流预留清晰路径</h3>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">联系入口</p>
+                  <h3 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">
+                    {labContact?.headline ?? "为合作、研发共创与技术交流提供可执行的咨询路径"}
+                  </h3>
+                </div>
+                <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
+                  {labContactQuery.isLoading ? "联系方式同步中" : labContact?.source === "database" ? "已接入配置化数据" : "使用默认联系信息"}
+                </span>
+              </div>
               <p className="mt-4 text-sm leading-7 text-slate-600">
-                后续这里将接入可配置联系方式、商务咨询表单与线索同步后台的工作流。本轮已经形成清晰的信息层次，适合作为后续询价表单承载页。
+                {labContact?.description ??
+                  "当前统一通过客户中心承接商务合作与研发共创需求，提交后可进入后台线索与客户档案模块继续跟进，避免官网停留在仅展示邮箱的静态阶段。"}
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-3xl bg-slate-50 p-5">
                   <p className="text-sm text-slate-500">商务合作</p>
-                  <p className="mt-2 font-medium text-slate-950">sales@icloush.example</p>
+                  <p className="mt-2 font-medium text-slate-950">{labContact?.primaryCtaLabel ?? "客户中心合作需求单"}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">适合经销合作、品牌联名、渠道引入与批量采购场景。</p>
                 </div>
                 <div className="rounded-3xl bg-slate-50 p-5">
                   <p className="text-sm text-slate-500">研发沟通</p>
-                  <p className="mt-2 font-medium text-slate-950">lab@icloush.example</p>
+                  <p className="mt-2 font-medium text-slate-950">{labContact?.secondaryCtaLabel ?? "LAB 共创需求单"}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">适合新品打样、配方验证、场景测试与技术资料沟通。</p>
                 </div>
               </div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {labContactCards.map(item => (
+                  <div key={item.label} className="rounded-3xl border border-slate-200 px-4 py-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+              {labContact?.contactAddress || labContact?.serviceHours ? (
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-7 text-slate-600">
+                  {labContact?.contactAddress ? <p>联系地址：{labContact.contactAddress}</p> : null}
+                  {labContact?.serviceHours ? <p>服务时段：{labContact.serviceHours}</p> : null}
+                </div>
+              ) : null}
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/shop"
+                <a
+                  href={labContact?.primaryCtaHref ?? "/account"}
                   className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800"
                 >
-                  查看产品采购入口
-                </Link>
-                <Link
-                  href="/account"
+                  {labContact?.primaryCtaLabel ?? "提交合作需求"}
+                </a>
+                <a
+                  href={labContact?.secondaryCtaHref ?? "/shop"}
                   className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                 >
-                  联系客户经理
-                </Link>
+                  {labContact?.secondaryCtaLabel ?? "查看产品采购入口"}
+                </a>
               </div>
+              {labContactQuery.isError ? (
+                <div className="mt-4 flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  <p>联系配置读取失败，当前仍保留默认联系入口。</p>
+                  <button
+                    type="button"
+                    onClick={() => labContactQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                  >
+                    重试读取
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -2215,7 +2330,7 @@ export function TechPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-slate-500">企业介绍模块</p>
             <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">展示企业实力、资质背书与方案能力。</p>
             <p className="mt-4 text-sm leading-7 text-slate-600">
-              后续可接入企业介绍正文、资质图片、行业覆盖范围与核心客户群体说明。当前版本已预留清晰的品牌说服型结构，适合继续接入证据型内容。
+              环洗朵科技当前聚焦酒店、物业与商办空间的专业清洁剂与标准化应用方案，页面已将行业覆盖、合作模式与方案能力放在同一叙事层级，便于客户快速判断是否匹配其项目需求。
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl bg-slate-50 p-5">
@@ -2234,12 +2349,27 @@ export function TechPage() {
           <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
             <p className="text-sm uppercase tracking-[0.2em] text-slate-500">行业解决方案</p>
             <div className="mt-6 grid gap-4">
-              {techSolutions.map((item) => (
-                <div key={item} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="font-medium text-slate-950">{item}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    后续将结合具体场景问题、解决方式、推荐产品与案例结果，由后台内容模块统一管理。
-                  </p>
+              {[
+                {
+                  title: "酒店布草与客房织物清洁方案",
+                  detail: "围绕客房布草、餐饮织物与高频补货场景配置预洗、主洗、柔护与异味控制建议，适合酒店后勤与外包洗涤团队协同执行。",
+                },
+                {
+                  title: "物业与商业空间硬表面清洁方案",
+                  detail: "覆盖石材、金属、玻璃与公共区域高频触点，强调低残留、标准稀释比例与班次化补货机制。",
+                },
+                {
+                  title: "机构日常洗护标准化配方方案",
+                  detail: "面向医院后勤、校园宿管与集中保洁项目输出标准配方包，便于在多点位复制清洁质量与培训口径。",
+                },
+                {
+                  title: "企业定制行业应用方案",
+                  detail: "针对特殊材质、异味场景与高损耗工况提供项目化试样、配比建议与导入节奏，缩短从测试到上线的沟通周期。",
+                },
+              ].map((item) => (
+                <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="font-medium text-slate-950">{item.title}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
                 </div>
               ))}
             </div>
@@ -2248,15 +2378,22 @@ export function TechPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户案例</p>
             <div className="mt-6 space-y-4">
               {[
-                "高星级酒店布草体系升级",
-                "商办空间玻璃与硬表面清洁提效",
-                "物业项目标准化清洁剂替换方案",
+                {
+                  title: "高星级酒店布草体系升级",
+                  detail: "围绕客房布草返洗率偏高的问题，重新梳理去渍、柔护与异味管理流程，并配套班次培训与补货计划。",
+                },
+                {
+                  title: "商办空间玻璃与硬表面清洁提效",
+                  detail: "将玻璃清洁、金属养护与公共区域保洁耗材统一纳入班组标准包，减少不同场景切换时的重复备料与误配。",
+                },
+                {
+                  title: "物业项目标准化清洁剂替换方案",
+                  detail: "结合采购预算与现场作业反馈，以标准配比、集中采购与巡检抽样方式替换旧有多品牌混用模式。",
+                },
               ].map((item) => (
-                <div key={item} className="rounded-3xl border border-slate-200 p-5">
-                  <p className="font-medium text-slate-950">{item}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    当前为案例结构骨架，后续将补充客户类型、痛点、方案与结果数据，形成更强的成交支撑。
-                  </p>
+                <div key={item.title} className="rounded-3xl border border-slate-200 p-5">
+                  <p className="font-medium text-slate-950">{item.title}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
                 </div>
               ))}
             </div>
@@ -2269,9 +2406,112 @@ export function TechPage() {
 
 export function CarePage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const careContactQuery = trpc.site.contactConfig.useQuery({ siteKey: "care", contactScene: "consulting" });
+  const careCaseStudiesQuery = trpc.site.caseStudies.useQuery({ siteKey: "care", limit: 3 });
+  const [careInquiryForm, setCareInquiryForm] = useState({
+    contactName: "",
+    companyName: "",
+    mobile: "",
+    email: "",
+    roomCount: "",
+    laundryVolume: "",
+    message: "",
+  });
+  const submitCareLeadMutation = trpc.site.submitLead.useMutation({
+    onSuccess: async () => {
+      setCareInquiryForm({
+        contactName: "",
+        companyName: "",
+        mobile: "",
+        email: "",
+        roomCount: "",
+        laundryVolume: "",
+        message: "",
+      });
+      await Promise.all([
+        platformSnapshotQuery.refetch(),
+        careContactQuery.refetch(),
+        careCaseStudiesQuery.refetch(),
+      ]);
+      sonnerToast("咨询需求已提交，运营团队将尽快联系您。");
+    },
+    onError: error => {
+      sonnerToast(error.message || "提交失败，请稍后重试。");
+    },
+  });
+
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const careSnapshot = getSiteSnapshot(platformSnapshot, "care");
   const careSnapshotState = resolveSnapshotState(careSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
+  const careContact = careContactQuery.data as
+    | {
+        source: "database" | "fallback";
+        headline: string;
+        description: string;
+        primaryCtaLabel: string | null;
+        primaryCtaHref: string | null;
+        secondaryCtaLabel: string | null;
+        secondaryCtaHref: string | null;
+        contactEmail: string | null;
+        contactPhone: string | null;
+        contactWechat: string | null;
+        contactAddress: string | null;
+        serviceHours: string | null;
+        responseSla: string | null;
+      }
+    | undefined;
+  const careCaseStudies = (careCaseStudiesQuery.data?.items ?? []) as Array<{
+    id: number;
+    title: string;
+    subtitle: string | null;
+    summary: string;
+    location: string | null;
+    segment: string | null;
+    partnerName: string | null;
+  }>;
+  const careContactCards = [
+    { label: "联系电话", value: careContact?.contactPhone },
+    { label: "联系邮箱", value: careContact?.contactEmail },
+    { label: "微信咨询", value: careContact?.contactWechat },
+    { label: "服务时段", value: careContact?.serviceHours },
+    { label: "响应时效", value: careContact?.responseSla },
+  ].filter(item => Boolean(item.value));
+
+  const handleCareFieldChange = (field: keyof typeof careInquiryForm, value: string) => {
+    setCareInquiryForm(current => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const handleCareInquirySubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!careInquiryForm.mobile.trim() && !careInquiryForm.email.trim()) {
+      sonnerToast("请至少填写手机号或邮箱中的一项，方便后续联系。");
+      return;
+    }
+
+    const normalizedRoomCount = careInquiryForm.roomCount.trim();
+    const roomCountValue = normalizedRoomCount ? Number(normalizedRoomCount) : null;
+
+    if (normalizedRoomCount && (!Number.isFinite(roomCountValue ?? Number.NaN) || (roomCountValue ?? 0) <= 0)) {
+      sonnerToast("房量请填写为正整数。");
+      return;
+    }
+
+    submitCareLeadMutation.mutate({
+      siteKey: "care",
+      sourcePage: "/care",
+      contactName: careInquiryForm.contactName.trim(),
+      companyName: careInquiryForm.companyName.trim() || undefined,
+      mobile: careInquiryForm.mobile.trim() || undefined,
+      email: careInquiryForm.email.trim() || undefined,
+      roomCount: roomCountValue ?? undefined,
+      laundryVolume: careInquiryForm.laundryVolume.trim() || undefined,
+      message: careInquiryForm.message.trim() || undefined,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf2_0%,#fffdf9_45%,#ffffff_100%)] text-slate-900">
@@ -2294,14 +2534,14 @@ export function CarePage() {
               为酒店奢护洗涤服务构建更高信任度的品牌官网体验。
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-              Care 站点聚焦服务介绍、流程体验、合作酒店展示与在线咨询入口。本轮进一步强化了高端服务感的结构表达，适合作为后续咨询表单与项目案例承载页。
+              Care 站点已从占位型服务页升级为可承接真实咨询的品牌页面，合作酒店案例、联系方式与咨询提交入口均可直接对接后端数据闭环。
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {[
                 { label: "服务商品", value: formatMetricValue(careSnapshot?.productCount, "个", careSnapshotState, "等待商品同步") },
                 { label: "在途服务订单", value: formatMetricValue(careSnapshot?.pipelineOrderCount, "笔", careSnapshotState, "等待订单同步") },
                 { label: "咨询线索", value: formatMetricValue(careSnapshot?.leadCount, "条", careSnapshotState, "等待线索同步") },
-              ].map((item) => (
+              ].map(item => (
                 <div key={item.label} className="rounded-[1.75rem] border border-amber-200 bg-white/85 p-5 shadow-sm">
                   <p className="text-xs uppercase tracking-[0.2em] text-amber-700/80">{item.label}</p>
                   <p className="mt-3 text-sm leading-7 text-slate-700">{item.value}</p>
@@ -2345,19 +2585,27 @@ export function CarePage() {
               >
                 查看相关产品
               </Link>
-              <Link
-                href="/account"
+              <a
+                href="#care-inquiry"
                 className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
               >
-                进入客户中心
-              </Link>
+                发起在线咨询
+              </a>
             </div>
           </div>
           <div className="rounded-[2rem] border border-amber-100 bg-white p-8 shadow-[0_24px_80px_rgba(146,64,14,0.08)]">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">服务介绍</p>
-            <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">强调精细护理、服务标准与酒店场景适配能力。</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">服务介绍</p>
+                <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{careContact?.headline ?? "强调精细护理、服务标准与酒店场景适配能力。"}</p>
+              </div>
+              <span className="inline-flex rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs text-amber-700">
+                {careContactQuery.isLoading ? "咨询配置同步中" : careContact?.source === "database" ? "已接入数据库配置" : "使用默认服务文案"}
+              </span>
+            </div>
             <p className="mt-4 text-sm leading-7 text-slate-600">
-              后续可接入服务优势、适用场景、交付标准与咨询表单模块。当前结构已为“服务卖点 + 证据 + 留资”模式预留足够空间。
+              {careContact?.description ??
+                "页面当前以酒店布草奢护、驻场服务配合与周期维护三类核心能力为主轴，直接说明服务对象、交付方式与项目推进节奏，便于采购与运营团队快速判断合作可行性。"}
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl bg-amber-50/60 p-5">
@@ -2369,6 +2617,31 @@ export function CarePage() {
                 <p className="mt-2 font-medium text-slate-950">项目制、驻场协作、周期维护</p>
               </div>
             </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {careContactCards.map(item => (
+                <div key={item.label} className="rounded-3xl border border-amber-100 px-4 py-4">
+                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-900">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            {careContact?.contactAddress ? (
+              <div className="mt-6 rounded-3xl border border-amber-100 bg-amber-50/40 px-5 py-4 text-sm leading-7 text-slate-600">
+                服务联络地址：{careContact.contactAddress}
+              </div>
+            ) : null}
+            {careContactQuery.isError ? (
+              <div className="mt-4 flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <p>咨询配置读取失败，当前仍保留默认内容。</p>
+                <button
+                  type="button"
+                  onClick={() => careContactQuery.refetch()}
+                  className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                >
+                  重试读取
+                </button>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -2385,20 +2658,183 @@ export function CarePage() {
             </div>
           </div>
           <div className="rounded-[2rem] border border-amber-100 bg-white p-8 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">合作酒店展示</p>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">合作酒店展示</p>
+              <span className="text-xs text-slate-500">{careCaseStudiesQuery.isLoading ? "案例同步中" : `${careCaseStudies.length} 条案例`}</span>
+            </div>
             <div className="mt-6 space-y-4">
-              {[
-                "精品度假酒店合作案例",
-                "城市高端商务酒店护理项目",
-                "服务式公寓布草奢护方案",
-              ].map((item) => (
-                <div key={item} className="rounded-3xl border border-slate-200 p-5">
-                  <p className="font-medium text-slate-950">{item}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    后续将接入合作酒店 Logo、案例描述与项目成果，形成更完整的信任背书区块。
-                  </p>
+              {careCaseStudies.map(item => (
+                <div key={item.id} className="rounded-3xl border border-slate-200 p-5">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    {item.partnerName ? <span className="rounded-full bg-slate-100 px-3 py-1">{item.partnerName}</span> : null}
+                    {item.location ? <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">{item.location}</span> : null}
+                    {item.segment ? <span className="rounded-full bg-slate-100 px-3 py-1">{item.segment}</span> : null}
+                  </div>
+                  <p className="mt-3 font-medium text-slate-950">{item.title}</p>
+                  {item.subtitle ? <p className="mt-2 text-sm text-slate-500">{item.subtitle}</p> : null}
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.summary}</p>
                 </div>
               ))}
+              {!careCaseStudiesQuery.isLoading && careCaseStudies.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 px-5 py-6 text-sm leading-7 text-slate-500">
+                  当前暂无可展示的合作案例，后续可在后台补充项目案例后同步到此处。
+                </div>
+              ) : null}
+            </div>
+            {careCaseStudiesQuery.isError ? (
+              <div className="mt-4 flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <p>合作酒店案例读取失败，请稍后重试。</p>
+                <button
+                  type="button"
+                  onClick={() => careCaseStudiesQuery.refetch()}
+                  className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                >
+                  重试读取
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section id="care-inquiry" className="mt-16 rounded-[2rem] border border-amber-100 bg-white p-8 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">在线咨询入口</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+                {careContact?.primaryCtaLabel ?? "让酒店合作沟通、护理咨询与项目排期都能快速落点。"}
+              </h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+                提交后将自动写入统一线索库，并同步通知运营负责人，便于继续推进试点沟通、排期确认与项目跟进。
+              </p>
+            </div>
+            <a
+              href={careContact?.secondaryCtaHref ?? "/account"}
+              className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800"
+            >
+              {careContact?.secondaryCtaLabel ?? "前往客户中心查看跟进"}
+            </a>
+          </div>
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <form onSubmit={handleCareInquirySubmit} className="space-y-4 rounded-[2rem] border border-amber-100 bg-amber-50/30 p-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">联系人姓名</span>
+                  <input
+                    required
+                    value={careInquiryForm.contactName}
+                    onChange={event => handleCareFieldChange("contactName", event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-amber-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                    placeholder="请输入联系人姓名"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">酒店 / 公司名称</span>
+                  <input
+                    value={careInquiryForm.companyName}
+                    onChange={event => handleCareFieldChange("companyName", event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-amber-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                    placeholder="例如：某精品度假酒店"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">联系电话</span>
+                  <input
+                    value={careInquiryForm.mobile}
+                    onChange={event => handleCareFieldChange("mobile", event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-amber-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                    placeholder="手机号 / 座机"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">邮箱地址</span>
+                  <input
+                    type="email"
+                    value={careInquiryForm.email}
+                    onChange={event => handleCareFieldChange("email", event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-amber-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                    placeholder="用于接收方案与回访"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">房量</span>
+                  <input
+                    value={careInquiryForm.roomCount}
+                    onChange={event => handleCareFieldChange("roomCount", event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-amber-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                    placeholder="例如：180"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">预计洗涤量</span>
+                  <input
+                    value={careInquiryForm.laundryVolume}
+                    onChange={event => handleCareFieldChange("laundryVolume", event.target.value)}
+                    className="h-12 w-full rounded-2xl border border-amber-100 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                    placeholder="例如：每周 3 吨布草"
+                  />
+                </label>
+              </div>
+              <label className="space-y-2 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">合作需求说明</span>
+                <textarea
+                  rows={5}
+                  value={careInquiryForm.message}
+                  onChange={event => handleCareFieldChange("message", event.target.value)}
+                  className="w-full rounded-2xl border border-amber-100 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-100"
+                  placeholder="请描述酒店类型、布草现状、期望的护理标准或试点安排。"
+                />
+              </label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-7 text-slate-500">提交后系统会自动记录来源页面，并将咨询同步到后台线索与运营通知。</p>
+                <button
+                  type="submit"
+                  disabled={submitCareLeadMutation.isPending}
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {submitCareLeadMutation.isPending ? "提交中..." : "提交咨询需求"}
+                </button>
+              </div>
+            </form>
+            <div className="space-y-4">
+              <div className="rounded-[2rem] border border-amber-100 bg-amber-50/40 p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">咨询承接说明</p>
+                <div className="mt-4 space-y-3">
+                  {[
+                    {
+                      title: "酒店合作咨询",
+                      detail: "面向采购、客房与洗衣房团队，沟通现有布草情况、交付频次与试点范围。",
+                    },
+                    {
+                      title: "护理方案沟通",
+                      detail: "梳理酒店定位、布草等级、护理标准与项目目标，形成前置服务建议。",
+                    },
+                    {
+                      title: "排期与交付确认",
+                      detail: "提交后可继续在客户中心推进驻场排期、验收节点与长期维护安排。",
+                    },
+                  ].map(item => (
+                    <div key={item.title} className="rounded-3xl border border-amber-100 bg-white px-5 py-4">
+                      <p className="font-medium text-slate-950">{item.title}</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-6">
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">人工联系渠道</p>
+                <div className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+                  {careContactCards.map(item => (
+                    <div key={item.label} className="flex items-start justify-between gap-4 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+                      <span className="text-slate-500">{item.label}</span>
+                      <span className="text-right font-medium text-slate-900">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -2810,6 +3246,57 @@ export function AdminContent() {
   const customerSnapshot = adminOperations?.customers;
   const contentSnapshot = adminOperations?.content;
   const seoSnapshot = adminOperations?.seo;
+  const labContactConfigQuery = trpc.site.contactConfig.useQuery(
+    { siteKey: "lab", contactScene: "business" },
+    { enabled: isContentSection },
+  );
+  const [labContactDraft, setLabContactDraft] = useState<LabContactDraft>({
+    headline: "",
+    description: "",
+    primaryCtaLabel: "",
+    primaryCtaHref: "",
+    secondaryCtaLabel: "",
+    secondaryCtaHref: "",
+    contactEmail: "",
+    contactPhone: "",
+    contactWechat: "",
+    contactAddress: "",
+    serviceHours: "",
+    responseSla: "",
+  });
+
+  useEffect(() => {
+    const nextContact = labContactConfigQuery.data;
+
+    if (!nextContact) {
+      return;
+    }
+
+    setLabContactDraft({
+      headline: nextContact.headline ?? "",
+      description: nextContact.description ?? "",
+      primaryCtaLabel: nextContact.primaryCtaLabel ?? "",
+      primaryCtaHref: nextContact.primaryCtaHref ?? "",
+      secondaryCtaLabel: nextContact.secondaryCtaLabel ?? "",
+      secondaryCtaHref: nextContact.secondaryCtaHref ?? "",
+      contactEmail: nextContact.contactEmail ?? "",
+      contactPhone: nextContact.contactPhone ?? "",
+      contactWechat: nextContact.contactWechat ?? "",
+      contactAddress: nextContact.contactAddress ?? "",
+      serviceHours: nextContact.serviceHours ?? "",
+      responseSla: nextContact.responseSla ?? "",
+    });
+  }, [labContactConfigQuery.data]);
+
+  const updateLabContactConfigMutation = trpc.site.updateContactConfig.useMutation({
+    onSuccess: async () => {
+      await syncLabContactConfigAfterSave([labContactConfigQuery.refetch, adminOperationsQuery.refetch]);
+      sonnerToast(getLabContactUpdateSuccessMessage());
+    },
+    onError: error => {
+      sonnerToast(getLabContactUpdateErrorMessage(error));
+    },
+  });
 
   const adminOrdersQuery = trpc.orders.list.useQuery(
     {
@@ -3559,6 +4046,125 @@ export function AdminContent() {
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">LAB 联系配置</p>
+              <div className="mt-5 space-y-4">
+                <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+                  当前维护的是 LAB 站点商务联系场景，保存后会同步更新官网联系卡片、CTA 与响应承诺文案。
+                </div>
+                {labContactConfigQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                    正在载入 LAB 联系配置。
+                  </div>
+                ) : (
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitLabContactConfigUpdate(updateLabContactConfigMutation.mutate, labContactDraft);
+                    }}
+                  >
+                    <div className="grid gap-4">
+                      {[
+                        { key: "headline", label: "主标题", placeholder: "例如：为合作、研发共创与技术交流提供可执行的咨询路径" },
+                        { key: "primaryCtaLabel", label: "主 CTA 文案", placeholder: "例如：联系客户经理" },
+                        { key: "primaryCtaHref", label: "主 CTA 跳转", placeholder: "例如：/account" },
+                        { key: "secondaryCtaLabel", label: "次 CTA 文案", placeholder: "例如：查看产品采购入口" },
+                        { key: "secondaryCtaHref", label: "次 CTA 跳转", placeholder: "例如：/shop" },
+                        { key: "contactEmail", label: "联系邮箱", placeholder: "例如：lab@icloush.com" },
+                        { key: "contactPhone", label: "联系电话", placeholder: "例如：400-800-2026" },
+                        { key: "contactWechat", label: "微信沟通", placeholder: "例如：iCloushLAB" },
+                        { key: "contactAddress", label: "联系地址", placeholder: "例如：上海市闵行区研发协同中心 3F" },
+                        { key: "serviceHours", label: "服务时段", placeholder: "例如：周一至周五 09:00-18:00" },
+                        { key: "responseSla", label: "响应承诺", placeholder: "例如：1 个工作日内答复" },
+                      ].map((field) => (
+                        <label key={field.key} className="grid gap-2 text-sm text-slate-600">
+                          <span className="font-medium text-slate-900">{field.label}</span>
+                          <input
+                            value={labContactDraft[field.key as keyof typeof labContactDraft]}
+                            onChange={(event) =>
+                              setLabContactDraft((current) => ({
+                                ...current,
+                                [field.key]: event.target.value,
+                              }))
+                            }
+                            placeholder={field.placeholder}
+                            className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                          />
+                        </label>
+                      ))}
+                      <label className="grid gap-2 text-sm text-slate-600">
+                        <span className="font-medium text-slate-900">说明文案</span>
+                        <textarea
+                          value={labContactDraft.description}
+                          onChange={(event) =>
+                            setLabContactDraft((current) => ({
+                              ...current,
+                              description: event.target.value,
+                            }))
+                          }
+                          rows={4}
+                          placeholder="说明 LAB 站点将承接哪些合作、打样或技术沟通需求。"
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-slate-400"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-xs leading-6 text-slate-500">
+                        {labContactConfigQuery.isError ? "当前读取的是缓存或默认配置，建议保存前先重试读取。" : "保存后 LAB 前台联系卡片会使用最新配置。"}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = labContactConfigQuery.data;
+                            if (!current) {
+                              return;
+                            }
+                            setLabContactDraft({
+                              headline: current.headline ?? "",
+                              description: current.description ?? "",
+                              primaryCtaLabel: current.primaryCtaLabel ?? "",
+                              primaryCtaHref: current.primaryCtaHref ?? "",
+                              secondaryCtaLabel: current.secondaryCtaLabel ?? "",
+                              secondaryCtaHref: current.secondaryCtaHref ?? "",
+                              contactEmail: current.contactEmail ?? "",
+                              contactPhone: current.contactPhone ?? "",
+                              contactWechat: current.contactWechat ?? "",
+                              contactAddress: current.contactAddress ?? "",
+                              serviceHours: current.serviceHours ?? "",
+                              responseSla: current.responseSla ?? "",
+                            });
+                          }}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          重置为当前配置
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={updateLabContactConfigMutation.isPending}
+                          className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {updateLabContactConfigMutation.isPending ? "保存中..." : "保存 LAB 联系配置"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+                {labContactConfigQuery.isError ? (
+                  <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p>LAB 联系配置读取失败，当前仍可编辑并重新保存。</p>
+                    <button
+                      type="button"
+                      onClick={() => labContactConfigQuery.refetch()}
+                      className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                    >
+                      重试读取
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-500">内容治理提醒</p>
               <div className="mt-5 space-y-3">
                 {(contentSnapshot?.alerts.length ? contentSnapshot.alerts : contentWorkstreams.map((item) => item.detail)).map((item) => (
@@ -3877,7 +4483,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={PlatformHome} />
-      <Route path="/shop" component={ShopPage} />
+      <Route path="/shop" component={() => <ShopPage />} />
       <Route path="/lab" component={LabPage} />
       <Route path="/tech" component={TechPage} />
       <Route path="/care" component={CarePage} />

@@ -311,6 +311,51 @@ export const paymentRefunds = mysqlTable(
   }),
 );
 
+export const siteContactConfigs = mysqlTable(
+  "siteContactConfigs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    brandId: int("brandId").notNull(),
+    siteKey: mysqlEnum("siteKey", ["shop", "lab", "tech", "care"]).notNull(),
+    contactScene: varchar("contactScene", { length: 100 }).notNull().default("general"),
+    headline: varchar("headline", { length: 255 }),
+    description: text("description"),
+    primaryCtaLabel: varchar("primaryCtaLabel", { length: 120 }),
+    primaryCtaHref: varchar("primaryCtaHref", { length: 500 }),
+    secondaryCtaLabel: varchar("secondaryCtaLabel", { length: 120 }),
+    secondaryCtaHref: varchar("secondaryCtaHref", { length: 500 }),
+    contactEmail: varchar("contactEmail", { length: 320 }),
+    contactPhone: varchar("contactPhone", { length: 64 }),
+    contactWechat: varchar("contactWechat", { length: 120 }),
+    contactAddress: varchar("contactAddress", { length: 255 }),
+    serviceHours: varchar("serviceHours", { length: 255 }),
+    responseSla: varchar("responseSla", { length: 120 }),
+    metaJson: json("metaJson"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    brandSiteSceneUnique: uniqueIndex("siteContactConfigs_brand_site_scene_unique").on(table.brandId, table.siteKey, table.contactScene),
+  }),
+);
+
+export const siteCaseStudies = mysqlTable("siteCaseStudies", {
+  id: int("id").autoincrement().primaryKey(),
+  brandId: int("brandId").notNull(),
+  siteKey: mysqlEnum("siteKey", ["shop", "lab", "tech", "care"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  subtitle: varchar("subtitle", { length: 255 }),
+  summary: text("summary").notNull(),
+  location: varchar("location", { length: 120 }),
+  segment: varchar("segment", { length: 120 }),
+  partnerName: varchar("partnerName", { length: 255 }),
+  status: mysqlEnum("status", ["draft", "published", "archived"]).notNull().default("published"),
+  sortOrder: int("sortOrder").notNull().default(0),
+  metaJson: json("metaJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const leads = mysqlTable("leads", {
   id: int("id").autoincrement().primaryKey(),
   brandId: int("brandId").notNull(),
@@ -357,6 +402,12 @@ export type InsertPaymentCallbackLog = typeof paymentCallbackLogs.$inferInsert;
 
 export type PaymentRefund = typeof paymentRefunds.$inferSelect;
 export type InsertPaymentRefund = typeof paymentRefunds.$inferInsert;
+
+export type SiteContactConfig = typeof siteContactConfigs.$inferSelect;
+export type InsertSiteContactConfig = typeof siteContactConfigs.$inferInsert;
+
+export type SiteCaseStudy = typeof siteCaseStudies.$inferSelect;
+export type InsertSiteCaseStudy = typeof siteCaseStudies.$inferInsert;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;

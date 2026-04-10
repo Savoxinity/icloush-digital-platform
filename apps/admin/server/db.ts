@@ -9,6 +9,8 @@ import {
   productCategories,
   productSkus,
   products,
+  siteCaseStudies,
+  siteContactConfigs,
   users,
 } from "../../../packages/database/schema";
 import { ENV } from "./_core/env";
@@ -87,14 +89,14 @@ export type PublicCatalogProduct = {
   specLabel: string;
   minimumOrderLabel: string;
   leadTimeLabel: string;
-  badges: string[];
+  badges: readonly string[];
 };
 
 export type PublicCatalogSnapshot = {
   generatedAt: string;
   source: "database" | "fallback";
-  categories: PublicCatalogCategory[];
-  products: PublicCatalogProduct[];
+  categories: readonly PublicCatalogCategory[];
+  products: readonly PublicCatalogProduct[];
 };
 
 export type AdminScopeSummary = {
@@ -1281,6 +1283,535 @@ export async function getPlatformSnapshot(): Promise<PlatformSnapshot> {
     console.warn("[Database] Failed to build platform snapshot:", error);
     return fallbackPlatformSnapshot;
   }
+}
+
+export type SiteContactConfigSnapshot = {
+  generatedAt: string;
+  source: "database" | "fallback";
+  brandId: number | null;
+  brandCode: string;
+  brandName: string;
+  siteKey: PlatformSiteKey;
+  contactScene: string;
+  headline: string;
+  description: string;
+  primaryCtaLabel: string | null;
+  primaryCtaHref: string | null;
+  secondaryCtaLabel: string | null;
+  secondaryCtaHref: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  contactWechat: string | null;
+  contactAddress: string | null;
+  serviceHours: string | null;
+  responseSla: string | null;
+  meta: Record<string, unknown> | null;
+};
+
+export type SiteCaseStudyItem = {
+  id: number;
+  brandId: number | null;
+  brandCode: string;
+  brandName: string;
+  siteKey: PlatformSiteKey;
+  title: string;
+  subtitle: string | null;
+  summary: string;
+  location: string | null;
+  segment: string | null;
+  partnerName: string | null;
+  sortOrder: number;
+  source: "database" | "fallback";
+};
+
+export type SiteCaseStudySnapshot = {
+  generatedAt: string;
+  source: "database" | "fallback";
+  items: SiteCaseStudyItem[];
+};
+
+export type SiteLeadSubmissionInput = {
+  siteKey: PlatformSiteKey;
+  sourcePage?: string | null;
+  companyName?: string | null;
+  contactName: string;
+  mobile?: string | null;
+  email?: string | null;
+  roomCount?: number | null;
+  laundryVolume?: string | null;
+  message?: string | null;
+};
+
+export type SiteLeadSubmissionResult = {
+  accepted: boolean;
+  source: "database" | "fallback";
+  brandId: number | null;
+  brandCode: string;
+  leadId: number | null;
+  receivedAt: string;
+};
+
+const DEFAULT_SITE_BRAND_CODE: Record<PlatformSiteKey, string> = {
+  shop: "icloush-lab",
+  lab: "icloush-lab",
+  tech: "huanxiduo",
+  care: "icloush-care",
+};
+
+const FALLBACK_SITE_CONTACT_CONFIGS: SiteContactConfigSnapshot[] = [
+  {
+    generatedAt: new Date("2026-04-10T10:00:00.000Z").toISOString(),
+    source: "fallback",
+    brandId: 2,
+    brandCode: "icloush-lab",
+    brandName: "iCloush LAB.",
+    siteKey: "lab",
+    contactScene: "general",
+    headline: "为合作、研发共创与技术交流提供可执行的咨询路径",
+    description:
+      "支持经销合作、联合研发、样品打样与场景测试沟通，线索将进入统一后台进行跟进与归档。",
+    primaryCtaLabel: "联系客户经理",
+    primaryCtaHref: "/account",
+    secondaryCtaLabel: "查看产品采购入口",
+    secondaryCtaHref: "/shop",
+    contactEmail: "lab@icloush.com",
+    contactPhone: "400-880-5720",
+    contactWechat: "iCloushLAB",
+    contactAddress: "上海市闵行区研发协同中心 3F",
+    serviceHours: "周一至周五 09:00-18:00",
+    responseSla: "1 个工作日内答复",
+    meta: {
+      scenes: ["商务合作", "新品打样", "配方验证"],
+    },
+  },
+  {
+    generatedAt: new Date("2026-04-10T10:20:00.000Z").toISOString(),
+    source: "fallback",
+    brandId: 3,
+    brandCode: "icloush-care",
+    brandName: "iCloush Care",
+    siteKey: "care",
+    contactScene: "general",
+    headline: "让酒店合作沟通、护理咨询与项目排期都能快速落点",
+    description:
+      "面向酒店采购、客房管理与洗衣房负责人承接项目咨询，提交后会同步进入运营后台进行分派与回访。",
+    primaryCtaLabel: "立即在线咨询",
+    primaryCtaHref: "/care#care-inquiry",
+    secondaryCtaLabel: "查看服务包",
+    secondaryCtaHref: "/care",
+    contactEmail: "care@icloush.com",
+    contactPhone: "400-880-6238",
+    contactWechat: "iCloushCareOps",
+    contactAddress: "上海市徐汇区酒店服务运营中心 8F",
+    serviceHours: "每日 09:00-20:00",
+    responseSla: "提交后 4 小时内回访",
+    meta: {
+      scenes: ["试点咨询", "驻场排期", "护理方案复核"],
+    },
+  },
+];
+
+const FALLBACK_SITE_CASE_STUDIES: SiteCaseStudyItem[] = [
+  {
+    id: 3001,
+    brandId: 3,
+    brandCode: "icloush-care",
+    brandName: "iCloush Care",
+    siteKey: "care",
+    title: "滨海度假酒店布草奢护项目",
+    subtitle: "高频换洗场景的柔护与白度稳定方案",
+    summary:
+      "围绕床品、浴袍与餐饮织物建立分批试洗、驻场巡检与周期复核节奏，在旺季保持柔软度、白度与触感反馈稳定。",
+    location: "三亚",
+    segment: "精品度假酒店",
+    partnerName: "滨海度假酒店",
+    sortOrder: 1,
+    source: "fallback",
+  },
+  {
+    id: 3002,
+    brandId: 3,
+    brandCode: "icloush-care",
+    brandName: "iCloush Care",
+    siteKey: "care",
+    title: "城市商务酒店驻场护理方案",
+    subtitle: "旺季期间的布草周转与返工率控制",
+    summary:
+      "通过洗衣房动线梳理、异常批次复核与驻场培训，帮助酒店在客房高周转期间维持稳定交付，并降低返工成本。",
+    location: "杭州",
+    segment: "高端商务酒店",
+    partnerName: "城市商务酒店",
+    sortOrder: 2,
+    source: "fallback",
+  },
+  {
+    id: 3003,
+    brandId: 3,
+    brandCode: "icloush-care",
+    brandName: "iCloush Care",
+    siteKey: "care",
+    title: "服务式公寓织物亲肤维护计划",
+    subtitle: "长住客群导向的异味控制与周期维护",
+    summary:
+      "针对长住客群对亲肤度和异味控制的要求，建立季度维护排期、异常追溯与住客触感复核机制。",
+    location: "上海",
+    segment: "服务式公寓",
+    partnerName: "服务式公寓项目",
+    sortOrder: 3,
+    source: "fallback",
+  },
+];
+
+function normalizeNullableText(value: string | null | undefined) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function getDefaultBrandCode(siteKey: PlatformSiteKey) {
+  return DEFAULT_SITE_BRAND_CODE[siteKey];
+}
+
+function getFallbackContactConfig(siteKey: PlatformSiteKey, contactScene = "general") {
+  return (
+    FALLBACK_SITE_CONTACT_CONFIGS.find((record) => record.siteKey === siteKey && record.contactScene === contactScene) ??
+    FALLBACK_SITE_CONTACT_CONFIGS.find((record) => record.siteKey === siteKey) ??
+    FALLBACK_SITE_CONTACT_CONFIGS[0]
+  );
+}
+
+function buildContactConfigSnapshot(
+  fallback: SiteContactConfigSnapshot,
+  overrides?: Partial<SiteContactConfigSnapshot>,
+): SiteContactConfigSnapshot {
+  return {
+    ...fallback,
+    generatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+export async function getSiteContactConfig(params: { siteKey: PlatformSiteKey; brandCode?: string; contactScene?: string }) {
+  const siteKey = params.siteKey;
+  const contactScene = params.contactScene?.trim() || "general";
+  const fallback = getFallbackContactConfig(siteKey, contactScene);
+  const brandCode = params.brandCode?.trim() || getDefaultBrandCode(siteKey);
+  const db = await getDb();
+
+  if (!db) {
+    return buildContactConfigSnapshot(fallback, { brandCode });
+  }
+
+  try {
+    const brandRecords = await db
+      .select({
+        id: brands.id,
+        code: brands.code,
+        name: brands.name,
+      })
+      .from(brands)
+      .where(eq(brands.code, brandCode))
+      .limit(1);
+
+    const brandRecord = brandRecords[0];
+    if (!brandRecord) {
+      return buildContactConfigSnapshot(fallback, { brandCode });
+    }
+
+    const configRecords = await db
+      .select({
+        id: siteContactConfigs.id,
+        siteKey: siteContactConfigs.siteKey,
+        contactScene: siteContactConfigs.contactScene,
+        headline: siteContactConfigs.headline,
+        description: siteContactConfigs.description,
+        primaryCtaLabel: siteContactConfigs.primaryCtaLabel,
+        primaryCtaHref: siteContactConfigs.primaryCtaHref,
+        secondaryCtaLabel: siteContactConfigs.secondaryCtaLabel,
+        secondaryCtaHref: siteContactConfigs.secondaryCtaHref,
+        contactEmail: siteContactConfigs.contactEmail,
+        contactPhone: siteContactConfigs.contactPhone,
+        contactWechat: siteContactConfigs.contactWechat,
+        contactAddress: siteContactConfigs.contactAddress,
+        serviceHours: siteContactConfigs.serviceHours,
+        responseSla: siteContactConfigs.responseSla,
+        metaJson: siteContactConfigs.metaJson,
+      })
+      .from(siteContactConfigs)
+      .where(eq(siteContactConfigs.brandId, brandRecord.id))
+      .orderBy(desc(siteContactConfigs.updatedAt))
+      .limit(24);
+
+    const matchedRecord =
+      configRecords.find((record) => record.siteKey === siteKey && record.contactScene === contactScene) ??
+      configRecords.find((record) => record.siteKey === siteKey);
+
+    if (!matchedRecord) {
+      return buildContactConfigSnapshot(fallback, {
+        brandId: brandRecord.id,
+        brandCode: brandRecord.code,
+        brandName: brandRecord.name,
+      });
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "database",
+      brandId: brandRecord.id,
+      brandCode: brandRecord.code,
+      brandName: brandRecord.name,
+      siteKey,
+      contactScene: matchedRecord.contactScene,
+      headline: matchedRecord.headline?.trim() || fallback.headline,
+      description: matchedRecord.description?.trim() || fallback.description,
+      primaryCtaLabel: normalizeNullableText(matchedRecord.primaryCtaLabel) ?? fallback.primaryCtaLabel,
+      primaryCtaHref: normalizeNullableText(matchedRecord.primaryCtaHref) ?? fallback.primaryCtaHref,
+      secondaryCtaLabel: normalizeNullableText(matchedRecord.secondaryCtaLabel) ?? fallback.secondaryCtaLabel,
+      secondaryCtaHref: normalizeNullableText(matchedRecord.secondaryCtaHref) ?? fallback.secondaryCtaHref,
+      contactEmail: normalizeNullableText(matchedRecord.contactEmail) ?? fallback.contactEmail,
+      contactPhone: normalizeNullableText(matchedRecord.contactPhone) ?? fallback.contactPhone,
+      contactWechat: normalizeNullableText(matchedRecord.contactWechat) ?? fallback.contactWechat,
+      contactAddress: normalizeNullableText(matchedRecord.contactAddress) ?? fallback.contactAddress,
+      serviceHours: normalizeNullableText(matchedRecord.serviceHours) ?? fallback.serviceHours,
+      responseSla: normalizeNullableText(matchedRecord.responseSla) ?? fallback.responseSla,
+      meta: (matchedRecord.metaJson as Record<string, unknown> | null) ?? fallback.meta,
+    };
+  } catch (error) {
+    console.warn("[Database] Failed to load site contact config:", error);
+    return buildContactConfigSnapshot(fallback, { brandCode });
+  }
+}
+
+export async function upsertSiteContactConfig(input: {
+  siteKey: PlatformSiteKey;
+  brandCode?: string;
+  contactScene?: string;
+  headline?: string | null;
+  description?: string | null;
+  primaryCtaLabel?: string | null;
+  primaryCtaHref?: string | null;
+  secondaryCtaLabel?: string | null;
+  secondaryCtaHref?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactWechat?: string | null;
+  contactAddress?: string | null;
+  serviceHours?: string | null;
+  responseSla?: string | null;
+  meta?: Record<string, unknown> | null;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("数据库当前不可用，无法保存站点联系配置。");
+  }
+
+  const brandCode = input.brandCode?.trim() || getDefaultBrandCode(input.siteKey);
+  const contactScene = input.contactScene?.trim() || "general";
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands)
+    .where(eq(brands.code, brandCode))
+    .limit(1);
+
+  const brandRecord = brandRecords[0];
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 ${brandCode}，无法保存站点联系配置。`);
+  }
+
+  const values = {
+    brandId: brandRecord.id,
+    siteKey: input.siteKey,
+    contactScene,
+    headline: normalizeNullableText(input.headline),
+    description: normalizeNullableText(input.description),
+    primaryCtaLabel: normalizeNullableText(input.primaryCtaLabel),
+    primaryCtaHref: normalizeNullableText(input.primaryCtaHref),
+    secondaryCtaLabel: normalizeNullableText(input.secondaryCtaLabel),
+    secondaryCtaHref: normalizeNullableText(input.secondaryCtaHref),
+    contactEmail: normalizeNullableText(input.contactEmail),
+    contactPhone: normalizeNullableText(input.contactPhone),
+    contactWechat: normalizeNullableText(input.contactWechat),
+    contactAddress: normalizeNullableText(input.contactAddress),
+    serviceHours: normalizeNullableText(input.serviceHours),
+    responseSla: normalizeNullableText(input.responseSla),
+    metaJson: input.meta ?? null,
+  };
+
+  await db.insert(siteContactConfigs).values(values).onDuplicateKeyUpdate({
+    set: {
+      headline: values.headline,
+      description: values.description,
+      primaryCtaLabel: values.primaryCtaLabel,
+      primaryCtaHref: values.primaryCtaHref,
+      secondaryCtaLabel: values.secondaryCtaLabel,
+      secondaryCtaHref: values.secondaryCtaHref,
+      contactEmail: values.contactEmail,
+      contactPhone: values.contactPhone,
+      contactWechat: values.contactWechat,
+      contactAddress: values.contactAddress,
+      serviceHours: values.serviceHours,
+      responseSla: values.responseSla,
+      metaJson: values.metaJson,
+      updatedAt: new Date(),
+    },
+  });
+
+  return getSiteContactConfig({
+    siteKey: input.siteKey,
+    brandCode,
+    contactScene,
+  });
+}
+
+export async function listSiteCaseStudies(params: { siteKey: PlatformSiteKey; brandCode?: string; limit?: number }) {
+  const siteKey = params.siteKey;
+  const fallbackItems = FALLBACK_SITE_CASE_STUDIES.filter((record) => record.siteKey === siteKey).slice(0, params.limit ?? 6);
+  const fallbackSnapshot: SiteCaseStudySnapshot = {
+    generatedAt: new Date().toISOString(),
+    source: "fallback",
+    items: fallbackItems,
+  };
+  const brandCode = params.brandCode?.trim() || getDefaultBrandCode(siteKey);
+  const db = await getDb();
+
+  if (!db) {
+    return fallbackSnapshot;
+  }
+
+  try {
+    const brandRecords = await db
+      .select({
+        id: brands.id,
+        code: brands.code,
+        name: brands.name,
+      })
+      .from(brands)
+      .where(eq(brands.code, brandCode))
+      .limit(1);
+
+    const brandRecord = brandRecords[0];
+    if (!brandRecord) {
+      return fallbackSnapshot;
+    }
+
+    const records = await db
+      .select({
+        id: siteCaseStudies.id,
+        siteKey: siteCaseStudies.siteKey,
+        title: siteCaseStudies.title,
+        subtitle: siteCaseStudies.subtitle,
+        summary: siteCaseStudies.summary,
+        location: siteCaseStudies.location,
+        segment: siteCaseStudies.segment,
+        partnerName: siteCaseStudies.partnerName,
+        status: siteCaseStudies.status,
+        sortOrder: siteCaseStudies.sortOrder,
+        updatedAt: siteCaseStudies.updatedAt,
+      })
+      .from(siteCaseStudies)
+      .where(eq(siteCaseStudies.brandId, brandRecord.id))
+      .orderBy(desc(siteCaseStudies.updatedAt))
+      .limit(Math.max((params.limit ?? 6) * 3, 18));
+
+    const items = records
+      .filter((record) => record.siteKey === siteKey && record.status === "published")
+      .sort((left, right) => left.sortOrder - right.sortOrder || right.updatedAt.getTime() - left.updatedAt.getTime())
+      .slice(0, params.limit ?? 6)
+      .map((record) => ({
+        id: record.id,
+        brandId: brandRecord.id,
+        brandCode: brandRecord.code,
+        brandName: brandRecord.name,
+        siteKey,
+        title: record.title,
+        subtitle: normalizeNullableText(record.subtitle),
+        summary: record.summary,
+        location: normalizeNullableText(record.location),
+        segment: normalizeNullableText(record.segment),
+        partnerName: normalizeNullableText(record.partnerName),
+        sortOrder: record.sortOrder,
+        source: "database" as const,
+      }));
+
+    if (items.length === 0) {
+      return fallbackSnapshot;
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "database",
+      items,
+    } satisfies SiteCaseStudySnapshot;
+  } catch (error) {
+    console.warn("[Database] Failed to load site case studies:", error);
+    return fallbackSnapshot;
+  }
+}
+
+export async function submitSiteLead(input: SiteLeadSubmissionInput): Promise<SiteLeadSubmissionResult> {
+  const receivedAt = new Date().toISOString();
+  const brandCode = getDefaultBrandCode(input.siteKey);
+  const db = await getDb();
+
+  if (!db) {
+    return {
+      accepted: true,
+      source: "fallback",
+      brandId: null,
+      brandCode,
+      leadId: null,
+      receivedAt,
+    };
+  }
+
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+    })
+    .from(brands)
+    .where(eq(brands.code, brandCode))
+    .limit(1);
+
+  const brandRecord = brandRecords[0];
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 ${brandCode}，无法提交站点线索。`);
+  }
+
+  const inserted = await db.insert(leads).values({
+    brandId: brandRecord.id,
+    sourceSite: input.siteKey,
+    sourcePage: normalizeNullableText(input.sourcePage) ?? `/${input.siteKey}`,
+    companyName: normalizeNullableText(input.companyName),
+    contactName: input.contactName.trim(),
+    mobile: normalizeNullableText(input.mobile),
+    email: normalizeNullableText(input.email),
+    roomCount: typeof input.roomCount === "number" ? input.roomCount : null,
+    laundryVolume: normalizeNullableText(input.laundryVolume),
+    message: normalizeNullableText(input.message),
+    leadStatus: "new",
+  });
+
+  const candidateLeadId = Array.isArray(inserted)
+    ? (inserted[0] as { insertId?: number } | undefined)?.insertId ?? null
+    : ((inserted as { insertId?: number } | undefined)?.insertId ?? null);
+
+  return {
+    accepted: true,
+    source: "database",
+    brandId: brandRecord.id,
+    brandCode: brandRecord.code,
+    leadId: typeof candidateLeadId === "number" ? candidateLeadId : null,
+    receivedAt,
+  };
 }
 
 export async function getAdminOperationsSnapshot(params?: { brandId?: number }): Promise<AdminOperationsSnapshot> {

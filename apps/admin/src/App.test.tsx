@@ -14,13 +14,23 @@ vi.mock("./_core/hooks/useAuth", () => ({
 }));
 
 vi.mock("./lib/trpc", () => {
-  const createQuery = (data: unknown) => ({
-    useQuery: () => ({
-      data,
+  const createQuery = (data: unknown | ((input?: unknown) => unknown)) => ({
+    useQuery: (input?: unknown) => ({
+      data: typeof data === "function" ? data(input) : data,
       isLoading: false,
       isError: false,
       error: null,
       refetch: vi.fn(),
+    }),
+  });
+
+  const createMutation = () => ({
+    useMutation: () => ({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn(),
+      isPending: false,
+      error: null,
+      reset: vi.fn(),
     }),
   });
 
@@ -108,7 +118,7 @@ vi.mock("./lib/trpc", () => {
           },
         }),
         catalog: createQuery({
-          source: "database",
+        source: "database",
           generatedAt: "2026-04-10T18:00:00.000Z",
           categories: [
             {
@@ -169,6 +179,64 @@ vi.mock("./lib/trpc", () => {
             },
           ],
         }),
+      },
+      site: {
+        contactConfig: createQuery((input?: { siteKey?: string }) =>
+          input?.siteKey === "care"
+            ? {
+                siteKey: "care",
+                headline: "联系 iCloush 团队",
+                description: "由品牌顾问统一承接需求诊断、样品寄送与合作排期。",
+                primaryContactName: "品牌顾问团队",
+                primaryContactRole: "客户成功",
+                mobile: "400-820-2026",
+                phone: null,
+                email: "care@icloush.com",
+                wechat: "iCloushCare",
+                address: "上海市静安区协作路 88 号",
+                serviceHours: "周一至周六 09:00-18:00",
+                mapLabel: "iCloush 服务中心",
+                note: "测试环境默认联系信息。",
+                ctaLabel: "预约咨询",
+              }
+            : {
+                siteKey: "lab",
+                contactScene: "business",
+                source: "database",
+                headline: "为合作、研发共创与技术交流提供可执行的咨询路径",
+                description: "支持经销合作、联合研发、样品打样与场景测试沟通，线索将进入统一后台进行跟进与归档。",
+                primaryCtaLabel: "提交合作需求",
+                primaryCtaHref: "/account",
+                secondaryCtaLabel: "LAB 共创需求单",
+                secondaryCtaHref: "/shop",
+                contactEmail: "lab@icloush.com",
+                contactPhone: "400-820-2026",
+                contactWechat: "iCloushLAB",
+                contactAddress: "上海市闵行区研发协同中心 3F",
+                serviceHours: "周一至周五 09:00-18:00",
+                responseSla: "1 个工作日内答复",
+              },
+        ),
+        caseStudies: createQuery({
+          items: [
+            {
+              id: 1,
+              siteKey: "care",
+              title: "高端酒店布草奢护方案",
+              subtitle: "覆盖客房、餐饮与康体区布草护理节奏。",
+              summary: "通过周转监控与护理 SOP 降低返洗率。",
+              partnerName: "上海静安艺廊酒店",
+              location: "上海",
+              segment: "高端酒店",
+              metrics: ["平均返洗率下降 18%", "旺季排班效率提升 22%"],
+              tags: ["酒店", "布草护理"],
+              imageUrl: null,
+              sortOrder: 1,
+            },
+          ],
+        }),
+        submitLead: createMutation(),
+        updateContactConfig: createMutation(),
       },
       admin: {
         operations: createQuery({
@@ -447,13 +515,18 @@ import {
   ShopPage,
   TechPage,
   buildHomepageEntrySnapshots,
+  buildLabContactConfigPayload,
   formatMetricValue,
   getCatalogSourceCode,
+  getLabContactUpdateErrorMessage,
+  getLabContactUpdateSuccessMessage,
   mapCatalogCategories,
   mapCatalogProducts,
   resolveCatalogState,
   resolveSeoConfig,
   resolveSnapshotState,
+  submitLabContactConfigUpdate,
+  syncLabContactConfigAfterSave,
 } from "./App";
 import { trpc } from "./lib/trpc";
 
@@ -473,6 +546,18 @@ function withCatalogQueryOverride(useQuery: () => unknown, run: () => void) {
     run();
   } finally {
     catalogQuery.useQuery = originalUseQuery;
+  }
+}
+
+function withCareCaseStudiesQueryOverride(useQuery: () => unknown, run: () => void) {
+  const caseStudiesQuery = trpc.site.caseStudies as { useQuery: () => unknown };
+  const originalUseQuery = caseStudiesQuery.useQuery;
+  caseStudiesQuery.useQuery = useQuery;
+
+  try {
+    run();
+  } finally {
+    caseStudiesQuery.useQuery = originalUseQuery;
   }
 }
 
@@ -530,6 +615,9 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("3 个");
     expect(html).toContain("2 笔");
     expect(html).toContain("1 条");
+    expect(html).toContain("为合作、研发共创与技术交流提供可执行的咨询路径");
+    expect(html).toContain("LAB 共创需求单");
+    expect(html).toContain("提交合作需求");
   });
 
   it("renders tech site skeleton with industrial solution messaging", () => {
@@ -540,6 +628,9 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("真实商品");
     expect(html).toContain("方案订单");
     expect(html).toContain("项目线索");
+    expect(html).toContain("酒店布草与客房织物清洁方案");
+    expect(html).toContain("项目化试样、配比建议与导入节奏");
+    expect(html).toContain("物业项目标准化清洁剂替换方案");
   });
 
   it("renders care site skeleton with service package messaging", () => {
@@ -548,8 +639,85 @@ describe("admin front-stage skeleton pages", () => {
 
     expect(html).toContain("iCloush Care");
     expect(html).toContain("服务介绍");
-    expect(html).toContain("在途服务订单");
+    expect(html).toContain("需求沟通与现状评估");
     expect(html).toContain("咨询线索");
+    expect(html).toContain("在线咨询入口");
+    expect(html).toContain("提交咨询需求");
+    expect(html).toContain("酒店合作咨询");
+    expect(html).toContain("提交后可继续在客户中心推进驻场排期、验收节点与长期维护安排。");
+    expect(html).toContain("排期与交付确认");
+  });
+
+  it("renders care case studies success state from managed data", () => {
+    setPathname("/care");
+    const html = renderToStaticMarkup(<CarePage />);
+
+    expect(html).toContain("合作酒店展示");
+    expect(html).toContain("高端酒店布草奢护方案");
+    expect(html).toContain("上海静安艺廊酒店");
+    expect(html).toContain("上海");
+    expect(html).toContain("高端酒店");
+  });
+
+  it("renders care case studies loading state", () => {
+    setPathname("/care");
+
+    withCareCaseStudiesQueryOverride(
+      () => ({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<CarePage />);
+
+        expect(html).toContain("案例同步中");
+        expect(html).not.toContain("当前暂无可展示的合作案例");
+        expect(html).not.toContain("合作酒店案例读取失败");
+      },
+    );
+  });
+
+  it("renders care case studies empty state", () => {
+    setPathname("/care");
+
+    withCareCaseStudiesQueryOverride(
+      () => ({
+        data: { items: [] },
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<CarePage />);
+
+        expect(html).toContain("当前暂无可展示的合作案例");
+        expect(html).not.toContain("高端酒店布草奢护方案");
+      },
+    );
+  });
+
+  it("renders care case studies error state", () => {
+    setPathname("/care");
+
+    withCareCaseStudiesQueryOverride(
+      () => ({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error("合作酒店案例读取失败"),
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<CarePage />);
+
+        expect(html).toContain("合作酒店案例读取失败，请稍后重试。");
+        expect(html).toContain("重试读取");
+      },
+    );
   });
 
   it("renders account page with real order summary placeholders", () => {
@@ -606,6 +774,8 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("商城与多品牌站点内容治理");
     expect(html).toContain("内容工作队列");
     expect(html).toContain("补齐 LAB 样品申请页");
+    expect(html).toContain("LAB 联系配置");
+    expect(html).toContain("保存 LAB 联系配置");
     expect(html).toContain("内容治理提醒");
   });
 
@@ -814,6 +984,7 @@ describe("shop catalog state coverage", () => {
           id: 1,
           slug: "fallback-kit",
           name: "Fallback 样例分类",
+          brandId: 3,
           brandCode: "care",
           brandName: "iCloush Care",
           productCount: 1,
@@ -824,14 +995,18 @@ describe("shop catalog state coverage", () => {
           id: 2,
           slug: "fallback-service-kit",
           name: "Fallback 服务组合",
+          brandId: 3,
           brandCode: "care",
           brandName: "iCloush Care",
+          categoryId: 1,
           categorySlug: "fallback-kit",
           categoryName: "Fallback 样例分类",
           subtitle: "用于数据库不可用时的浏览演示。",
           description: "仅在后端显式声明 fallback 来源时展示。",
           productType: "service",
           status: "active",
+          unit: "组",
+          updatedAt: "2026-04-11T02:25:00.000Z",
           specLabel: "Consulting Kit",
           minimumOrderLabel: "1 组起订",
           leadTimeLabel: "恢复后切回真实目录",
@@ -988,6 +1163,10 @@ describe("responsive affordances", () => {
       expect(html).toContain("inline-flex h-12 items-center justify-center rounded-full");
       expect(html).toMatch(/sm:grid-cols-[23]/);
     }
+
+    expect(labHtml).not.toContain("后续接入");
+    expect(labHtml).not.toContain("coming soon");
+    expect(labHtml).not.toContain("敬请期待");
   });
 
   it("keeps account overview cards responsive from mobile stacking to xl dashboard density", () => {
@@ -997,6 +1176,55 @@ describe("responsive affordances", () => {
     expect(html).toContain("mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4");
     expect(html).toContain("mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4");
     expect(html).toContain("mt-6 flex flex-col gap-3 sm:flex-row");
+  });
+});
+
+describe("lab contact config update helpers", () => {
+  const draft = {
+    headline: "为合作、研发共创与技术交流提供可执行的咨询路径",
+    description: "支持经销合作、联合研发、样品打样与场景测试沟通，线索将进入统一后台进行跟进与归档。",
+    primaryCtaLabel: "提交合作需求",
+    primaryCtaHref: "/account",
+    secondaryCtaLabel: "LAB 共创需求单",
+    secondaryCtaHref: "/shop",
+    contactEmail: "lab@icloush.com",
+    contactPhone: "400-820-2026",
+    contactWechat: "iCloushLAB",
+    contactAddress: "上海市闵行区研发协同中心 3F",
+    serviceHours: "周一至周五 09:00-18:00",
+    responseSla: "1 个工作日内答复",
+  };
+
+  it("builds a lab-scoped payload for contact config updates", () => {
+    expect(buildLabContactConfigPayload(draft)).toEqual({
+      siteKey: "lab",
+      contactScene: "business",
+      ...draft,
+    });
+  });
+
+  it("submits the normalized payload through the provided mutation callback", () => {
+    const mutate = vi.fn();
+
+    submitLabContactConfigUpdate(mutate, draft);
+
+    expect(mutate).toHaveBeenCalledWith(buildLabContactConfigPayload(draft));
+  });
+
+  it("returns explicit success and failure feedback copy for lab contact updates", () => {
+    expect(getLabContactUpdateSuccessMessage()).toContain("前台联系入口会同步展示最新内容");
+    expect(getLabContactUpdateErrorMessage({ message: "FORBIDDEN" })).toBe("FORBIDDEN");
+    expect(getLabContactUpdateErrorMessage(undefined)).toBe("联系配置更新失败，请稍后重试。");
+  });
+
+  it("refetches dependent queries after a successful save", async () => {
+    const refetchContactConfig = vi.fn(async () => "contact");
+    const refetchOperations = vi.fn(async () => "operations");
+
+    await syncLabContactConfigAfterSave([refetchContactConfig, refetchOperations]);
+
+    expect(refetchContactConfig).toHaveBeenCalledTimes(1);
+    expect(refetchOperations).toHaveBeenCalledTimes(1);
   });
 });
 

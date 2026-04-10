@@ -9,9 +9,19 @@ import {
 } from "../../../packages/oms/src/index";
 import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { notifyOwner } from "./_core/notification";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { getAdminOperationsSnapshot, getDb, getPlatformSnapshot, getPublicCatalog } from "./db";
+import {
+  getAdminOperationsSnapshot,
+  getDb,
+  getPlatformSnapshot,
+  getPublicCatalog,
+  getSiteContactConfig,
+  listSiteCaseStudies,
+  submitSiteLead,
+  upsertSiteContactConfig,
+} from "./db";
 
 const orderStatusSchema = z.enum([
   "pending_payment",
@@ -81,6 +91,55 @@ const adminOperationsSchema = z.object({
   brandId: z.number().int().positive().optional(),
 });
 
+const platformSiteKeySchema = z.enum(["shop", "lab", "tech", "care"]);
+
+const siteContactQuerySchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  contactScene: z.string().trim().min(1).optional(),
+});
+
+const siteCaseStudiesQuerySchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  limit: z.number().int().min(1).max(12).optional(),
+});
+
+const siteLeadSubmissionSchema = z
+  .object({
+    siteKey: platformSiteKeySchema,
+    sourcePage: z.string().trim().max(255).optional(),
+    companyName: z.string().trim().max(255).optional(),
+    contactName: z.string().trim().min(2).max(120),
+    mobile: z.string().trim().max(32).optional(),
+    email: z.string().trim().email().max(320).optional(),
+    roomCount: z.number().int().positive().max(10000).optional(),
+    laundryVolume: z.string().trim().max(100).optional(),
+    message: z.string().trim().max(2000).optional(),
+  })
+  .refine(input => Boolean(input.mobile || input.email), {
+    message: "请至少填写手机或邮箱中的一项。",
+    path: ["mobile"],
+  });
+
+const siteContactUpdateSchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  contactScene: z.string().trim().min(1).optional(),
+  headline: z.string().trim().max(255).nullish(),
+  description: z.string().trim().max(4000).nullish(),
+  primaryCtaLabel: z.string().trim().max(120).nullish(),
+  primaryCtaHref: z.string().trim().max(500).nullish(),
+  secondaryCtaLabel: z.string().trim().max(120).nullish(),
+  secondaryCtaHref: z.string().trim().max(500).nullish(),
+  contactEmail: z.string().trim().max(320).nullish(),
+  contactPhone: z.string().trim().max(64).nullish(),
+  contactWechat: z.string().trim().max(120).nullish(),
+  contactAddress: z.string().trim().max(255).nullish(),
+  serviceHours: z.string().trim().max(255).nullish(),
+  responseSla: z.string().trim().max(120).nullish(),
+});
+
 const fallbackBrands = [
   { id: 1, code: "huanxiduo", name: "环洗朵科技", shortName: "环洗朵", businessType: "b2b", status: "active" },
   { id: 2, code: "icloush-lab", name: "iCloush LAB.", shortName: "LAB", businessType: "hybrid", status: "active" },
@@ -142,6 +201,47 @@ export const appRouter = router({
     }),
     catalog: publicProcedure.query(async () => {
       return getPublicCatalog();
+    }),
+  }),
+  site: router({
+    contactConfig: publicProcedure.input(siteContactQuerySchema).query(async ({ input }) => {
+      return getSiteContactConfig(input);
+    }),
+    caseStudies: publicProcedure.input(siteCaseStudiesQuerySchema).query(async ({ input }) => {
+      return listSiteCaseStudies(input);
+    }),
+    submitLead: publicProcedure.input(siteLeadSubmissionSchema).mutation(async ({ input }) => {
+      const receipt = await submitSiteLead(input);
+      let notificationDelivered = false;
+
+      try {
+        notificationDelivered = await notifyOwner({
+          title: `[${input.siteKey.toUpperCase()}] 新咨询线索`,
+          content: [
+            `联系人：${input.contactName}`,
+            input.companyName ? `单位：${input.companyName}` : null,
+            input.mobile ? `手机：${input.mobile}` : null,
+            input.email ? `邮箱：${input.email}` : null,
+            typeof input.roomCount === "number" ? `房量：${input.roomCount}` : null,
+            input.laundryVolume ? `洗涤量：${input.laundryVolume}` : null,
+            input.message ? `需求说明：${input.message}` : null,
+            `来源页面：${input.sourcePage?.trim() || `/${input.siteKey}`}`,
+            `写入结果：${receipt.source === "database" ? "已写入 leads 表" : "当前为回退模式"}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        });
+      } catch (error) {
+        console.warn("[Notification] Failed to notify owner for site lead:", error);
+      }
+
+      return {
+        ...receipt,
+        notificationDelivered,
+      };
+    }),
+    updateContactConfig: adminProcedure.input(siteContactUpdateSchema).mutation(async ({ input }) => {
+      return upsertSiteContactConfig(input);
     }),
   }),
   admin: router({

@@ -382,8 +382,12 @@ import {
   PlatformHome,
   ShopPage,
   TechPage,
+  buildHomepageEntrySnapshots,
+  formatMetricValue,
   resolveSeoConfig,
+  resolveSnapshotState,
 } from "./App";
+import { trpc } from "./lib/trpc";
 
 function setPathname(pathname: string) {
   Object.defineProperty(globalThis, "location", {
@@ -547,6 +551,114 @@ describe("admin front-stage skeleton pages", () => {
   });
 });
 
+
+describe("homepage snapshot state helpers", () => {
+  it("returns explicit fallback copy instead of fake metrics when homepage snapshot fails", () => {
+    const snapshotState = resolveSnapshotState(undefined, false, true);
+    const entries = buildHomepageEntrySnapshots(undefined, snapshotState);
+    const shopEntry = entries.find((entry) => entry.title === "B2B 商城系统");
+
+    expect(snapshotState).toBe("error");
+    expect(shopEntry?.metrics).toEqual(["摘要读取失败", "支持重试"]);
+    expect(shopEntry?.summary).toContain("不再伪装真实统计");
+    expect(formatMetricValue(undefined, "个", "loading")).toBe("同步中");
+    expect(formatMetricValue(undefined, "个", "error")).toBe("暂不可用");
+    expect(formatMetricValue(6, "个", "ready")).toBe("6 个");
+  });
+});
+
+describe("error recovery affordances", () => {
+  it("renders homepage empty state with preserved site entry links", () => {
+    setPathname("/");
+    const platformSnapshotQuery = trpc.platform.snapshot as { useQuery: () => unknown };
+    const originalUseQuery = platformSnapshotQuery.useQuery;
+    platformSnapshotQuery.useQuery = () => ({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    try {
+      const html = renderToStaticMarkup(<PlatformHome />);
+
+      expect(html).toContain("等待首批数据");
+      expect(html).toContain("入口已就绪");
+      expect(html).toContain('href="/shop"');
+      expect(html).toContain('href="/lab"');
+    } finally {
+      platformSnapshotQuery.useQuery = originalUseQuery;
+    }
+  });
+
+  it("renders homepage retry action when platform snapshot fails", () => {
+    setPathname("/");
+    const platformSnapshotQuery = trpc.platform.snapshot as { useQuery: () => unknown };
+    const originalUseQuery = platformSnapshotQuery.useQuery;
+    platformSnapshotQuery.useQuery = () => ({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error("平台聚合摘要读取失败"),
+      refetch: vi.fn(),
+    });
+
+    try {
+      const html = renderToStaticMarkup(<PlatformHome />);
+
+      expect(html).toContain("摘要读取失败");
+      expect(html).toContain("支持重试");
+      expect(html).toContain("重试同步");
+      expect(html).toContain('href="/shop"');
+    } finally {
+      platformSnapshotQuery.useQuery = originalUseQuery;
+    }
+  });
+
+  it("renders retry action when account order sync fails", () => {
+    setPathname("/account");
+    const myListQuery = trpc.orders.myList as { useQuery: () => unknown };
+    const originalUseQuery = myListQuery.useQuery;
+    myListQuery.useQuery = () => ({
+      data: undefined,
+      isLoading: false,
+      error: new Error("订单同步失败，请稍后重试。"),
+      refetch: vi.fn(),
+    });
+
+    try {
+      const html = renderToStaticMarkup(<AccountPage />);
+
+      expect(html).toContain("订单同步失败，请稍后重试。");
+      expect(html).toContain("重试同步");
+    } finally {
+      myListQuery.useQuery = originalUseQuery;
+    }
+  });
+
+  it("renders retry action when admin operations snapshot fails", () => {
+    setPathname("/admin/customers");
+    const operationsQuery = trpc.admin.operations as { useQuery: () => unknown };
+    const originalUseQuery = operationsQuery.useQuery;
+    operationsQuery.useQuery = () => ({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      error: new Error("客户运营快照暂时不可用"),
+      refetch: vi.fn(),
+    });
+
+    try {
+      const html = renderToStaticMarkup(<AdminContent />);
+
+      expect(html).toContain("客户运营快照暂时不可用，稍后重试即可恢复客户与线索视图。");
+      expect(html).toContain("重试同步");
+    } finally {
+      operationsQuery.useQuery = originalUseQuery;
+    }
+  });
+});
 
 describe("seo configuration", () => {
   it("resolves public route metadata with indexable robots policy", () => {

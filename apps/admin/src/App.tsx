@@ -1018,17 +1018,116 @@ function getSiteSnapshot(snapshot: PlatformSnapshot | undefined, siteKey: Platfo
   return snapshot?.siteSummaries.find((item) => item.siteKey === siteKey);
 }
 
-function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined) {
+type SnapshotState = "loading" | "error" | "empty" | "ready";
+
+export function resolveSnapshotState(snapshot: unknown, isLoading: boolean, isError: boolean): SnapshotState {
+  if (isLoading) {
+    return "loading";
+  }
+
+  if (isError) {
+    return "error";
+  }
+
+  return snapshot ? "ready" : "empty";
+}
+
+export function formatMetricValue(value: number | undefined, suffix: string, state: SnapshotState, emptyLabel = "等待同步") {
+  if (state === "loading") {
+    return "同步中";
+  }
+
+  if (state === "error") {
+    return "暂不可用";
+  }
+
+  if (typeof value === "number") {
+    return `${value} ${suffix}`;
+  }
+
+  return emptyLabel;
+}
+
+function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
+  if (snapshotState === "loading") {
+    return [
+      {
+        label: "统一品牌矩阵",
+        value: "同步中",
+        detail: "正在汇总商城、LAB、环洗朵科技与 Care 的站点与品牌归属。",
+        icon: Sparkles,
+      },
+      {
+        label: "经营能力底座",
+        value: "同步中",
+        detail: "商品、分类、订单与线索摘要正在从统一平台拉取。",
+        icon: CircleCheckBig,
+      },
+      {
+        label: "当前核心场景",
+        value: "酒店与企业采购",
+        detail: "订单在途量与待审核动作正在刷新，稍后可看到最新聚合结果。",
+        icon: Building2,
+      },
+    ];
+  }
+
+  if (snapshotState === "error") {
+    return [
+      {
+        label: "统一品牌矩阵",
+        value: "暂不可用",
+        detail: "平台聚合摘要读取失败，但各站点入口仍可访问。",
+        icon: Sparkles,
+      },
+      {
+        label: "经营能力底座",
+        value: "等待重试",
+        detail: "请重新触发摘要同步，以恢复商品、订单与线索指标。",
+        icon: CircleCheckBig,
+      },
+      {
+        label: "当前核心场景",
+        value: "酒店与企业采购",
+        detail: "当前仅保留入口结构与业务说明，不再展示伪造统计数值。",
+        icon: Building2,
+      },
+    ];
+  }
+
+  if (snapshotState === "empty") {
+    return [
+      {
+        label: "统一品牌矩阵",
+        value: "等待首批数据",
+        detail: "平台入口已就绪，但尚未生成首批站点聚合摘要。",
+        icon: Sparkles,
+      },
+      {
+        label: "经营能力底座",
+        value: "待接入",
+        detail: "商品、分类、订单与线索将会在首批业务数据落库后展示。",
+        icon: CircleCheckBig,
+      },
+      {
+        label: "当前核心场景",
+        value: "酒店与企业采购",
+        detail: "当前重点仍围绕采购与履约链路，待数据接入后会同步更新指标。",
+        icon: Building2,
+      },
+    ];
+  }
+
   return [
     {
       label: "统一品牌矩阵",
-      value: `${snapshot?.totals.siteCount ?? 4} 个站点`,
-      detail: `商城、iCloush LAB.、环洗朵科技与 iCloush Care 已纳入统一平台入口，当前对应 ${snapshot?.totals.brandCount ?? 3} 个品牌主体。`,
+      value: `${snapshot?.totals.siteCount ?? 0} 个站点`,
+      detail: `商城、iCloush LAB.、环洗朵科技与 iCloush Care 已纳入统一平台入口，当前对应 ${snapshot?.totals.brandCount ?? 0} 个品牌主体。`,
       icon: Sparkles,
     },
     {
       label: "经营能力底座",
-      value: `${snapshot?.totals.capabilityCount ?? 6} 类能力`,
+      value: `${snapshot?.totals.capabilityCount ?? 0} 类能力`,
       detail: `商品 ${snapshot?.totals.productCount ?? 0}、分类 ${snapshot?.totals.categoryCount ?? 0}、订单 ${snapshot?.totals.orderCount ?? 0}、线索 ${snapshot?.totals.leadCount ?? 0} 等摘要已纳入统一视图。`,
       icon: CircleCheckBig,
     },
@@ -1041,11 +1140,29 @@ function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined) {
   ];
 }
 
-function buildHomepageEntrySnapshots(snapshot: PlatformSnapshot | undefined) {
+export function buildHomepageEntrySnapshots(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
   const shopSnapshot = getSiteSnapshot(snapshot, "shop");
   const labSnapshot = getSiteSnapshot(snapshot, "lab");
   const techSnapshot = getSiteSnapshot(snapshot, "tech");
   const careSnapshot = getSiteSnapshot(snapshot, "care");
+
+  const fallbackByTitle = {
+    loading: {
+      metrics: ["摘要同步中", "入口可访问"],
+      summary: "当前正在汇总站点侧的商品、订单与线索信息，页面先保留入口结构与场景说明，方便继续浏览。",
+      highlights: ["支持进入对应站点", "刷新后查看最新聚合摘要"],
+    },
+    error: {
+      metrics: ["摘要读取失败", "支持重试"],
+      summary: "平台聚合接口暂时不可用，当前不再伪装真实统计，只保留入口说明与后续动作提示。",
+      highlights: ["站点入口仍可访问", "可手动重试摘要同步"],
+    },
+    empty: {
+      metrics: ["等待首批数据", "入口已就绪"],
+      summary: "该站点已纳入统一入口，但首批业务摘要尚未生成，后续会自动补充真实指标。",
+      highlights: ["可先浏览站点结构", "数据落库后自动更新"],
+    },
+  } as const;
 
   return homepageEntrySnapshots.map((entry) => {
     if (entry.title === "B2B 商城系统" && shopSnapshot) {
@@ -1084,11 +1201,26 @@ function buildHomepageEntrySnapshots(snapshot: PlatformSnapshot | undefined) {
       };
     }
 
-    return entry;
+    if (snapshotState === "ready") {
+      return {
+        ...entry,
+        metrics: ["等待站点摘要", "入口已开放"],
+        summary: "统一平台已更新首页快照，但该站点的站点级摘要尚未返回，因此暂不展示任何静态统计数值。",
+        highlights: ["可继续浏览站点入口", "稍后刷新查看站点侧指标"],
+      };
+    }
+
+    const fallback = fallbackByTitle[snapshotState];
+    return {
+      ...entry,
+      metrics: fallback.metrics,
+      summary: fallback.summary,
+      highlights: fallback.highlights,
+    };
   });
 }
 
-function buildHomepageOperationalSnapshots(snapshot: PlatformSnapshot | undefined) {
+export function buildHomepageOperationalSnapshots(snapshot: PlatformSnapshot | undefined) {
   return homepageOperationalSnapshots.map((entry) => {
     if (entry.title === "客户中心" && snapshot?.accountSummary) {
       return {
@@ -1111,8 +1243,9 @@ function buildHomepageOperationalSnapshots(snapshot: PlatformSnapshot | undefine
 export function PlatformHome() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
-  const resolvedPlatformMetrics = buildHomepageMetrics(platformSnapshot);
-  const resolvedHomepageEntrySnapshots = buildHomepageEntrySnapshots(platformSnapshot);
+  const homepageSnapshotState = resolveSnapshotState(platformSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
+  const resolvedPlatformMetrics = buildHomepageMetrics(platformSnapshot, homepageSnapshotState);
+  const resolvedHomepageEntrySnapshots = buildHomepageEntrySnapshots(platformSnapshot, homepageSnapshotState);
   const resolvedHomepageOperationalSnapshots = buildHomepageOperationalSnapshots(platformSnapshot);
 
   return (
@@ -1243,19 +1376,36 @@ export function PlatformHome() {
             </Link>
           </div>
 
-          {platformSnapshotQuery.isLoading ? (
-            <div className="mt-8 rounded-[1.75rem] border border-sky-200 bg-sky-50/80 px-5 py-4 text-sm leading-7 text-sky-800">
-              首页正在同步真实品牌、商品、订单与线索摘要，当前页面会先回退到内置演示内容以保证访问连续性。
+          <div
+            className={`mt-8 rounded-[1.75rem] border px-5 py-4 text-sm leading-7 ${
+              homepageSnapshotState === "error"
+                ? "border-amber-200 bg-amber-50/90 text-amber-800"
+                : homepageSnapshotState === "ready"
+                  ? "border-emerald-200 bg-emerald-50/90 text-emerald-800"
+                  : "border-sky-200 bg-sky-50/80 text-sky-800"
+            }`}
+          >
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <p>
+                {homepageSnapshotState === "loading"
+                  ? "首页正在同步真实品牌、商品、订单与线索摘要，当前仅展示入口结构与同步状态。"
+                  : homepageSnapshotState === "error"
+                    ? "真实平台摘要暂时不可用，首页已停止回退伪造统计数值；请重试同步以恢复最新业务聚合结果。"
+                    : homepageSnapshotState === "empty"
+                      ? "统一平台尚未生成首批首页摘要，当前会优先展示入口结构与后续动作提示。"
+                      : `当前首页摘要已切换为真实业务聚合数据，最近更新时间为 ${new Date(platformSnapshot?.generatedAt ?? Date.now()).toLocaleString()}。`}
+              </p>
+              {homepageSnapshotState === "error" ? (
+                <button
+                  type="button"
+                  onClick={() => platformSnapshotQuery.refetch()}
+                  className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/50"
+                >
+                  重试同步
+                </button>
+              ) : null}
             </div>
-          ) : platformSnapshotQuery.isError ? (
-            <div className="mt-8 rounded-[1.75rem] border border-amber-200 bg-amber-50/90 px-5 py-4 text-sm leading-7 text-amber-800">
-              真实平台摘要暂时不可用，当前展示的是站点内置演示数据；待数据库连接恢复后，首页会继续显示最新业务聚合结果。
-            </div>
-          ) : platformSnapshot?.generatedAt ? (
-            <div className="mt-8 rounded-[1.75rem] border border-emerald-200 bg-emerald-50/90 px-5 py-4 text-sm leading-7 text-emerald-800">
-              当前首页摘要已切换为真实业务聚合数据，最近更新时间为 {new Date(platformSnapshot.generatedAt).toLocaleString()}。
-            </div>
-          ) : null}
+          </div>
 
           <div className="mt-8 grid gap-5 xl:grid-cols-2">
             {resolvedHomepageEntrySnapshots.map((snapshot) => (
@@ -1398,6 +1548,7 @@ export function ShopPage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const shopSnapshot = getSiteSnapshot(platformSnapshot, "shop");
+  const shopSnapshotState = resolveSnapshotState(shopSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
   const [activeCategory, setActiveCategory] = useState<string>(shopCategories[0]?.id ?? "chemicals");
   const [cart, setCart] = useState<Record<string, number>>({});
 
@@ -1462,9 +1613,9 @@ export function ShopPage() {
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
               {[
-                { label: "真实商品", value: `${shopSnapshot?.productCount ?? shopProducts.length} 个已接入` },
-                { label: "采购分类", value: `${shopSnapshot?.categoryCount ?? shopCategories.length} 类可浏览` },
-                { label: "进行中订单", value: `${shopSnapshot?.pipelineOrderCount ?? demoOrders.length} 笔待推进` },
+                { label: "真实商品", value: formatMetricValue(shopSnapshot?.productCount, "个已接入", shopSnapshotState, "等待商品同步") },
+                { label: "采购分类", value: formatMetricValue(shopSnapshot?.categoryCount, "类可浏览", shopSnapshotState, "等待分类同步") },
+                { label: "进行中订单", value: formatMetricValue(shopSnapshot?.pipelineOrderCount, "笔待推进", shopSnapshotState, "等待订单同步") },
               ].map((item) => (
                 <div key={item.label} className="rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">
                   <p className="text-xs uppercase tracking-[0.2em] text-sky-200/80">{item.label}</p>
@@ -1472,11 +1623,36 @@ export function ShopPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-400">
-              {platformSnapshotQuery.isError
-                ? "实时平台摘要暂时不可用，当前仍保留演示商品结构以保证采购路径可以继续浏览。"
-                : "商城顶部统计已接入平台真实摘要，可用于快速校验产品、分类与订单链路是否贯通。"}
-            </p>
+            <div
+              className={`mt-4 rounded-3xl border px-4 py-3 text-sm leading-7 ${
+                shopSnapshotState === "error"
+                  ? "border-amber-300/40 bg-amber-300/10 text-amber-100"
+                  : shopSnapshotState === "ready"
+                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
+                    : "border-sky-300/30 bg-sky-300/10 text-sky-100"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  {shopSnapshotState === "loading"
+                    ? "商城摘要正在同步，首屏指标会在真实商品、分类与订单快照返回后自动更新。"
+                    : shopSnapshotState === "error"
+                      ? "商城摘要读取失败，页面仅保留可浏览的采购结构与商品信息，不再冒充真实统计。"
+                      : shopSnapshotState === "empty"
+                        ? "商城已开放访问，但当前品牌下尚未生成可展示的站点级业务摘要。"
+                        : "商城顶部统计已接入平台真实摘要，可用于快速校验产品、分类与订单链路是否贯通。"}
+                </p>
+                {shopSnapshotState === "error" ? (
+                  <button
+                    type="button"
+                    onClick={() => platformSnapshotQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/10"
+                  >
+                    重试同步
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
@@ -1672,6 +1848,7 @@ export function LabPage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const labSnapshot = getSiteSnapshot(platformSnapshot, "lab");
+  const labSnapshotState = resolveSnapshotState(labSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#0f172a_0%,#111827_45%,#f8fafc_45%,#f8fafc_100%)] text-white">
@@ -1696,9 +1873,9 @@ export function LabPage() {
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {[
-                { label: "真实商品", value: `${labSnapshot?.productCount ?? 0} 个` },
-                { label: "品牌订单", value: `${labSnapshot?.orderCount ?? 0} 笔` },
-                { label: "商务线索", value: `${labSnapshot?.leadCount ?? 0} 条` },
+                { label: "真实商品", value: formatMetricValue(labSnapshot?.productCount, "个", labSnapshotState, "等待商品同步") },
+                { label: "品牌订单", value: formatMetricValue(labSnapshot?.orderCount, "笔", labSnapshotState, "等待订单同步") },
+                { label: "商务线索", value: formatMetricValue(labSnapshot?.leadCount, "条", labSnapshotState, "等待线索同步") },
               ].map((item) => (
                 <div key={item.label} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur">
                   <p className="text-xs uppercase tracking-[0.2em] text-violet-200/70">{item.label}</p>
@@ -1706,11 +1883,36 @@ export function LabPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-400">
-              {platformSnapshotQuery.isError
-                ? "当前展示的品牌结构仍以演示内容为主，真实摘要同步失败后会自动回退。"
-                : "首屏补充了来自统一平台的真实品牌摘要，可用于校验研发展示与商务转化链路。"}
-            </p>
+            <div
+              className={`mt-4 rounded-[1.75rem] border px-4 py-3 text-sm leading-7 ${
+                labSnapshotState === "error"
+                  ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                  : labSnapshotState === "ready"
+                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
+                    : "border-violet-300/20 bg-violet-300/10 text-violet-100"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  {labSnapshotState === "loading"
+                    ? "LAB 摘要正在同步，研发能力与商务转化指标会在真实站点快照返回后自动更新。"
+                    : labSnapshotState === "error"
+                      ? "LAB 摘要读取失败，当前保留品牌结构说明，但不再回退为伪造统计。"
+                      : labSnapshotState === "empty"
+                        ? "LAB 站点已纳入统一入口，但当前还没有可展示的品牌级业务摘要。"
+                        : "首屏补充了来自统一平台的真实品牌摘要，可用于校验研发展示与商务转化链路。"}
+                </p>
+                {labSnapshotState === "error" ? (
+                  <button
+                    type="button"
+                    onClick={() => platformSnapshotQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/10"
+                  >
+                    重试同步
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-3">
@@ -1792,6 +1994,7 @@ export function TechPage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const techSnapshot = getSiteSnapshot(platformSnapshot, "tech");
+  const techSnapshotState = resolveSnapshotState(techSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
 
   return (
     <div className="min-h-screen bg-[#f3f7f7] text-slate-900">
@@ -1818,9 +2021,9 @@ export function TechPage() {
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {[
-                { label: "真实商品", value: `${techSnapshot?.productCount ?? 0} 个` },
-                { label: "方案订单", value: `${techSnapshot?.orderCount ?? 0} 笔` },
-                { label: "项目线索", value: `${techSnapshot?.leadCount ?? 0} 条` },
+                { label: "真实商品", value: formatMetricValue(techSnapshot?.productCount, "个", techSnapshotState, "等待商品同步") },
+                { label: "方案订单", value: formatMetricValue(techSnapshot?.orderCount, "笔", techSnapshotState, "等待订单同步") },
+                { label: "项目线索", value: formatMetricValue(techSnapshot?.leadCount, "条", techSnapshotState, "等待线索同步") },
               ].map((item) => (
                 <div key={item.label} className="rounded-[1.75rem] border border-emerald-200 bg-white/80 p-5 shadow-sm">
                   <p className="text-xs uppercase tracking-[0.2em] text-emerald-700/80">{item.label}</p>
@@ -1828,11 +2031,36 @@ export function TechPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-500">
-              {platformSnapshotQuery.isError
-                ? "当前仍保留结构化演示内容，真实平台摘要同步失败时会自动回退到静态站点文案。"
-                : "首屏统计已接入统一平台摘要，可辅助校验行业方案、订单和线索是否形成同一条经营链路。"}
-            </p>
+            <div
+              className={`mt-4 rounded-[1.75rem] border px-4 py-3 text-sm leading-7 ${
+                techSnapshotState === "error"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : techSnapshotState === "ready"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-slate-200 bg-white/85 text-slate-600"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  {techSnapshotState === "loading"
+                    ? "环洗朵科技站点摘要正在同步，方案订单与项目线索会在真实快照返回后更新。"
+                    : techSnapshotState === "error"
+                      ? "环洗朵科技摘要读取失败，当前仅保留站点结构与行业方案说明，不再展示静态统计。"
+                      : techSnapshotState === "empty"
+                        ? "环洗朵科技站点已接入统一入口，但目前暂无可展示的品牌级摘要。"
+                        : "首屏统计已接入统一平台摘要，可辅助校验行业方案、订单和线索是否形成同一条经营链路。"}
+                </p>
+                {techSnapshotState === "error" ? (
+                  <button
+                    type="button"
+                    onClick={() => platformSnapshotQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link
                 href="/shop"
@@ -1908,6 +2136,7 @@ export function CarePage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const careSnapshot = getSiteSnapshot(platformSnapshot, "care");
+  const careSnapshotState = resolveSnapshotState(careSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf2_0%,#fffdf9_45%,#ffffff_100%)] text-slate-900">
@@ -1934,9 +2163,9 @@ export function CarePage() {
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {[
-                { label: "服务商品", value: `${careSnapshot?.productCount ?? 0} 个` },
-                { label: "在途服务订单", value: `${careSnapshot?.pipelineOrderCount ?? 0} 笔` },
-                { label: "咨询线索", value: `${careSnapshot?.leadCount ?? 0} 条` },
+                { label: "服务商品", value: formatMetricValue(careSnapshot?.productCount, "个", careSnapshotState, "等待商品同步") },
+                { label: "在途服务订单", value: formatMetricValue(careSnapshot?.pipelineOrderCount, "笔", careSnapshotState, "等待订单同步") },
+                { label: "咨询线索", value: formatMetricValue(careSnapshot?.leadCount, "条", careSnapshotState, "等待线索同步") },
               ].map((item) => (
                 <div key={item.label} className="rounded-[1.75rem] border border-amber-200 bg-white/85 p-5 shadow-sm">
                   <p className="text-xs uppercase tracking-[0.2em] text-amber-700/80">{item.label}</p>
@@ -1944,11 +2173,36 @@ export function CarePage() {
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-sm leading-7 text-slate-500">
-              {platformSnapshotQuery.isError
-                ? "真实平台摘要当前不可用，页面将继续以静态服务结构保障浏览与咨询路径。"
-                : "首屏新增统一平台摘要，可直接观察服务型订单和咨询线索是否开始沉淀。"}
-            </p>
+            <div
+              className={`mt-4 rounded-[1.75rem] border px-4 py-3 text-sm leading-7 ${
+                careSnapshotState === "error"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : careSnapshotState === "ready"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-slate-200 bg-white/90 text-slate-600"
+              }`}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  {careSnapshotState === "loading"
+                    ? "Care 站点摘要正在同步，服务型订单与咨询线索会在真实快照返回后更新。"
+                    : careSnapshotState === "error"
+                      ? "Care 摘要读取失败，当前仅保留服务结构与咨询路径，不再回退为静态统计。"
+                      : careSnapshotState === "empty"
+                        ? "Care 站点已纳入统一入口，但当前暂无可展示的服务型业务摘要。"
+                        : "首屏新增统一平台摘要，可直接观察服务型订单和咨询线索是否开始沉淀。"}
+                </p>
+                {careSnapshotState === "error" ? (
+                  <button
+                    type="button"
+                    onClick={() => platformSnapshotQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link
                 href="/shop"
@@ -2244,7 +2498,16 @@ export function AccountPage() {
                 </div>
               ) : myOrdersQuery.error ? (
                 <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm leading-7 text-rose-700">
-                  {myOrdersQuery.error.message}
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p>{myOrdersQuery.error.message}</p>
+                    <button
+                      type="button"
+                      onClick={() => myOrdersQuery.refetch()}
+                      className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                    >
+                      重试同步
+                    </button>
+                  </div>
                 </div>
               ) : (myOrdersQuery.data?.records.length ?? 0) === 0 ? (
                 <div className="rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
@@ -2863,7 +3126,16 @@ export function AdminContent() {
               </div>
             ) : adminOperationsQuery.isError || !productSnapshot ? (
               <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
-                商品运营快照暂时不可用，稍后重试即可恢复品牌级商品治理视图。
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>商品运营快照暂时不可用，稍后重试即可恢复品牌级商品治理视图。</p>
+                  <button
+                    type="button"
+                    onClick={() => adminOperationsQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -2972,7 +3244,16 @@ export function AdminContent() {
               </div>
             ) : adminOperationsQuery.isError || !customerSnapshot ? (
               <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
-                客户运营快照暂时不可用，稍后重试即可恢复客户与线索视图。
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>客户运营快照暂时不可用，稍后重试即可恢复客户与线索视图。</p>
+                  <button
+                    type="button"
+                    onClick={() => adminOperationsQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -3089,7 +3370,16 @@ export function AdminContent() {
               </div>
             ) : adminOperationsQuery.isError || !contentSnapshot ? (
               <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
-                内容运营快照暂时不可用，稍后重试即可恢复站点级内容治理面板。
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>内容运营快照暂时不可用，稍后重试即可恢复站点级内容治理面板。</p>
+                  <button
+                    type="button"
+                    onClick={() => adminOperationsQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -3163,7 +3453,16 @@ export function AdminContent() {
               </div>
             ) : adminOperationsQuery.isError || !seoSnapshot ? (
               <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
-                SEO 运营快照暂时不可用，稍后重试即可恢复站点治理面板。
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>SEO 运营快照暂时不可用，稍后重试即可恢复站点治理面板。</p>
+                  <button
+                    type="button"
+                    onClick={() => adminOperationsQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mt-6 space-y-4">

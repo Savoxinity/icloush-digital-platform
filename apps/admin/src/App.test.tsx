@@ -203,13 +203,64 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("订单与结算待办");
   });
 
+  it("renders admin overview with site matrix and module navigation", () => {
+    setPathname("/admin");
+    const html = renderToStaticMarkup(<AdminContent />);
+
+    expect(html).toContain("后台总览");
+    expect(html).toContain("站点矩阵");
+    expect(html).toContain("商城与官网统一运营入口");
+    expect(html).toContain("产品管理");
+    expect(html).toContain("SEO 配置");
+  });
+
+  it("renders admin product console with workstreams and placeholder actions", () => {
+    setPathname("/admin/products");
+    const html = renderToStaticMarkup(<AdminContent />);
+
+    expect(html).toContain("商品治理工位");
+    expect(html).toContain("待接真实商品接口的后台操作位");
+    expect(html).toContain("新建商品模板");
+    expect(html).toContain("iCloush LAB.");
+  });
+
+  it("renders admin customer console with lifecycle planning copy", () => {
+    setPathname("/admin/customers");
+    const html = renderToStaticMarkup(<AdminContent />);
+
+    expect(html).toContain("客户生命周期骨架");
+    expect(html).toContain("客户中心映射");
+    expect(html).toContain("采购主体");
+    expect(html).toContain("定义跟进字段");
+  });
+
+  it("renders admin content console with site matrix and actions", () => {
+    setPathname("/admin/content");
+    const html = renderToStaticMarkup(<AdminContent />);
+
+    expect(html).toContain("内容编排矩阵");
+    expect(html).toContain("内容工作流");
+    expect(html).toContain("新建官网专题页");
+    expect(html).toContain("B2B 商城系统");
+  });
+
+  it("renders admin seo console with governance checklist", () => {
+    setPathname("/admin/seo");
+    const html = renderToStaticMarkup(<AdminContent />);
+
+    expect(html).toContain("SEO 治理清单");
+    expect(html).toContain("站点优先级");
+    expect(html).toContain("生成标题模板");
+    expect(html).toContain("结构化内容");
+  });
+
   it("renders admin order console with review queue and fulfillment stages", () => {
     setPathname("/admin/orders");
     const html = renderToStaticMarkup(<AdminContent />);
 
     expect(html).toContain("审核队列");
     expect(html).toContain("履约阶段");
-    expect(html).toContain("运营提示");
+    expect(html).toContain("近期订单");
     expect(html).toContain("ORD-1-QUEUE-001");
     expect(html).toContain("审核通过");
   });

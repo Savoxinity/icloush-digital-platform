@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BadgePercent,
@@ -23,6 +23,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getLoginUrl } from "@/const";
+import { trpc } from "./lib/trpc";
 import { useAuth } from "./_core/hooks/useAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -332,6 +333,109 @@ const fulfillmentStages = [
     detail: "安排发货、到货签收、项目执行与售后回访，形成完整服务闭环。",
   },
 ];
+
+type BrandOption = {
+  id: number;
+  code: string;
+  name: string;
+  shortName?: string | null;
+  businessType?: string | null;
+  status?: string | null;
+};
+
+type OrderSummaryRecord = {
+  id: number;
+  orderNo: string;
+  status: string;
+  paymentStatus: string;
+  fulfillmentStatus: string;
+  payableAmount: number;
+  itemPreview?: Array<{
+    productName: string;
+    skuLabel?: string | null;
+    quantity: number;
+    lineAmount?: number;
+  }>;
+  latestPayment?: {
+    provider?: string | null;
+    status?: string | null;
+  } | null;
+  latestReceipt?: {
+    reviewStatus?: string | null;
+  } | null;
+};
+
+const orderStatusLabelMap: Record<string, string> = {
+  pending_payment: "待支付",
+  under_review: "待审核",
+  paid: "已付款",
+  processing: "处理中",
+  shipped: "已发货",
+  completed: "已完成",
+  cancelled: "已取消",
+  closed: "已关闭",
+};
+
+const paymentStatusLabelMap: Record<string, string> = {
+  unpaid: "未支付",
+  paid: "已支付",
+  part_paid: "部分支付",
+  offline_review: "线下审核中",
+  refunded: "已退款",
+};
+
+const fulfillmentStatusLabelMap: Record<string, string> = {
+  unfulfilled: "待履约",
+  processing: "履约处理中",
+  partial_shipped: "部分发货",
+  shipped: "已发货",
+  delivered: "已送达",
+};
+
+const reviewStatusLabelMap: Record<string, string> = {
+  pending: "待审核",
+  approved: "已通过",
+  rejected: "已驳回",
+};
+
+function formatCurrencyFen(value?: number | null) {
+  if (typeof value !== "number") {
+    return "方案报价";
+  }
+
+  return new Intl.NumberFormat("zh-CN", {
+    style: "currency",
+    currency: "CNY",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value / 100);
+}
+
+function getOrderStatusLabel(status?: string | null) {
+  return status ? orderStatusLabelMap[status] ?? status : "待确认";
+}
+
+function getPaymentStatusLabel(status?: string | null) {
+  return status ? paymentStatusLabelMap[status] ?? status : "待确认";
+}
+
+function getFulfillmentStatusLabel(status?: string | null) {
+  return status ? fulfillmentStatusLabelMap[status] ?? status : "待确认";
+}
+
+function getReviewStatusLabel(status?: string | null) {
+  return status ? reviewStatusLabelMap[status] ?? status : "待确认";
+}
+
+function summarizeOrderItems(order: OrderSummaryRecord) {
+  if (!order.itemPreview || order.itemPreview.length === 0) {
+    return "订单商品明细待补充";
+  }
+
+  return order.itemPreview
+    .map(item => `${item.productName}${item.skuLabel ? `（${item.skuLabel}）` : ""} × ${item.quantity}`)
+    .join("，");
+}
 
 function SiteNav() {
   return (
@@ -1028,6 +1132,65 @@ export function CarePage() {
 
 export function AccountPage() {
   const { user, loading, isAuthenticated, logout } = useAuth();
+  const brandsQuery = trpc.brands.list.useQuery();
+  const availableBrands = (brandsQuery.data ?? []) as BrandOption[];
+  const [selectedBrandId, setSelectedBrandId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!selectedBrandId && availableBrands.length > 0) {
+      setSelectedBrandId(availableBrands[0].id);
+    }
+  }, [availableBrands, selectedBrandId]);
+
+  const activeBrandId = selectedBrandId ?? availableBrands[0]?.id ?? null;
+  const selectedBrand = useMemo(
+    () => availableBrands.find(brand => brand.id === activeBrandId) ?? null,
+    [activeBrandId, availableBrands],
+  );
+
+  const myOrdersQuery = trpc.orders.myList.useQuery(
+    {
+      brandId: activeBrandId ?? 1,
+      limit: 5,
+    },
+    {
+      enabled: isAuthenticated && Boolean(activeBrandId),
+    },
+  );
+
+  const featuredOrderNo = myOrdersQuery.data?.records[0]?.orderNo;
+  const orderDetailQuery = trpc.orders.detail.useQuery(
+    {
+      brandId: activeBrandId ?? 1,
+      orderNo: featuredOrderNo ?? "",
+    },
+    {
+      enabled: isAuthenticated && Boolean(activeBrandId && featuredOrderNo),
+    },
+  );
+
+  const currentTodos = useMemo(() => {
+    if (!isAuthenticated) {
+      return ["待补开票资料", "待上传付款凭证", "待确认发货与签收"];
+    }
+
+    const orders = (myOrdersQuery.data?.records ?? []) as OrderSummaryRecord[];
+    const todos: string[] = [];
+
+    if (orders.some(order => order.paymentStatus === "unpaid" || order.paymentStatus === "offline_review")) {
+      todos.push("待上传付款凭证或等待财务审核");
+    }
+
+    if (orders.some(order => order.status === "paid" || order.status === "processing")) {
+      todos.push("待确认发货排期与履约窗口");
+    }
+
+    if (orders.some(order => order.fulfillmentStatus === "shipped" || order.fulfillmentStatus === "delivered")) {
+      todos.push("待确认签收并反馈售后结果");
+    }
+
+    return todos.length > 0 ? todos : ["当前品牌暂无待办，可继续采购或查看历史订单"];
+  }, [isAuthenticated, myOrdersQuery.data?.records]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -1046,13 +1209,33 @@ export function AccountPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-slate-500">B2B Customer Center</p>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight">客户账户与采购协同入口</h1>
             <p className="mt-4 text-sm leading-7 text-slate-600">
-              当前页面已从简单订单列表扩展为结算资料、待办动作与订单跟踪的统一承接页，下一步可直接接入真实客户资料、地址簿与订单数据源。
+              当前页面已切换为真实订单查询驱动，可按品牌查看我的订单、付款审核状态与最近一笔订单的履约摘要；企业资料与地址簿仍保留为下一步补充项。
             </p>
             <div className="mt-8 rounded-3xl bg-slate-50 p-5 text-sm text-slate-600">
-              <p className="font-medium text-slate-950">账户状态</p>
-              <p className="mt-2">{loading ? "正在检查登录状态" : isAuthenticated ? "已登录" : "未登录"}</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-950">账户状态</p>
+                  <p className="mt-2">{loading ? "正在检查登录状态" : isAuthenticated ? "已登录" : "未登录"}</p>
+                </div>
+                <label className="text-sm text-slate-500">
+                  当前品牌
+                  <select
+                    className="mt-2 block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+                    value={activeBrandId ?? ""}
+                    onChange={event => setSelectedBrandId(Number(event.target.value))}
+                  >
+                    {availableBrands.map(brand => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-400">当前用户</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{user?.name || "访客演示模式"}</p>
+              <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-400">当前品牌视图</p>
+              <p className="mt-2 text-sm font-medium text-slate-950">{selectedBrand?.name || "等待品牌数据"}</p>
             </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl border border-slate-200 p-5">
@@ -1061,7 +1244,7 @@ export function AccountPage() {
               </div>
               <div className="rounded-3xl border border-slate-200 p-5">
                 <p className="text-sm text-slate-500">支付偏好</p>
-                <p className="mt-2 font-medium text-slate-950">支持线上支付草稿、对公转账审核与后续分期扩展</p>
+                <p className="mt-2 font-medium text-slate-950">优先承接对公转账审核，已保留微信与支付宝扩展字段</p>
               </div>
             </div>
             <div className="mt-6 grid gap-4">
@@ -1116,42 +1299,76 @@ export function AccountPage() {
               </Link>
             </div>
             <div className="mt-6 space-y-4">
-              {demoOrders.map((order) => (
-                <div key={order.code} className="rounded-3xl border border-slate-200 p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-slate-500">订单编号</p>
-                      <p className="mt-1 font-medium text-slate-950">{order.code}</p>
-                    </div>
-                    <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">{order.status}</div>
-                  </div>
-                  <p className="mt-4 text-sm leading-7 text-slate-600">{order.items}</p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <p className="text-sm text-slate-500">订单金额</p>
-                      <p className="mt-1 font-medium text-slate-950">{order.amount}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">归属品牌</p>
-                      <p className="mt-1 font-medium text-slate-950">{order.brand}</p>
-                    </div>
-                  </div>
+              {!isAuthenticated ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
+                  登录后可查看当前账号在所选品牌下的真实订单记录、支付审核状态与履约进度。
                 </div>
-              ))}
+              ) : myOrdersQuery.isLoading ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
+                  正在拉取该品牌下的订单记录与结算状态。
+                </div>
+              ) : myOrdersQuery.error ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm leading-7 text-rose-700">
+                  {myOrdersQuery.error.message}
+                </div>
+              ) : (myOrdersQuery.data?.records.length ?? 0) === 0 ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
+                  当前品牌下还没有可展示的订单，可继续采购创建新订单。
+                </div>
+              ) : (
+                ((myOrdersQuery.data?.records ?? []) as OrderSummaryRecord[]).map((order) => (
+                  <div key={order.orderNo} className="rounded-3xl border border-slate-200 p-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">订单编号</p>
+                        <p className="mt-1 font-medium text-slate-950">{order.orderNo}</p>
+                      </div>
+                      <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                        {getOrderStatusLabel(order.status)} / {getPaymentStatusLabel(order.paymentStatus)}
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-600">{summarizeOrderItems(order)}</p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <p className="text-sm text-slate-500">订单金额</p>
+                        <p className="mt-1 font-medium text-slate-950">{formatCurrencyFen(order.payableAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">归属品牌</p>
+                        <p className="mt-1 font-medium text-slate-950">{selectedBrand?.name || "待确认"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">履约状态</p>
+                        <p className="mt-1 font-medium text-slate-950">{getFulfillmentStatusLabel(order.fulfillmentStatus)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">回单审核</p>
+                        <p className="mt-1 font-medium text-slate-950">{getReviewStatusLabel(order.latestReceipt?.reviewStatus)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
             <div className="mt-6 rounded-3xl bg-slate-50 p-5">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-500">当前待办</p>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
-                {[
-                  "待补开票资料",
-                  "待上传付款凭证",
-                  "待确认发货与签收",
-                ].map((item) => (
+                {currentTodos.map((item) => (
                   <div key={item} className="rounded-3xl border border-slate-200 bg-white p-4 text-sm font-medium text-slate-700">
                     {item}
                   </div>
                 ))}
               </div>
+              {orderDetailQuery.data ? (
+                <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
+                  <p className="text-sm text-slate-500">最近一笔订单摘要</p>
+                  <p className="mt-2 font-medium text-slate-950">{orderDetailQuery.data.summary.orderNo}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">
+                    支付状态：{getPaymentStatusLabel(orderDetailQuery.data.summary.paymentStatus)}；履约状态：
+                    {getFulfillmentStatusLabel(orderDetailQuery.data.summary.fulfillmentStatus)}。
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -1174,11 +1391,66 @@ export function AdminContent() {
             ? "产品管理"
             : "后台总览";
   const isOrdersSection = location.startsWith("/admin/orders");
+  const brandsQuery = trpc.brands.list.useQuery();
+  const availableBrands = (brandsQuery.data ?? []) as BrandOption[];
+  const [selectedBrandId, setSelectedBrandId] = useState<number | null>(null);
+  const utils = trpc.useUtils();
+
+  useEffect(() => {
+    if (!selectedBrandId && availableBrands.length > 0) {
+      setSelectedBrandId(availableBrands[0].id);
+    }
+  }, [availableBrands, selectedBrandId]);
+
+  const activeBrandId = selectedBrandId ?? availableBrands[0]?.id ?? null;
+  const selectedBrand = useMemo(
+    () => availableBrands.find(brand => brand.id === activeBrandId) ?? null,
+    [activeBrandId, availableBrands],
+  );
+
+  const adminOrdersQuery = trpc.orders.list.useQuery(
+    {
+      brandId: activeBrandId ?? 1,
+      limit: 6,
+    },
+    {
+      enabled: isOrdersSection && Boolean(activeBrandId),
+    },
+  );
+
+  const reviewQueueQuery = trpc.orders.reviewQueue.useQuery(
+    {
+      brandId: activeBrandId ?? 1,
+      limit: 6,
+    },
+    {
+      enabled: isOrdersSection && Boolean(activeBrandId),
+    },
+  );
+
+  const reviewPaymentMutation = trpc.orders.reviewPayment.useMutation({
+    onSuccess: async () => {
+      await Promise.all([utils.orders.list.invalidate(), utils.orders.reviewQueue.invalidate()]);
+    },
+  });
+
+  const orderRecords = ((adminOrdersQuery.data?.records ?? []) as OrderSummaryRecord[]);
+  const reviewRecords = reviewQueueQuery.data?.records ?? [];
 
   const statCards = [
     { label: "产品库", value: "128", hint: "待接入真实商品数据", icon: Package },
-    { label: "订单数", value: "36", hint: "已具备交易链路骨架", icon: ShoppingBag },
-    { label: "客户数", value: "64", hint: "待接入 B2B 身份体系", icon: Users },
+    {
+      label: "订单数",
+      value: isOrdersSection ? String(adminOrdersQuery.data?.total ?? 0) : "36",
+      hint: isOrdersSection ? "已切换为真实订单查询结果" : "已具备交易链路骨架",
+      icon: ShoppingBag,
+    },
+    {
+      label: "客户数",
+      value: "64",
+      hint: selectedBrand ? `当前聚焦 ${selectedBrand.name} 的订单与审核` : "待接入 B2B 身份体系",
+      icon: Users,
+    },
     { label: "内容条目", value: "42", hint: "覆盖商城与三个官网", icon: FileText },
   ];
 
@@ -1190,7 +1462,7 @@ export function AdminContent() {
     },
     {
       title: "订单处理",
-      description: "查看订单状态、线下打款凭证与审核结果，串联 OMS 工作流。",
+      description: "查看订单状态、线下打款凭证与审核结果，现已对接真实 OMS 查询与审核 mutation。",
       icon: WalletCards,
     },
     {
@@ -1205,14 +1477,62 @@ export function AdminContent() {
     },
   ];
 
+  const fulfillmentMetrics = [
+    {
+      title: fulfillmentStages[0].title,
+      detail: fulfillmentStages[0].detail,
+      count: orderRecords.filter(order => order.status === "pending_payment" || order.paymentStatus === "offline_review").length,
+    },
+    {
+      title: fulfillmentStages[1].title,
+      detail: fulfillmentStages[1].detail,
+      count: reviewRecords.filter(record => record.reviewStatus === "pending").length,
+    },
+    {
+      title: fulfillmentStages[2].title,
+      detail: fulfillmentStages[2].detail,
+      count: orderRecords.filter(order => ["paid", "processing", "shipped", "completed"].includes(order.status)).length,
+    },
+  ];
+
+  const operationalHints = [
+    reviewRecords.some(record => record.reviewStatus === "pending")
+      ? "当前仍有对公转账回单待审核，需优先核对付款主体、金额与回单图片。"
+      : "当前没有待审核回单，可优先跟进履约与客户回访。",
+    orderRecords.some(order => order.status === "paid" || order.status === "processing")
+      ? "已付款订单需同步发货排期或服务执行窗口，避免客户中心状态滞后。"
+      : "当新增已付款订单后，应同步推进入库、拣货或项目排期。",
+    "发货后需回写物流或服务进度，确保客户中心与后台状态一致。",
+  ];
+
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_80px_rgba(15,23,42,0.06)]">
-        <p className="text-sm uppercase tracking-[0.2em] text-slate-500">iCloush Console</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{section}</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
-          当前后台已接入 DashboardLayout 结构，并作为统一管理商城与三个官网的运营入口。本轮继续补足了订单、客户、内容与产品模块的运营说明卡片，下一步将逐步接入真实数据与操作能力。
-        </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">iCloush Console</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{section}</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+              当前后台已接入 DashboardLayout 结构，并作为统一管理商城与三个官网的运营入口。本轮已将订单列表、审核队列与审核动作切换为真实查询，后续继续补足客户与内容模块的数据联通。
+            </p>
+          </div>
+          {isOrdersSection ? (
+            <label className="text-sm text-slate-500">
+              当前品牌
+              <select
+                className="mt-2 block rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700"
+                value={activeBrandId ?? ""}
+                onChange={event => setSelectedBrandId(Number(event.target.value))}
+              >
+                {availableBrands.map(brand => (
+                  <option key={brand.id} value={brand.id}>
+                    {brand.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
       </section>
 
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -1251,40 +1571,106 @@ export function AdminContent() {
               <div className="rounded-full bg-amber-50 px-4 py-2 text-sm text-amber-700">聚焦高优先级异常单</div>
             </div>
             <div className="mt-6 space-y-4">
-              {adminReviewQueue.map((item) => (
-                <div key={item.code} className="rounded-3xl border border-slate-200 p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-sm text-slate-500">订单编号</p>
-                      <p className="mt-1 font-medium text-slate-950">{item.code}</p>
-                    </div>
-                    <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">{item.status}</div>
-                  </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div>
-                      <p className="text-sm text-slate-500">品牌</p>
-                      <p className="mt-1 font-medium text-slate-950">{item.brand}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">金额</p>
-                      <p className="mt-1 font-medium text-slate-950">{item.amount}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-slate-500">运营动作</p>
-                      <p className="mt-1 font-medium text-slate-950">{item.task}</p>
-                    </div>
-                  </div>
+              {reviewQueueQuery.isLoading ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                  正在同步真实审核队列。
                 </div>
-              ))}
+              ) : reviewQueueQuery.error ? (
+                <div className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm leading-7 text-rose-700">
+                  {reviewQueueQuery.error.message}
+                </div>
+              ) : reviewRecords.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                  当前品牌暂无待审核回单，可切换品牌或继续跟进履约。
+                </div>
+              ) : (
+                reviewRecords.map(record => (
+                  <div key={record.receipt.id} className="rounded-3xl border border-slate-200 p-5">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500">订单编号</p>
+                        <p className="mt-1 font-medium text-slate-950">{record.order.orderNo}</p>
+                      </div>
+                      <div className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                        {getReviewStatusLabel(record.reviewStatus)}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div>
+                        <p className="text-sm text-slate-500">品牌</p>
+                        <p className="mt-1 font-medium text-slate-950">{selectedBrand?.name || "待确认"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">金额</p>
+                        <p className="mt-1 font-medium text-slate-950">{formatCurrencyFen(record.order.payableAmount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">运营动作</p>
+                        <p className="mt-1 font-medium text-slate-950">
+                          {record.reviewStatus === "pending"
+                            ? "核验回单、付款主体与订单金额"
+                            : record.reviewStatus === "approved"
+                              ? "通知履约开始排期"
+                              : "联系客户补交回单或修正付款信息"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-600">{summarizeOrderItems(record.order as OrderSummaryRecord)}</p>
+                    {record.reviewStatus === "pending" ? (
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          disabled={reviewPaymentMutation.isPending || !activeBrandId}
+                          className="inline-flex h-10 items-center justify-center rounded-full bg-slate-950 px-4 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-300"
+                          onClick={() => {
+                            if (!activeBrandId) return;
+                            reviewPaymentMutation.mutate({
+                              brandId: activeBrandId,
+                              orderId: record.order.id,
+                              paymentId: record.payment?.id,
+                              receiptId: record.receipt.id,
+                              approved: true,
+                              reviewNote: "后台审核通过",
+                            });
+                          }}
+                        >
+                          审核通过
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewPaymentMutation.isPending || !activeBrandId}
+                          className="inline-flex h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                          onClick={() => {
+                            if (!activeBrandId) return;
+                            reviewPaymentMutation.mutate({
+                              brandId: activeBrandId,
+                              orderId: record.order.id,
+                              paymentId: record.payment?.id,
+                              receiptId: record.receipt.id,
+                              approved: false,
+                              reviewNote: "需补充付款主体或回单信息",
+                            });
+                          }}
+                        >
+                          驳回并补资料
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
             </div>
           </div>
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-500">履约阶段</p>
               <div className="mt-6 space-y-4">
-                {fulfillmentStages.map((stage, index) => (
+                {fulfillmentMetrics.map((stage, index) => (
                   <div key={stage.title} className="rounded-3xl bg-slate-50 p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Stage {index + 1}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Stage {index + 1}</p>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600">{stage.count} 单</span>
+                    </div>
                     <p className="mt-2 font-medium text-slate-950">{stage.title}</p>
                     <p className="mt-2 text-sm leading-7 text-slate-600">{stage.detail}</p>
                   </div>
@@ -1294,11 +1680,7 @@ export function AdminContent() {
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-500">运营提示</p>
               <div className="mt-4 space-y-3">
-                {[
-                  "对公转账订单需校验付款主体与开票主体是否一致。",
-                  "顾问型方案单要同步报价单、排期和客户确认记录。",
-                  "发货后应在客户中心同步更新物流或服务执行进度。",
-                ].map((item) => (
+                {operationalHints.map((item) => (
                   <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
                     {item}
                   </div>

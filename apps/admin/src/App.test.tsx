@@ -587,6 +587,10 @@ describe("error recovery affordances", () => {
       expect(html).toContain("入口已就绪");
       expect(html).toContain('href="/shop"');
       expect(html).toContain('href="/lab"');
+      expect(html).toContain('href="/tech"');
+      expect(html).toContain('href="/care"');
+      expect(html).toContain('href="/account"');
+      expect(html).toContain('href="/admin"');
     } finally {
       platformSnapshotQuery.useQuery = originalUseQuery;
     }
@@ -611,6 +615,11 @@ describe("error recovery affordances", () => {
       expect(html).toContain("支持重试");
       expect(html).toContain("重试同步");
       expect(html).toContain('href="/shop"');
+      expect(html).toContain('href="/lab"');
+      expect(html).toContain('href="/tech"');
+      expect(html).toContain('href="/care"');
+      expect(html).toContain('href="/account"');
+      expect(html).toContain('href="/admin"');
     } finally {
       platformSnapshotQuery.useQuery = originalUseQuery;
     }
@@ -657,6 +666,38 @@ describe("error recovery affordances", () => {
     } finally {
       operationsQuery.useQuery = originalUseQuery;
     }
+  });
+});
+
+describe("responsive affordances", () => {
+  it("keeps homepage mobile quick links scrollable and preserves desktop summary grids", () => {
+    setPathname("/");
+    const html = renderToStaticMarkup(<PlatformHome />);
+
+    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("sm:grid-cols-2");
+    expect(html).toContain("sm:grid-cols-3");
+  });
+
+  it("keeps public site routes with large touch-friendly CTAs and responsive metric grids", () => {
+    const shopHtml = renderToStaticMarkup(<ShopPage />);
+    const labHtml = renderToStaticMarkup(<LabPage />);
+    const techHtml = renderToStaticMarkup(<TechPage />);
+    const careHtml = renderToStaticMarkup(<CarePage />);
+
+    for (const html of [shopHtml, labHtml, techHtml, careHtml]) {
+      expect(html).toContain("inline-flex h-12 items-center justify-center rounded-full");
+      expect(html).toMatch(/sm:grid-cols-[23]/);
+    }
+  });
+
+  it("keeps account overview cards responsive from mobile stacking to xl dashboard density", () => {
+    setPathname("/account");
+    const html = renderToStaticMarkup(<AccountPage />);
+
+    expect(html).toContain("mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4");
+    expect(html).toContain("mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4");
+    expect(html).toContain("mt-6 flex flex-col gap-3 sm:flex-row");
   });
 });
 

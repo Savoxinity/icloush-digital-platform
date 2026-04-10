@@ -237,6 +237,80 @@ export const bankTransferReceipts = mysqlTable("bankTransferReceipts", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const paymentPayerProfiles = mysqlTable(
+  "paymentPayerProfiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    brandId: int("brandId").notNull(),
+    userId: int("userId").notNull(),
+    wechatOpenId: varchar("wechatOpenId", { length: 128 }),
+    wechatUnionId: varchar("wechatUnionId", { length: 128 }),
+    alipayBuyerId: varchar("alipayBuyerId", { length: 128 }),
+    alipayOpenId: varchar("alipayOpenId", { length: 128 }),
+    lastVerifiedAt: timestamp("lastVerifiedAt"),
+    metaJson: json("metaJson"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    brandUserUnique: uniqueIndex("paymentPayerProfiles_brand_user_unique").on(table.brandId, table.userId),
+  }),
+);
+
+export const paymentCallbackLogs = mysqlTable(
+  "paymentCallbackLogs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    brandId: int("brandId").notNull(),
+    paymentId: int("paymentId"),
+    orderId: int("orderId"),
+    provider: mysqlEnum("provider", ["wechat_jsapi", "wechat_native", "alipay", "stripe", "offline_bank_transfer"]).notNull(),
+    callbackType: mysqlEnum("callbackType", ["payment_notify", "refund_notify", "manual_replay", "reconciliation"]).notNull(),
+    providerEventId: varchar("providerEventId", { length: 128 }),
+    providerTransactionId: varchar("providerTransactionId", { length: 128 }),
+    signatureStatus: mysqlEnum("signatureStatus", ["pending", "verified", "failed", "skipped"]).notNull().default("pending"),
+    processStatus: mysqlEnum("processStatus", ["received", "processed", "ignored", "failed"]).notNull().default("received"),
+    retryCount: int("retryCount").notNull().default(0),
+    requestHeadersJson: json("requestHeadersJson"),
+    payloadText: text("payloadText"),
+    processResultJson: json("processResultJson"),
+    receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+    processedAt: timestamp("processedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => ({
+    providerEventUnique: uniqueIndex("paymentCallbackLogs_provider_event_unique").on(table.provider, table.callbackType, table.providerEventId),
+  }),
+);
+
+export const paymentRefunds = mysqlTable(
+  "paymentRefunds",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    brandId: int("brandId").notNull(),
+    orderId: int("orderId").notNull(),
+    paymentId: int("paymentId").notNull(),
+    refundNo: varchar("refundNo", { length: 64 }).notNull().unique(),
+    provider: mysqlEnum("provider", ["wechat_jsapi", "wechat_native", "alipay", "stripe", "offline_bank_transfer"]).notNull(),
+    amount: bigint("amount", { mode: "number", unsigned: true }).notNull(),
+    currency: varchar("currency", { length: 16 }).notNull().default("CNY"),
+    status: mysqlEnum("status", ["created", "pending", "succeeded", "failed", "cancelled", "closed"]).notNull().default("created"),
+    reason: varchar("reason", { length: 255 }),
+    providerRefundNo: varchar("providerRefundNo", { length: 128 }),
+    requestedBy: int("requestedBy"),
+    approvedBy: int("approvedBy"),
+    requestedAt: timestamp("requestedAt").defaultNow().notNull(),
+    approvedAt: timestamp("approvedAt"),
+    settledAt: timestamp("settledAt"),
+    metaJson: json("metaJson"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    paymentRefundUnique: uniqueIndex("paymentRefunds_payment_refund_unique").on(table.paymentId, table.refundNo),
+  }),
+);
+
 export const leads = mysqlTable("leads", {
   id: int("id").autoincrement().primaryKey(),
   brandId: int("brandId").notNull(),
@@ -274,6 +348,15 @@ export type InsertOrder = typeof orders.$inferInsert;
 
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = typeof payments.$inferInsert;
+
+export type PaymentPayerProfile = typeof paymentPayerProfiles.$inferSelect;
+export type InsertPaymentPayerProfile = typeof paymentPayerProfiles.$inferInsert;
+
+export type PaymentCallbackLog = typeof paymentCallbackLogs.$inferSelect;
+export type InsertPaymentCallbackLog = typeof paymentCallbackLogs.$inferInsert;
+
+export type PaymentRefund = typeof paymentRefunds.$inferSelect;
+export type InsertPaymentRefund = typeof paymentRefunds.$inferInsert;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;

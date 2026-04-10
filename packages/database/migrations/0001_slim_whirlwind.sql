@@ -1,0 +1,62 @@
+CREATE TABLE `paymentCallbackLogs` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`brandId` int NOT NULL,
+	`paymentId` int,
+	`orderId` int,
+	`provider` enum('wechat_jsapi','wechat_native','alipay','stripe','offline_bank_transfer') NOT NULL,
+	`callbackType` enum('payment_notify','refund_notify','manual_replay','reconciliation') NOT NULL,
+	`providerEventId` varchar(128),
+	`providerTransactionId` varchar(128),
+	`signatureStatus` enum('pending','verified','failed','skipped') NOT NULL DEFAULT 'pending',
+	`processStatus` enum('received','processed','ignored','failed') NOT NULL DEFAULT 'received',
+	`retryCount` int NOT NULL DEFAULT 0,
+	`requestHeadersJson` json,
+	`payloadText` text,
+	`processResultJson` json,
+	`receivedAt` timestamp NOT NULL DEFAULT (now()),
+	`processedAt` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `paymentCallbackLogs_id` PRIMARY KEY(`id`),
+	CONSTRAINT `paymentCallbackLogs_provider_event_unique` UNIQUE(`provider`,`callbackType`,`providerEventId`)
+);
+--> statement-breakpoint
+CREATE TABLE `paymentPayerProfiles` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`brandId` int NOT NULL,
+	`userId` int NOT NULL,
+	`wechatOpenId` varchar(128),
+	`wechatUnionId` varchar(128),
+	`alipayBuyerId` varchar(128),
+	`alipayOpenId` varchar(128),
+	`lastVerifiedAt` timestamp,
+	`metaJson` json,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `paymentPayerProfiles_id` PRIMARY KEY(`id`),
+	CONSTRAINT `paymentPayerProfiles_brand_user_unique` UNIQUE(`brandId`,`userId`)
+);
+--> statement-breakpoint
+CREATE TABLE `paymentRefunds` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`brandId` int NOT NULL,
+	`orderId` int NOT NULL,
+	`paymentId` int NOT NULL,
+	`refundNo` varchar(64) NOT NULL,
+	`provider` enum('wechat_jsapi','wechat_native','alipay','stripe','offline_bank_transfer') NOT NULL,
+	`amount` bigint unsigned NOT NULL,
+	`currency` varchar(16) NOT NULL DEFAULT 'CNY',
+	`status` enum('created','pending','succeeded','failed','cancelled','closed') NOT NULL DEFAULT 'created',
+	`reason` varchar(255),
+	`providerRefundNo` varchar(128),
+	`requestedBy` int,
+	`approvedBy` int,
+	`requestedAt` timestamp NOT NULL DEFAULT (now()),
+	`approvedAt` timestamp,
+	`settledAt` timestamp,
+	`metaJson` json,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `paymentRefunds_id` PRIMARY KEY(`id`),
+	CONSTRAINT `paymentRefunds_refundNo_unique` UNIQUE(`refundNo`),
+	CONSTRAINT `paymentRefunds_payment_refund_unique` UNIQUE(`paymentId`,`refundNo`)
+);

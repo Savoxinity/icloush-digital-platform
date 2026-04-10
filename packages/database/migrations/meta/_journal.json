@@ -8,6 +8,13 @@
       "when": 1775721895353,
       "tag": "0000_wide_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1775840409706,
+      "tag": "0001_slim_whirlwind",
+      "breakpoints": true
     }
   ]
 }

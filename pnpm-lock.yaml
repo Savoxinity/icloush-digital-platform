@@ -363,11 +363,62 @@ importers:
 
   packages/lead-gen: {}
 
-  packages/oms: {}
+  packages/oms:
+    dependencies:
+      '@trpc/server':
+        specifier: ^11.6.0
+        version: 11.6.0(typescript@5.9.3)
+      drizzle-orm:
+        specifier: ^0.44.5
+        version: 0.44.6(mysql2@3.15.1)
+      mysql2:
+        specifier: ^3.15.0
+        version: 3.15.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.0
+        version: 24.7.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
-  packages/payments: {}
+  packages/payments:
+    dependencies:
+      '@trpc/server':
+        specifier: ^11.6.0
+        version: 11.6.0(typescript@5.9.3)
+      drizzle-orm:
+        specifier: ^0.44.5
+        version: 0.44.6(mysql2@3.15.1)
+      mysql2:
+        specifier: ^3.15.0
+        version: 3.15.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.0
+        version: 24.7.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
-  packages/pim: {}
+  packages/pim:
+    dependencies:
+      '@trpc/server':
+        specifier: ^11.6.0
+        version: 11.6.0(typescript@5.9.3)
+      drizzle-orm:
+        specifier: ^0.44.5
+        version: 0.44.6(mysql2@3.15.1)
+      mysql2:
+        specifier: ^3.15.0
+        version: 3.15.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.7.0
+        version: 24.7.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
   packages/ui: {}
 

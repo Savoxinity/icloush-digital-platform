@@ -1,35 +1,22 @@
-import { randomUUID } from "node:crypto";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import superjson from "superjson";
 import { z } from "zod";
+import { notifyOwner } from "../../admin/server/_core/notification";
+import { brands } from "../../../packages/database/schema";
+import { createOrder, reviewOrderPayment } from "../../../packages/oms/src/index";
 import {
-  bankTransferReceipts,
-  brandMemberships,
-  brands,
-  orderItems,
-  orders,
-  payments,
-  productCategories,
-  products,
-  productSkus,
-  skuTierPrices,
-} from "../../../packages/database/schema";
+  getBankTransferAccountInfo,
+  getPaymentApiInventory,
+  prepareWechatPrepayDraft,
+  submitBankTransferVoucher,
+} from "../../../packages/payments/src/index";
+import { listProductsWithPricing } from "../../../packages/pim/src/index";
 
 type DatabaseClient = ReturnType<typeof drizzle>;
-
-type CustomerType = "b2b" | "b2c";
 type TenantSource = "header" | "host";
-
-type TierPriceRecord = {
-  id?: number;
-  minQty: number;
-  maxQty: number | null;
-  price: number;
-  customerType: CustomerType | "all";
-};
 
 export type TenantContext = {
   brandId: number;
@@ -44,26 +31,6 @@ export type ApiContext = {
   tenant: TenantContext | null;
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
-};
-
-export type WechatPaymentDraft = {
-  provider: "wechat_jsapi";
-  paymentScenario: "full_payment" | "installment" | "credit_card";
-  status: "pending_configuration";
-  capabilities: {
-    supportsCreditCard: boolean;
-    supportsInstallment: boolean;
-  };
-  jsapiParams: {
-    appId: string | null;
-    timeStamp: string | null;
-    nonceStr: string | null;
-    package: string | null;
-    signType: "RSA";
-    paySign: string | null;
-  };
-  metadata: Record<string, unknown>;
-  nextAction: string;
 };
 
 export function normalizeHost(host?: string | null): string | null {
@@ -87,79 +54,6 @@ export function extractRequestedBrandId(headers: Record<string, unknown>): numbe
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function resolveTierPrice(args: {
-  basePrice: number;
-  quantity: number;
-  customerType: CustomerType;
-  tierPrices: TierPriceRecord[];
-}) {
-  const matchedTier = [...args.tierPrices]
-    .filter((tier) => {
-      const customerTypeMatches = tier.customerType === "all" || tier.customerType === args.customerType;
-      const minMatches = args.quantity >= tier.minQty;
-      const maxMatches = tier.maxQty === null || args.quantity <= tier.maxQty;
-      return customerTypeMatches && minMatches && maxMatches;
-    })
-    .sort((left, right) => right.minQty - left.minQty)[0];
-
-  return {
-    unitPrice: matchedTier?.price ?? args.basePrice,
-    matchedTier: matchedTier ?? null,
-  };
-}
-
-export function buildOrderNo(brandId: number) {
-  return `ORD-${brandId}-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
-}
-
-export function buildPaymentNo(brandId: number) {
-  return `PAY-${brandId}-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
-}
-
-export function buildWechatPaymentDraft(args: {
-  orderId: number;
-  orderNo: string;
-  amount: number;
-  brandId: number;
-  openId?: string;
-  paymentScenario: "full_payment" | "installment" | "credit_card";
-  installmentPlanCode?: string;
-}) {
-  const metadata: Record<string, unknown> = {
-    brandId: args.brandId,
-    orderId: args.orderId,
-    orderNo: args.orderNo,
-    amount: args.amount,
-    paymentScenario: args.paymentScenario,
-    payerOpenId: args.openId ?? null,
-  };
-
-  if (args.installmentPlanCode) {
-    metadata.installmentPlanCode = args.installmentPlanCode;
-  }
-
-  return {
-    provider: "wechat_jsapi",
-    paymentScenario: args.paymentScenario,
-    status: "pending_configuration",
-    capabilities: {
-      supportsCreditCard: true,
-      supportsInstallment: true,
-    },
-    jsapiParams: {
-      appId: null,
-      timeStamp: null,
-      nonceStr: null,
-      package: null,
-      signType: "RSA",
-      paySign: null,
-    },
-    metadata,
-    nextAction:
-      "在 packages/payments 接入微信支付官方签名与统一下单能力后，将当前占位参数替换为真实 JSAPI 支付参数，并在 paymentScenario 中继续承载信用卡付款与分期属性。",
-  } satisfies WechatPaymentDraft;
-}
-
 async function getDb() {
   if (!process.env.DATABASE_URL) {
     return null;
@@ -173,7 +67,11 @@ async function resolveTenantByHeaderOrHost(args: {
 }) {
   const requestedBrandId = extractRequestedBrandId(args.headers);
   const requestedHost = normalizeHost(
-    String((Array.isArray(args.headers["x-forwarded-host"]) ? args.headers["x-forwarded-host"][0] : args.headers["x-forwarded-host"]) ?? args.headers.host ?? ""),
+    String(
+      (Array.isArray(args.headers["x-forwarded-host"])
+        ? args.headers["x-forwarded-host"][0]
+        : args.headers["x-forwarded-host"]) ?? args.headers.host ?? "",
+    ),
   );
 
   if (requestedBrandId) {
@@ -270,8 +168,8 @@ const connectedDbProcedure = tenantProcedure.use(({ ctx, next }) => {
 });
 
 const customerTypeSchema = z.enum(["b2b", "b2c"]);
-const paymentProviderSchema = z.enum(["wechat_jsapi", "offline_bank_transfer"]);
-const paymentScenarioSchema = z.enum(["full_payment", "installment", "credit_card"]);
+const paymentProviderSchema = z.enum(["wechat_jsapi", "offline_bank_transfer", "alipay"]);
+const paymentScenarioSchema = z.enum(["full_payment", "installment", "credit_card", "deposit", "offline_review"]);
 
 export const appRouter = router({
   health: publicProcedure.query(() => ({
@@ -297,115 +195,18 @@ export const appRouter = router({
         }),
       )
       .query(async ({ ctx, input }) => {
-        let categoryId: number | null = null;
-        if (input.categorySlug) {
-          const matchedCategory = await ctx.db
-            .select()
-            .from(productCategories)
-            .where(
-              and(
-                eq(productCategories.brandId, ctx.tenant.brandId),
-                eq(productCategories.slug, input.categorySlug),
-              ),
-            )
-            .limit(1);
-
-          categoryId = matchedCategory[0]?.id ?? null;
-        }
-
-        const productRows = await ctx.db
-          .select()
-          .from(products)
-          .where(
-            and(
-              eq(products.brandId, ctx.tenant.brandId),
-              input.includeInactive ? undefined : eq(products.status, "active"),
-              categoryId ? eq(products.categoryId, categoryId) : undefined,
-            ),
-          );
-
-        if (productRows.length === 0) {
-          return {
-            tenant: ctx.tenant,
-            items: [],
-          };
-        }
-
-        const productIds = productRows.map((product) => product.id);
-        const skuRows = await ctx.db
-          .select()
-          .from(productSkus)
-          .where(
-            and(
-              eq(productSkus.brandId, ctx.tenant.brandId),
-              inArray(productSkus.productId, productIds),
-              input.includeInactive ? undefined : eq(productSkus.status, "active"),
-            ),
-          );
-
-        const skuIds = skuRows.map((sku) => sku.id);
-        const tierRows = skuIds.length
-          ? await ctx.db
-              .select()
-              .from(skuTierPrices)
-              .where(
-                and(
-                  eq(skuTierPrices.brandId, ctx.tenant.brandId),
-                  inArray(skuTierPrices.skuId, skuIds),
-                ),
-              )
-          : [];
-
-        const tiersBySkuId = new Map<number, typeof tierRows>();
-        for (const tier of tierRows) {
-          const existing = tiersBySkuId.get(tier.skuId) ?? [];
-          existing.push(tier);
-          tiersBySkuId.set(tier.skuId, existing);
-        }
-
-        const skusByProductId = new Map<number, typeof skuRows>();
-        for (const sku of skuRows) {
-          const existing = skusByProductId.get(sku.productId) ?? [];
-          existing.push(sku);
-          skusByProductId.set(sku.productId, existing);
-        }
+        const result = await listProductsWithPricing({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          categorySlug: input.categorySlug,
+          customerType: input.customerType,
+          requestedQtyBySkuId: input.requestedQtyBySkuId,
+          includeInactive: input.includeInactive,
+        });
 
         return {
           tenant: ctx.tenant,
-          items: productRows.map((product) => {
-            const skus = (skusByProductId.get(product.id) ?? []).map((sku) => {
-              const requestedQty = input.requestedQtyBySkuId[String(sku.id)] ?? sku.minOrderQty ?? 1;
-              const tierPreview = resolveTierPrice({
-                basePrice: sku.basePrice,
-                quantity: requestedQty,
-                customerType: input.customerType,
-                tierPrices: (tiersBySkuId.get(sku.id) ?? []).map((tier) => ({
-                  id: tier.id,
-                  minQty: tier.minQty,
-                  maxQty: tier.maxQty,
-                  price: tier.price,
-                  customerType: tier.customerType,
-                })),
-              });
-
-              return {
-                ...sku,
-                requestedQty,
-                pricing: {
-                  pricingModel: "tiered",
-                  unitPrice: tierPreview.unitPrice,
-                  lineAmount: tierPreview.unitPrice * requestedQty,
-                  matchedTier: tierPreview.matchedTier,
-                  tierTable: tiersBySkuId.get(sku.id) ?? [],
-                },
-              };
-            });
-
-            return {
-              ...product,
-              skus,
-            };
-          }),
+          ...result,
         };
       }),
   }),
@@ -416,11 +217,7 @@ export const appRouter = router({
         z.object({
           userId: z.coerce.number().int().positive(),
           membershipId: z.coerce.number().int().positive().optional(),
-          customerType: customerTypeSchema.default("b2b"),
-          orderType: z
-            .enum(["b2b_purchase", "b2c_purchase", "subscription", "service", "rental"])
-            .default("b2b_purchase"),
-          channel: z.enum(["admin", "web", "mini_program", "sales_manual"]).default("mini_program"),
+          customerType: customerTypeSchema.optional(),
           note: z.string().max(1000).optional(),
           items: z
             .array(
@@ -431,208 +228,83 @@ export const appRouter = router({
               }),
             )
             .min(1),
-          payment: z.object({
-            provider: paymentProviderSchema,
-            paymentScenario: paymentScenarioSchema.default("full_payment"),
-            payerOpenId: z.string().optional(),
-            allowCreditCard: z.boolean().default(false),
-            installmentPlanCode: z.string().optional(),
-            meta: z.record(z.string(), z.unknown()).default({}),
-          }),
+          payment: z
+            .object({
+              provider: paymentProviderSchema.default("offline_bank_transfer"),
+              paymentScenario: paymentScenarioSchema.default("full_payment"),
+              payerOpenId: z.string().optional(),
+              allowCreditCard: z.boolean().default(false),
+              installmentPlanCode: z.string().optional(),
+            })
+            .default({ provider: "offline_bank_transfer", paymentScenario: "full_payment", allowCreditCard: false }),
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const membership = input.membershipId
-          ? await ctx.db
-              .select()
-              .from(brandMemberships)
-              .where(
-                and(
-                  eq(brandMemberships.id, input.membershipId),
-                  eq(brandMemberships.brandId, ctx.tenant.brandId),
-                  eq(brandMemberships.userId, input.userId),
-                ),
-              )
-              .limit(1)
-          : [];
-
-        if (input.membershipId && !membership[0]) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "未找到匹配当前品牌的客户成员关系。",
-          });
-        }
-
-        const skuIds = input.items.map((item) => item.skuId);
-        const skuRows = await ctx.db
-          .select()
-          .from(productSkus)
-          .where(and(eq(productSkus.brandId, ctx.tenant.brandId), inArray(productSkus.id, skuIds)));
-
-        if (skuRows.length !== skuIds.length) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "提交的商品 SKU 中存在不属于当前品牌或不存在的记录。",
-          });
-        }
-
-        const productRows = await ctx.db
-          .select()
-          .from(products)
-          .where(
-            and(
-              eq(products.brandId, ctx.tenant.brandId),
-              inArray(
-                products.id,
-                Array.from(new Set(input.items.map((item) => item.productId))),
-              ),
-            ),
-          );
-
-        const tierRows = await ctx.db
-          .select()
-          .from(skuTierPrices)
-          .where(and(eq(skuTierPrices.brandId, ctx.tenant.brandId), inArray(skuTierPrices.skuId, skuIds)));
-
-        const productById = new Map(productRows.map((product) => [product.id, product]));
-        const skuById = new Map(skuRows.map((sku) => [sku.id, sku]));
-        const tierBySkuId = new Map<number, typeof tierRows>();
-        for (const tier of tierRows) {
-          const existing = tierBySkuId.get(tier.skuId) ?? [];
-          existing.push(tier);
-          tierBySkuId.set(tier.skuId, existing);
-        }
-
-        const pricedItems = input.items.map((item) => {
-          const sku = skuById.get(item.skuId);
-          const product = productById.get(item.productId);
-          if (!sku || !product || sku.productId !== product.id) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: `商品 ${item.productId} 与 SKU ${item.skuId} 不匹配。`,
-            });
-          }
-
-          const pricing = resolveTierPrice({
-            basePrice: sku.basePrice,
-            quantity: item.quantity,
-            customerType: input.customerType,
-            tierPrices: (tierBySkuId.get(sku.id) ?? []).map((tier) => ({
-              minQty: tier.minQty,
-              maxQty: tier.maxQty,
-              price: tier.price,
-              customerType: tier.customerType,
-            })),
-          });
-
-          return {
-            item,
-            sku,
-            product,
-            unitPrice: pricing.unitPrice,
-            lineAmount: pricing.unitPrice * item.quantity,
-            matchedTier: pricing.matchedTier,
-          };
-        });
-
-        const subtotalAmount = pricedItems.reduce((sum, current) => sum + current.lineAmount, 0);
-        const orderNo = buildOrderNo(ctx.tenant.brandId);
-        const paymentNo = buildPaymentNo(ctx.tenant.brandId);
-
-        const created = await ctx.db.transaction(async (tx) => {
-          const orderInsert = await tx.insert(orders).values({
-            brandId: ctx.tenant.brandId,
-            userId: input.userId,
-            membershipId: input.membershipId,
-            orderNo,
-            orderType: input.orderType,
-            channel: input.channel,
-            status: input.payment.provider === "offline_bank_transfer" ? "pending_payment" : "pending_payment",
-            paymentStatus: "unpaid",
-            fulfillmentStatus: "unfulfilled",
-            currency: "CNY",
-            subtotalAmount,
-            discountAmount: 0,
-            shippingAmount: 0,
-            payableAmount: subtotalAmount,
-            note: input.note,
-          });
-
-          const orderId = Number(orderInsert[0].insertId);
-
-          await tx.insert(orderItems).values(
-            pricedItems.map((priced) => ({
-              orderId,
-              brandId: ctx.tenant.brandId,
-              productId: priced.product.id,
-              skuId: priced.sku.id,
-              productName: priced.product.name,
-              skuLabel: priced.sku.specName ?? priced.sku.packSize ?? priced.sku.skuCode,
-              unitPrice: priced.unitPrice,
-              quantity: priced.item.quantity,
-              lineAmount: priced.lineAmount,
-            })),
-          );
-
-          const paymentMeta: Record<string, unknown> = {
-            ...input.payment.meta,
-            allowCreditCard: input.payment.allowCreditCard,
-            installmentPlanCode: input.payment.installmentPlanCode ?? null,
-            reservedForWechatCapabilities: {
-              supportsCreditCard: true,
-              supportsInstallment: true,
-            },
-          };
-
-          const paymentInsert = await tx.insert(payments).values({
-            brandId: ctx.tenant.brandId,
-            orderId,
-            paymentNo,
+        const created = await createOrder({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          userId: input.userId,
+          membershipId: input.membershipId,
+          customerType: input.customerType,
+          note: input.note,
+          items: input.items,
+          payment: {
             provider: input.payment.provider,
-            paymentScenario: input.payment.provider === "offline_bank_transfer" ? "offline_review" : input.payment.paymentScenario,
-            amount: subtotalAmount,
-            status: input.payment.provider === "offline_bank_transfer" ? "pending" : "created",
-            metaJson: paymentMeta,
-          });
-
-          const paymentId = Number(paymentInsert[0].insertId);
-
-          return {
-            orderId,
-            paymentId,
-          };
+            paymentScenario:
+              input.payment.provider === "offline_bank_transfer"
+                ? "offline_review"
+                : input.payment.paymentScenario,
+            installmentPlanCode: input.payment.installmentPlanCode,
+            allowCreditCard: input.payment.allowCreditCard,
+            payerOpenId: input.payment.payerOpenId,
+          },
         });
 
         const paymentIntent =
           input.payment.provider === "wechat_jsapi"
-            ? buildWechatPaymentDraft({
+            ? await prepareWechatPrepayDraft({
+                db: ctx.db,
                 brandId: ctx.tenant.brandId,
-                orderId: created.orderId,
-                orderNo,
-                amount: subtotalAmount,
-                openId: input.payment.payerOpenId,
+                orderId: created.order.id,
+                paymentId: created.payment.id,
+                payerOpenId: input.payment.payerOpenId,
                 paymentScenario: input.payment.paymentScenario,
                 installmentPlanCode: input.payment.installmentPlanCode,
               })
-            : {
-                provider: "offline_bank_transfer",
-                paymentScenario: "offline_review",
-                status: "pending_receipt_upload",
-                uploadField: "receiptFileUrl",
-                nextAction: "请调用 payments.submitBankTransferReceipt 接口上传打款凭证 URL，并将订单流转到待审核状态。",
-              };
+            : input.payment.provider === "offline_bank_transfer"
+              ? {
+                  provider: "offline_bank_transfer" as const,
+                  integrationMode: "manual_review" as const,
+                  status: "pending_receipt_upload" as const,
+                  bankAccount: getBankTransferAccountInfo(),
+                  requiredApis: [],
+                  metadata: {
+                    brandId: ctx.tenant.brandId,
+                    orderId: created.order.id,
+                    orderNo: created.order.orderNo,
+                    paymentId: created.payment.id,
+                  },
+                  nextAction: "请在打款完成后调用 payments.submitBankTransferReceipt 上传凭证，系统将自动进入财务审核。",
+                }
+              : {
+                  provider: "alipay" as const,
+                  integrationMode: "stubbed" as const,
+                  status: "pending_provider_configuration" as const,
+                  requiredApis: getPaymentApiInventory().filter((item) => item.provider === "alipay"),
+                  metadata: {
+                    brandId: ctx.tenant.brandId,
+                    orderId: created.order.id,
+                    orderNo: created.order.orderNo,
+                    paymentId: created.payment.id,
+                    paymentScenario: input.payment.paymentScenario,
+                  },
+                  nextAction: "当前已跳过支付宝真实 API 接入，后续只需根据 API 清单补齐统一收单、回调验签与查询补偿。",
+                };
 
         return {
           tenant: ctx.tenant,
-          order: {
-            id: created.orderId,
-            orderNo,
-            subtotalAmount,
-            payableAmount: subtotalAmount,
-            status: "pending_payment",
-            paymentStatus: "unpaid",
-          },
-          items: pricedItems.map((priced) => ({
+          order: created.order,
+          items: created.items.map((priced) => ({
             productId: priced.product.id,
             productName: priced.product.name,
             skuId: priced.sku.id,
@@ -642,117 +314,105 @@ export const appRouter = router({
             lineAmount: priced.lineAmount,
             matchedTier: priced.matchedTier,
           })),
-          payment: {
-            id: created.paymentId,
-            paymentNo,
-            provider: input.payment.provider,
-            scenario: input.payment.provider === "offline_bank_transfer" ? "offline_review" : input.payment.paymentScenario,
-            amount: subtotalAmount,
-          },
+          payment: created.payment,
           paymentIntent,
         };
       }),
   }),
 
   payments: router({
+    apiInventory: connectedDbProcedure.query(({ ctx }) => ({
+      tenant: ctx.tenant,
+      items: getPaymentApiInventory(),
+    })),
+
+    prepareWechatPrepay: connectedDbProcedure
+      .input(
+        z.object({
+          orderId: z.coerce.number().int().positive(),
+          paymentId: z.coerce.number().int().positive().optional(),
+          payerOpenId: z.string().optional(),
+          paymentScenario: paymentScenarioSchema.default("full_payment"),
+          installmentPlanCode: z.string().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const result = await prepareWechatPrepayDraft({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          orderId: input.orderId,
+          paymentId: input.paymentId,
+          payerOpenId: input.payerOpenId,
+          paymentScenario: input.paymentScenario,
+          installmentPlanCode: input.installmentPlanCode,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          order: result.order,
+          payment: result.payment,
+          draft: result.draft,
+        };
+      }),
+
     submitBankTransferReceipt: connectedDbProcedure
       .input(
         z.object({
           orderId: z.coerce.number().int().positive(),
           paymentId: z.coerce.number().int().positive().optional(),
-          payerName: z.string().min(1).optional(),
-          payerAccountNo: z.string().min(1).optional(),
-          receiptFileKey: z.string().optional(),
-          receiptFileUrl: z.string().url(),
+          remitterName: z.string().min(1).optional(),
+          remitterAccountLast4: z.string().min(4).max(4).optional(),
+          transferReference: z.string().min(1).optional(),
+          transferAmount: z.coerce.number().positive().optional(),
+          voucherUrl: z.string().url(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const orderRow = await ctx.db
-          .select()
-          .from(orders)
-          .where(and(eq(orders.id, input.orderId), eq(orders.brandId, ctx.tenant.brandId)))
-          .limit(1);
-
-        if (!orderRow[0]) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "未找到当前品牌下对应的订单。",
-          });
-        }
-
-        let paymentId = input.paymentId ?? null;
-        if (paymentId) {
-          const paymentRow = await ctx.db
-            .select()
-            .from(payments)
-            .where(and(eq(payments.id, paymentId), eq(payments.brandId, ctx.tenant.brandId)))
-            .limit(1);
-
-          if (!paymentRow[0]) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "未找到当前品牌下对应的支付记录。",
-            });
-          }
-        } else {
-          const paymentNo = buildPaymentNo(ctx.tenant.brandId);
-          const paymentInsert = await ctx.db.insert(payments).values({
-            brandId: ctx.tenant.brandId,
-            orderId: orderRow[0].id,
-            paymentNo,
-            provider: "offline_bank_transfer",
-            paymentScenario: "offline_review",
-            amount: orderRow[0].payableAmount,
-            status: "reviewing",
-            metaJson: {
-              source: "bank_transfer_receipt_upload",
-            },
-          });
-          paymentId = Number(paymentInsert[0].insertId);
-        }
-
-        const receiptInsert = await ctx.db.insert(bankTransferReceipts).values({
+        const result = await submitBankTransferVoucher({
+          db: ctx.db,
           brandId: ctx.tenant.brandId,
-          orderId: orderRow[0].id,
-          paymentId,
-          payerName: input.payerName,
-          payerAccountNo: input.payerAccountNo,
-          receiptFileKey: input.receiptFileKey,
-          receiptFileUrl: input.receiptFileUrl,
-          reviewStatus: "pending",
+          orderId: input.orderId,
+          paymentId: input.paymentId,
+          voucherUrl: input.voucherUrl,
+          remitterName: input.remitterName,
+          remitterAccountLast4: input.remitterAccountLast4,
+          transferReference: input.transferReference,
+          transferAmount: input.transferAmount,
+          notifyAdmin: notifyOwner,
         });
-
-        await ctx.db
-          .update(orders)
-          .set({
-            status: "under_review",
-            paymentStatus: "offline_review",
-            updatedAt: new Date(),
-          })
-          .where(and(eq(orders.id, orderRow[0].id), eq(orders.brandId, ctx.tenant.brandId)));
-
-        await ctx.db
-          .update(payments)
-          .set({
-            status: "reviewing",
-            updatedAt: new Date(),
-          })
-          .where(and(eq(payments.id, paymentId), eq(payments.brandId, ctx.tenant.brandId)));
 
         return {
           tenant: ctx.tenant,
-          order: {
-            id: orderRow[0].id,
-            orderNo: orderRow[0].orderNo,
-            status: "under_review",
-            paymentStatus: "offline_review",
-          },
-          receipt: {
-            id: Number(receiptInsert[0].insertId),
-            paymentId,
-            reviewStatus: "pending",
-            receiptFileUrl: input.receiptFileUrl,
-          },
+          ...result,
+        };
+      }),
+
+    reviewBankTransferReceipt: connectedDbProcedure
+      .input(
+        z.object({
+          orderId: z.coerce.number().int().positive(),
+          paymentId: z.coerce.number().int().positive().optional(),
+          receiptId: z.coerce.number().int().positive().optional(),
+          approved: z.boolean(),
+          reviewedBy: z.coerce.number().int().positive().optional(),
+          reviewNote: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const result = await reviewOrderPayment({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          orderId: input.orderId,
+          paymentId: input.paymentId,
+          receiptId: input.receiptId,
+          approved: input.approved,
+          reviewedBy: input.reviewedBy,
+          reviewNote: input.reviewNote,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          ...result,
         };
       }),
   }),

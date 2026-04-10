@@ -44,3 +44,11 @@
 - [x] 实现上传线下打款凭证 URL 并将订单扭转为待审核状态的接口
 - [x] 为 API Gateway 核心链路编写并运行 Vitest 单元测试
 - [x] 输出 API Gateway Router 结构与接口文档供评审
+- [x] 完善 packages/payments 的微信支付预下单逻辑，兼容信用卡付款能力扩展
+- [x] 完善 packages/oms 的订单创建与对公转账凭证流转逻辑
+- [x] 在 apps/api-gateway 暴露 pim 阶梯定价与 oms 创建订单的 REST/tRPC API
+- [x] 为 apps/api-gateway 增加基于 brandId 的租户校验拦截器
+- [x] 编写并运行 payments、oms 与 api-gateway 核心交易链路测试
+- [x] 输出核心交易链路接口测试文档或测试报告供评审
+- [x] 暂缓微信与支付宝 JSAPI 真实接入，先完成可脱离密钥的交易链路实现
+- [x] 梳理微信支付、支付宝支付及后续回调联调所需的完整 API 清单与参数准备清单

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /admin
+Disallow: /admin/products
+Disallow: /admin/orders
+Disallow: /admin/customers
+Disallow: /admin/content
+Disallow: /admin/seo
+
+Sitemap: /sitemap.xml

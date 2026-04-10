@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -133,7 +135,16 @@ vi.mock("./lib/trpc", () => {
   };
 });
 
-import { AdminContent, AccountPage, CarePage, LabPage, PlatformHome, ShopPage, TechPage } from "./App";
+import {
+  AdminContent,
+  AccountPage,
+  CarePage,
+  LabPage,
+  PlatformHome,
+  ShopPage,
+  TechPage,
+  resolveSeoConfig,
+} from "./App";
 
 function setPathname(pathname: string) {
   Object.defineProperty(globalThis, "location", {
@@ -263,5 +274,53 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("近期订单");
     expect(html).toContain("ORD-1-QUEUE-001");
     expect(html).toContain("审核通过");
+  });
+});
+
+
+describe("seo configuration", () => {
+  it("resolves public route metadata with indexable robots policy", () => {
+    const seo = resolveSeoConfig("/shop");
+
+    expect(seo.title).toContain("B2B 商城系统");
+    expect(seo.description).toContain("企业采购");
+    expect(seo.robots).toBe("index, follow");
+  });
+
+  it("falls back admin sub-routes to noindex console metadata", () => {
+    const seo = resolveSeoConfig("/admin/unknown-module");
+
+    expect(seo.title).toContain("后台总览");
+    expect(seo.robots).toBe("noindex, nofollow");
+  });
+
+  it("falls back unknown public routes to 404 metadata", () => {
+    const seo = resolveSeoConfig("/missing-page");
+
+    expect(seo.title).toContain("页面未找到");
+    expect(seo.robots).toBe("noindex, nofollow");
+  });
+});
+
+describe("seo public assets", () => {
+  it("writes robots.txt with admin exclusion rules and sitemap reference", () => {
+    const robots = fs.readFileSync(path.resolve(import.meta.dirname, "../public/robots.txt"), "utf8");
+
+    expect(robots).toContain("Allow: /");
+    expect(robots).toContain("Disallow: /admin");
+    expect(robots).toContain("Disallow: /account");
+    expect(robots).toContain("Sitemap: /sitemap.xml");
+  });
+
+  it("writes sitemap.xml for the five public entry routes", () => {
+    const sitemap = fs.readFileSync(path.resolve(import.meta.dirname, "../public/sitemap.xml"), "utf8");
+
+    expect(sitemap).toContain("<loc>/</loc>");
+    expect(sitemap).toContain("<loc>/shop</loc>");
+    expect(sitemap).toContain("<loc>/lab</loc>");
+    expect(sitemap).toContain("<loc>/tech</loc>");
+    expect(sitemap).toContain("<loc>/care</loc>");
+    expect(sitemap).not.toContain("/admin");
+    expect(sitemap).not.toContain("/account");
   });
 });

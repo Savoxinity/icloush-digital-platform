@@ -100,6 +100,171 @@ const capabilityNotes = [
   "本轮已落下多站点可浏览前台骨架，下一步继续接入真实商品、客户与订单数据。",
 ];
 
+const routeSeoMap: Record<
+  string,
+  {
+    title: string;
+    description: string;
+    keywords: string;
+    robots?: string;
+    ogType?: "website" | "article";
+  }
+> = {
+  "/": {
+    title: "iCloush Digital Platform｜统一平台总入口",
+    description: "iCloush Digital Platform 统一承接 B2B 商城、iCloush LAB.、环洗朵科技、iCloush Care 与后台中台入口。",
+    keywords: "iCloush, B2B商城, 品牌官网, 酒店洗护, 企业采购",
+    robots: "index, follow",
+    ogType: "website",
+  },
+  "/shop": {
+    title: "B2B 商城系统｜iCloush Digital Platform",
+    description: "浏览专业化学品清洗剂、酒店布草方案与商业空间护理产品，完成企业采购选品、结算与订单跟踪。",
+    keywords: "B2B商城, 企业采购, 酒店布草, 化学品清洗剂, iCloush",
+    robots: "index, follow",
+    ogType: "website",
+  },
+  "/lab": {
+    title: "iCloush LAB.｜研发能力与产品线展示",
+    description: "了解 iCloush LAB. 的研发能力、配方验证流程、产品线方法与商务联系入口。",
+    keywords: "iCloush LAB, 研发能力, 配方验证, 酒店洗护, 品牌官网",
+    robots: "index, follow",
+    ogType: "website",
+  },
+  "/tech": {
+    title: "环洗朵科技｜专业化学品清洗剂与行业方案",
+    description: "环洗朵科技聚焦专业化学品清洗剂、行业解决方案与客户案例，服务酒店、物业与企业场景。",
+    keywords: "环洗朵科技, 化学品清洗剂, 行业解决方案, 酒店清洁, B2B官网",
+    robots: "index, follow",
+    ogType: "website",
+  },
+  "/care": {
+    title: "iCloush Care｜酒店奢护洗涤服务",
+    description: "查看 iCloush Care 的高端酒店洗护服务介绍、合作流程、服务包与在线咨询入口。",
+    keywords: "iCloush Care, 奢护洗涤, 酒店服务, 高端布草护理, 在线咨询",
+    robots: "index, follow",
+    ogType: "website",
+  },
+  "/account": {
+    title: "客户中心｜iCloush Digital Platform",
+    description: "客户中心提供订单进度、结算信息、待办动作与品牌业务跟踪视图。",
+    keywords: "客户中心, 订单跟踪, 结算信息, B2B客户, iCloush",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/admin": {
+    title: "后台总览｜iCloush Console",
+    description: "iCloush Console 统一管理产品、订单、客户、内容与 SEO 的运营入口。",
+    keywords: "iCloush Console, 后台管理, 订单处理, 客户管理, SEO配置",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/admin/products": {
+    title: "产品管理｜iCloush Console",
+    description: "集中维护商品主数据、品牌归属、阶梯定价与上架节奏。",
+    keywords: "产品管理, 商品主数据, 阶梯定价, PIM, iCloush Console",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/admin/orders": {
+    title: "订单处理｜iCloush Console",
+    description: "查看真实订单、审核回单、履约阶段与运营提示，构建后台交易闭环。",
+    keywords: "订单处理, 回单审核, 履约阶段, 后台中台, iCloush Console",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/admin/customers": {
+    title: "客户管理｜iCloush Console",
+    description: "管理企业档案、采购主体、品牌归属与客户跟进动作。",
+    keywords: "客户管理, 企业档案, 品牌归属, 销售跟进, iCloush Console",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/admin/content": {
+    title: "内容发布｜iCloush Console",
+    description: "统一编排商城内容位、品牌官网专题、案例内容与活动落地页。",
+    keywords: "内容发布, 官网专题, 商城内容位, 品牌内容, iCloush Console",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/admin/seo": {
+    title: "SEO 配置｜iCloush Console",
+    description: "统一治理商城与官网的标题模板、结构化内容、robots 与 sitemap 基线。",
+    keywords: "SEO配置, sitemap, robots, 标题模板, iCloush Console",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+  "/404": {
+    title: "页面未找到｜iCloush Digital Platform",
+    description: "请求的页面不存在，请返回 iCloush Digital Platform 的有效站点入口。",
+    keywords: "404, 页面未找到, iCloush",
+    robots: "noindex, nofollow",
+    ogType: "website",
+  },
+};
+
+function upsertMetaTag(attribute: "name" | "property", key: string, content: string) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  let meta = document.head.querySelector(`meta[${attribute}="${key}"]`);
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute(attribute, key);
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute("content", content);
+}
+
+function upsertLinkTag(rel: string, href: string) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  let link = document.head.querySelector(`link[rel="${rel}"]`);
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", rel);
+    document.head.appendChild(link);
+  }
+  link.setAttribute("href", href);
+}
+
+export function resolveSeoConfig(location: string) {
+  return routeSeoMap[location] ?? (location.startsWith("/admin") ? routeSeoMap["/admin"] : routeSeoMap["/404"]);
+}
+
+function SeoController() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+
+    const seo = resolveSeoConfig(location);
+    const canonicalPath = location === "/" ? "/" : location.replace(/\/$/, "");
+    const canonicalUrl = `${window.location.origin}${canonicalPath}`;
+
+    document.title = seo.title;
+    upsertMetaTag("name", "description", seo.description);
+    upsertMetaTag("name", "keywords", seo.keywords);
+    upsertMetaTag("name", "robots", seo.robots ?? "index, follow");
+    upsertMetaTag("property", "og:title", seo.title);
+    upsertMetaTag("property", "og:description", seo.description);
+    upsertMetaTag("property", "og:type", seo.ogType ?? "website");
+    upsertMetaTag("property", "og:url", canonicalUrl);
+    upsertMetaTag("property", "og:site_name", "iCloush Digital Platform");
+    upsertMetaTag("name", "twitter:card", "summary_large_image");
+    upsertMetaTag("name", "twitter:title", seo.title);
+    upsertMetaTag("name", "twitter:description", seo.description);
+    upsertLinkTag("canonical", canonicalUrl);
+  }, [location]);
+
+  return null;
+}
+
 const shopCategories: ShopCategory[] = [
   {
     id: "chemicals",
@@ -2281,6 +2446,7 @@ function App() {
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
+          <SeoController />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

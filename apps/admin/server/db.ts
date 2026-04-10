@@ -7,6 +7,7 @@ import {
   leads,
   orders,
   productCategories,
+  productSkus,
   products,
   users,
 } from "../../../packages/database/schema";
@@ -53,6 +54,47 @@ export type PlatformSnapshot = {
     leadCount: number;
     moduleCount: number;
   };
+};
+
+export type PublicCatalogCategory = {
+  id: number;
+  slug: string;
+  name: string;
+  brandId: number | null;
+  brandCode: string | null;
+  brandName: string | null;
+  productCount: number;
+};
+
+export type PublicCatalogProduct = {
+  id: number;
+  slug: string;
+  name: string;
+  subtitle: string | null;
+  description: string | null;
+  productType: string;
+  status: string;
+  brandId: number;
+  brandCode: string | null;
+  brandName: string;
+  categoryId: number | null;
+  categorySlug: string | null;
+  categoryName: string;
+  unit: string | null;
+  updatedAt: string | null;
+  priceLabel: string;
+  priceValue: number | null;
+  specLabel: string;
+  minimumOrderLabel: string;
+  leadTimeLabel: string;
+  badges: string[];
+};
+
+export type PublicCatalogSnapshot = {
+  generatedAt: string;
+  source: "database" | "fallback";
+  categories: PublicCatalogCategory[];
+  products: PublicCatalogProduct[];
 };
 
 export type AdminScopeSummary = {
@@ -313,6 +355,198 @@ const FALLBACK_BRAND_RECORDS = [
     status: "active",
   },
 ] as const;
+
+const fallbackPublicCatalog: PublicCatalogSnapshot = {
+  generatedAt: new Date("2026-04-11T00:00:00.000Z").toISOString(),
+  source: "fallback",
+  categories: [
+    {
+      id: 201,
+      slug: "hotel-laundry",
+      name: "酒店布草清洁",
+      brandId: 1,
+      brandCode: "huanxiduo",
+      brandName: "环洗朵科技",
+      productCount: 2,
+    },
+    {
+      id: 202,
+      slug: "lab-formulation",
+      name: "研发与配方支持",
+      brandId: 2,
+      brandCode: "icloush-lab",
+      brandName: "iCloush LAB.",
+      productCount: 2,
+    },
+    {
+      id: 203,
+      slug: "care-service",
+      name: "织物奢护服务",
+      brandId: 3,
+      brandCode: "icloush-care",
+      brandName: "iCloush Care",
+      productCount: 1,
+    },
+  ],
+  products: [
+    {
+      id: 301,
+      slug: "hx-wash-pro",
+      name: "高浓缩织物洁净剂",
+      subtitle: "适用于酒店布草与高频周转洗涤场景",
+      description: "兼顾去渍力、低泡与机器兼容性，适合集中化洗衣房。",
+      productType: "physical",
+      status: "active",
+      brandId: 1,
+      brandCode: "huanxiduo",
+      brandName: "环洗朵科技",
+      categoryId: 201,
+      categorySlug: "hotel-laundry",
+      categoryName: "酒店布草清洁",
+      unit: "桶",
+      updatedAt: new Date("2026-04-10T09:00:00.000Z").toISOString(),
+      priceLabel: "商务询价",
+      priceValue: null,
+      specLabel: "20kg / 桶",
+      minimumOrderLabel: "1 桶起订",
+      leadTimeLabel: "支持项目制交付排期",
+      badges: ["酒店场景", "低泡配方", "企业采购"],
+    },
+    {
+      id: 302,
+      slug: "hx-surface-cleaner",
+      name: "玻璃与硬表面专业清洁剂",
+      subtitle: "适合客房与公区多表面维护",
+      description: "针对玻璃、镜面与硬质台面形成高效快干清洁流程。",
+      productType: "physical",
+      status: "active",
+      brandId: 1,
+      brandCode: "huanxiduo",
+      brandName: "环洗朵科技",
+      categoryId: 201,
+      categorySlug: "hotel-laundry",
+      categoryName: "酒店布草清洁",
+      unit: "箱",
+      updatedAt: new Date("2026-04-10T10:00:00.000Z").toISOString(),
+      priceLabel: "商务询价",
+      priceValue: null,
+      specLabel: "6 瓶 / 箱",
+      minimumOrderLabel: "1 箱起订",
+      leadTimeLabel: "华东仓 3-5 个工作日",
+      badges: ["快干", "客房保洁", "企业采购"],
+    },
+    {
+      id: 303,
+      slug: "lab-soft-care",
+      name: "布草柔护增艳剂",
+      subtitle: "LAB 配方研发与柔护升级方案",
+      description: "面向高端酒店布草柔顺、增艳与触感优化。",
+      productType: "physical",
+      status: "active",
+      brandId: 2,
+      brandCode: "icloush-lab",
+      brandName: "iCloush LAB.",
+      categoryId: 202,
+      categorySlug: "lab-formulation",
+      categoryName: "研发与配方支持",
+      unit: "桶",
+      updatedAt: new Date("2026-04-10T11:00:00.000Z").toISOString(),
+      priceLabel: "¥1,280 / 桶",
+      priceValue: 128000,
+      specLabel: "25kg / 桶",
+      minimumOrderLabel: "2 桶起订",
+      leadTimeLabel: "样品可先行测试",
+      badges: ["研发背书", "样品试用", "柔护升级"],
+    },
+    {
+      id: 304,
+      slug: "lab-pilot-service",
+      name: "配方打样与场景验证",
+      subtitle: "为新项目提供样品测试与配方验证流程",
+      description: "支持场景访谈、样品打样与现场验证，帮助品牌快速形成可复制方案。",
+      productType: "service",
+      status: "active",
+      brandId: 2,
+      brandCode: "icloush-lab",
+      brandName: "iCloush LAB.",
+      categoryId: 202,
+      categorySlug: "lab-formulation",
+      categoryName: "研发与配方支持",
+      unit: null,
+      updatedAt: new Date("2026-04-10T12:00:00.000Z").toISOString(),
+      priceLabel: "按项目报价",
+      priceValue: null,
+      specLabel: "顾问服务包",
+      minimumOrderLabel: "支持需求沟通后定制",
+      leadTimeLabel: "1 个工作日内响应",
+      badges: ["服务型", "顾问支持", "项目制"],
+    },
+    {
+      id: 305,
+      slug: "care-premium-program",
+      name: "酒店织物奢护组合",
+      subtitle: "面向高端住客体验的织物奢护服务",
+      description: "提供织物现状评估、护理建议与服务方案落地。",
+      productType: "service",
+      status: "active",
+      brandId: 3,
+      brandCode: "icloush-care",
+      brandName: "iCloush Care",
+      categoryId: 203,
+      categorySlug: "care-service",
+      categoryName: "织物奢护服务",
+      unit: null,
+      updatedAt: new Date("2026-04-10T13:00:00.000Z").toISOString(),
+      priceLabel: "顾问报价",
+      priceValue: null,
+      specLabel: "项目制服务",
+      minimumOrderLabel: "支持现场评估后报价",
+      leadTimeLabel: "预约后 48 小时内回访",
+      badges: ["奢护服务", "高端酒店", "顾问交付"],
+    },
+  ],
+};
+
+function formatMoneyLabel(amount: number | null | undefined, unit: string | null | undefined) {
+  if (typeof amount !== "number" || Number.isNaN(amount) || amount <= 0) {
+    return "商务询价";
+  }
+
+  const value = amount / 100;
+  const formatted = new Intl.NumberFormat("zh-CN", {
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+  return unit ? `¥${formatted} / ${unit}` : `¥${formatted}`;
+}
+
+function summarizeDescription(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.length > 72 ? `${normalized.slice(0, 69)}...` : normalized;
+}
+
+function buildCatalogBadges(params: { productType: string; brandName: string; categoryName: string; hasPrice: boolean }) {
+  const badges = new Set<string>();
+  badges.add(params.brandName);
+  badges.add(params.categoryName);
+  badges.add(params.productType === "service" ? "方案服务" : "在售产品");
+  if (params.hasPrice) {
+    badges.add("价格已同步");
+  } else {
+    badges.add("支持商务询价");
+  }
+
+  return Array.from(badges).slice(0, 3);
+}
 
 const fallbackPlatformSnapshot: PlatformSnapshot = {
   generatedAt: new Date("2026-04-11T00:00:00.000Z").toISOString(),
@@ -743,6 +977,187 @@ export async function getUserByOpenId(openId: string) {
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
 
   return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
+  const db = await getDb();
+  if (!db) {
+    return fallbackPublicCatalog;
+  }
+
+  try {
+    const [brandRecords, categoryRecords, productRecords, skuRecords] = await Promise.all([
+      db
+        .select({
+          id: brands.id,
+          code: brands.code,
+          name: brands.name,
+          status: brands.status,
+        })
+        .from(brands),
+      db
+        .select({
+          id: productCategories.id,
+          brandId: productCategories.brandId,
+          slug: productCategories.slug,
+          name: productCategories.name,
+          status: productCategories.status,
+        })
+        .from(productCategories),
+      db
+        .select({
+          id: products.id,
+          brandId: products.brandId,
+          categoryId: products.categoryId,
+          slug: products.slug,
+          name: products.name,
+          subtitle: products.subtitle,
+          description: products.description,
+          productType: products.productType,
+          status: products.status,
+          unit: products.unit,
+          updatedAt: products.updatedAt,
+        })
+        .from(products)
+        .orderBy(desc(products.updatedAt))
+        .limit(240),
+      db
+        .select({
+          productId: productSkus.productId,
+          basePrice: productSkus.basePrice,
+          specName: productSkus.specName,
+          packSize: productSkus.packSize,
+          minOrderQty: productSkus.minOrderQty,
+          stockQty: productSkus.stockQty,
+          status: productSkus.status,
+          updatedAt: productSkus.updatedAt,
+        })
+        .from(productSkus)
+        .orderBy(desc(productSkus.updatedAt))
+        .limit(360),
+    ]);
+
+    const activeBrands = brandRecords.filter((record) => record.status === "active");
+    const usableBrands = activeBrands.length > 0 ? activeBrands : brandRecords;
+    const brandMap = new Map(usableBrands.map((record) => [record.id, record]));
+
+    const activeCategories = categoryRecords.filter(
+      (record) => record.status === "active" && brandMap.has(record.brandId),
+    );
+    const activeProducts = productRecords.filter(
+      (record) => ACTIVE_PRODUCT_STATUSES.has(record.status) && brandMap.has(record.brandId),
+    );
+
+    if (activeProducts.length === 0) {
+      return fallbackPublicCatalog;
+    }
+
+    const categoryMap = new Map(activeCategories.map((record) => [record.id, record]));
+    const skuMap = new Map<number, (typeof skuRecords)[number]>();
+    for (const sku of skuRecords) {
+      if (sku.status !== "active" || skuMap.has(sku.productId)) {
+        continue;
+      }
+      skuMap.set(sku.productId, sku);
+    }
+
+    const categorizedCounts = new Map<number, number>();
+    for (const product of activeProducts) {
+      if (product.categoryId && categoryMap.has(product.categoryId)) {
+        categorizedCounts.set(product.categoryId, (categorizedCounts.get(product.categoryId) ?? 0) + 1);
+      }
+    }
+
+    const categories: PublicCatalogCategory[] = activeCategories
+      .map((record) => ({
+        id: record.id,
+        slug: record.slug,
+        name: record.name,
+        brandId: record.brandId,
+        brandCode: brandMap.get(record.brandId)?.code ?? null,
+        brandName: brandMap.get(record.brandId)?.name ?? null,
+        productCount: categorizedCounts.get(record.id) ?? 0,
+      }))
+      .filter((record) => record.productCount > 0)
+      .sort((left, right) => right.productCount - left.productCount || left.name.localeCompare(right.name, "zh-CN"));
+
+    const uncategorizedCount = activeProducts.filter(
+      (record) => !record.categoryId || !categoryMap.has(record.categoryId),
+    ).length;
+    if (uncategorizedCount > 0) {
+      categories.push({
+        id: 0,
+        slug: "uncategorized",
+        name: "未分类方案",
+        brandId: null,
+        brandCode: null,
+        brandName: null,
+        productCount: uncategorizedCount,
+      });
+    }
+
+    const productsSnapshot: PublicCatalogProduct[] = activeProducts
+      .map((record) => {
+        const brand = brandMap.get(record.brandId);
+        const category = record.categoryId ? categoryMap.get(record.categoryId) : null;
+        const sku = skuMap.get(record.id);
+        const unitLabel = record.unit?.trim() || sku?.packSize?.trim() || sku?.specName?.trim() || null;
+        const priceValue = typeof sku?.basePrice === "number" ? sku.basePrice : null;
+        const specLabel = sku?.packSize?.trim() || sku?.specName?.trim() || unitLabel || "标准规格";
+        const minimumOrderLabel = `${Math.max(sku?.minOrderQty ?? 1, 1)} ${record.unit?.trim() || "件"}起订`;
+        const leadTimeLabel =
+          record.productType === "service"
+            ? "顾问确认后安排交付节奏"
+            : (sku?.stockQty ?? 0) > 0
+              ? "库存可售，预计 3-5 个工作日发货"
+              : "排产与物流时效需业务确认";
+
+        return {
+          id: record.id,
+          slug: record.slug,
+          name: record.name,
+          subtitle: record.subtitle,
+          description: summarizeDescription(record.description),
+          productType: record.productType,
+          status: record.status,
+          brandId: record.brandId,
+          brandCode: brand?.code ?? null,
+          brandName: brand?.name ?? "未命名品牌",
+          categoryId: category?.id ?? null,
+          categorySlug: category?.slug ?? "uncategorized",
+          categoryName: category?.name ?? "未分类方案",
+          unit: record.unit,
+          updatedAt: toIsoString(record.updatedAt),
+          priceLabel: formatMoneyLabel(priceValue, record.unit),
+          priceValue,
+          specLabel,
+          minimumOrderLabel,
+          leadTimeLabel,
+          badges: buildCatalogBadges({
+            productType: record.productType,
+            brandName: brand?.name ?? "未命名品牌",
+            categoryName: category?.name ?? "未分类方案",
+            hasPrice: typeof priceValue === "number" && priceValue > 0,
+          }),
+        } satisfies PublicCatalogProduct;
+      })
+      .sort((left, right) => {
+        if (!left.updatedAt || !right.updatedAt) {
+          return right.id - left.id;
+        }
+        return right.updatedAt.localeCompare(left.updatedAt);
+      });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "database",
+      categories,
+      products: productsSnapshot,
+    };
+  } catch (error) {
+    console.warn("[Database] Failed to build public catalog:", error);
+    return fallbackPublicCatalog;
+  }
 }
 
 export async function getPlatformSnapshot(): Promise<PlatformSnapshot> {

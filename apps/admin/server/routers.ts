@@ -11,7 +11,7 @@ import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { getAdminOperationsSnapshot, getDb, getPlatformSnapshot } from "./db";
+import { getAdminOperationsSnapshot, getDb, getPlatformSnapshot, getPublicCatalog } from "./db";
 
 const orderStatusSchema = z.enum([
   "pending_payment",
@@ -139,6 +139,9 @@ export const appRouter = router({
   platform: router({
     snapshot: publicProcedure.query(async () => {
       return getPlatformSnapshot();
+    }),
+    catalog: publicProcedure.query(async () => {
+      return getPublicCatalog();
     }),
   }),
   admin: router({

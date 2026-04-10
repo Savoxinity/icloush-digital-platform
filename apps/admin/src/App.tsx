@@ -29,6 +29,7 @@ import { useAuth } from "./_core/hooks/useAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import NotFound from "./pages/NotFound";
+import type { PublicCatalogSnapshot } from "../server/db";
 
 type SiteEntry = {
   title: string;
@@ -1048,6 +1049,68 @@ export function formatMetricValue(value: number | undefined, suffix: string, sta
   return emptyLabel;
 }
 
+export function resolveCatalogState(
+  snapshot: PublicCatalogSnapshot | undefined,
+  isLoading: boolean,
+  isError: boolean,
+): SnapshotState {
+  if (isLoading) {
+    return "loading";
+  }
+
+  if (isError) {
+    return "error";
+  }
+
+  if (!snapshot) {
+    return "empty";
+  }
+
+  return snapshot.categories.length === 0 && snapshot.products.length === 0 ? "empty" : "ready";
+}
+
+type CatalogSourceCode = PublicCatalogSnapshot["source"] | "loading" | "error";
+
+export function getCatalogSourceCode(snapshot: PublicCatalogSnapshot | undefined, state: SnapshotState): CatalogSourceCode {
+  if (snapshot?.source) {
+    return snapshot.source;
+  }
+
+  if (state === "loading") {
+    return "loading";
+  }
+
+  return state === "error" ? "error" : "database";
+}
+
+export function mapCatalogCategories(snapshot: PublicCatalogSnapshot | undefined): ShopCategory[] {
+  return (snapshot?.categories ?? []).map((category) => ({
+    id: category.slug,
+    label: category.name,
+    note: category.brandName
+      ? `${category.brandName} · ${category.productCount} 个可浏览商品`
+      : `${category.productCount} 个可浏览商品`,
+  }));
+}
+
+export function mapCatalogProducts(snapshot: PublicCatalogSnapshot | undefined): ShopProduct[] {
+  return (snapshot?.products ?? []).map((product) => ({
+    id: product.slug || String(product.id),
+    name: product.name,
+    brand: product.brandName,
+    categoryId: product.categorySlug ?? "uncategorized",
+    spec: product.specLabel,
+    usage: product.description ?? product.subtitle ?? `${product.categoryName} · ${product.productType}`,
+    moq: product.minimumOrderLabel,
+    leadTime: product.leadTimeLabel,
+    price: product.priceLabel,
+    pricingHint:
+      product.subtitle ??
+      (product.priceValue !== null ? "支持企业协议价与按量报价" : "支持项目报价与顾问跟进"),
+    badges: product.badges.length > 0 ? product.badges : [product.productType, product.status],
+  }));
+}
+
 function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
   if (snapshotState === "loading") {
     return [
@@ -1544,30 +1607,49 @@ export function PlatformHome() {
   );
 }
 
-export function ShopPage() {
+export function ShopPage({ initialCategory }: { initialCategory?: string } = {}) {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const catalogQuery = trpc.platform.catalog.useQuery();
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
+  const catalogSnapshot = catalogQuery.data as PublicCatalogSnapshot | undefined;
   const shopSnapshot = getSiteSnapshot(platformSnapshot, "shop");
   const shopSnapshotState = resolveSnapshotState(shopSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
-  const [activeCategory, setActiveCategory] = useState<string>(shopCategories[0]?.id ?? "chemicals");
+  const catalogState = resolveCatalogState(catalogSnapshot, catalogQuery.isLoading, catalogQuery.isError);
+  const catalogSourceCode = getCatalogSourceCode(catalogSnapshot, catalogState);
+  const catalogCategories = useMemo<ShopCategory[]>(() => mapCatalogCategories(catalogSnapshot), [catalogSnapshot]);
+  const catalogProducts = useMemo<ShopProduct[]>(() => mapCatalogProducts(catalogSnapshot), [catalogSnapshot]);
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory ?? catalogCategories[0]?.id ?? "");
   const [cart, setCart] = useState<Record<string, number>>({});
 
+  useEffect(() => {
+    if (!catalogCategories.some((category) => category.id === activeCategory)) {
+      setActiveCategory(catalogCategories[0]?.id ?? "");
+    }
+  }, [activeCategory, catalogCategories]);
+
   const filteredProducts = useMemo(
-    () => shopProducts.filter((product) => product.categoryId === activeCategory),
-    [activeCategory],
+    () => (activeCategory ? catalogProducts.filter((product) => product.categoryId === activeCategory) : catalogProducts),
+    [activeCategory, catalogProducts],
   );
 
   const cartCount = useMemo(() => Object.values(cart).reduce((sum, count) => sum + count, 0), [cart]);
 
   const selectedProducts = useMemo(
-    () => shopProducts.filter((product) => (cart[product.id] ?? 0) > 0),
-    [cart],
+    () => catalogProducts.filter((product) => (cart[product.id] ?? 0) > 0),
+    [cart, catalogProducts],
   );
 
   const activeCategoryMeta = useMemo(
-    () => shopCategories.find((category) => category.id === activeCategory) ?? shopCategories[0],
-    [activeCategory],
+    () => catalogCategories.find((category) => category.id === activeCategory) ?? catalogCategories[0],
+    [activeCategory, catalogCategories],
   );
+
+  const catalogSourceBadgeClassName =
+    catalogSourceCode === "database"
+      ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
+      : catalogSourceCode === "fallback"
+        ? "border-amber-300/40 bg-amber-300/10 text-amber-100"
+        : "border-slate-300/20 bg-slate-300/10 text-slate-200";
 
   const addToCart = (productId: string) => {
     setCart((current) => ({
@@ -1688,83 +1770,136 @@ export function ShopPage() {
 
         <section className="mt-16 grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
           <div>
-            <div className="flex items-end justify-between gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Category browser</p>
                 <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">分类浏览与产品选品</h2>
               </div>
-              <div className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300">
-                当前分类：{activeCategoryMeta?.label}
+              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                <div className={`rounded-full border px-4 py-2 text-sm ${catalogSourceBadgeClassName}`}>
+                  目录来源：{catalogSourceCode}
+                </div>
+                <div className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300">
+                  当前分类：{activeCategoryMeta?.label ?? (catalogState === "empty" ? "暂无可选分类" : "等待分类同步")}
+                </div>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {shopCategories.map((category) => {
-                const isActive = category.id === activeCategory;
-                return (
+            <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-7 text-slate-300">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  {catalogState === "loading"
+                    ? "商城目录正在同步，分类与商品列表会在公开查询返回后自动刷新。"
+                    : catalogState === "error"
+                      ? "商城目录读取失败，当前不会再用本地静态样例冒充真实在线商品，请使用重试按钮重新拉取目录。"
+                      : catalogSnapshot?.source === "fallback"
+                        ? "当前展示的是 fallback 样例目录，用于在数据库不可用时维持可浏览结构；恢复后会自动切回真实数据。"
+                        : catalogState === "empty"
+                          ? "目录查询已命中 database，但当前品牌下还没有可浏览的真实目录数据，待商品与分类建档后会自动出现。"
+                          : "商城目录已接入真实公开查询，分类、商品与品牌信息会随数据库内容同步更新。"}
+                </p>
+                {catalogState === "error" ? (
                   <button
-                    key={category.id}
                     type="button"
-                    onClick={() => setActiveCategory(category.id)}
-                    className={`rounded-[1.75rem] border p-5 text-left transition ${
-                      isActive
-                        ? "border-sky-400/60 bg-sky-400/12 shadow-[0_20px_60px_rgba(14,165,233,0.16)]"
-                        : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8"
-                    }`}
+                    onClick={() => catalogQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white transition hover:border-white/40 hover:bg-white/10"
                   >
-                    <p className="font-medium text-white">{category.label}</p>
-                    <p className="mt-3 text-sm leading-7 text-slate-400">{category.note}</p>
+                    重试目录同步
                   </button>
-                );
-              })}
+                ) : null}
+              </div>
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-2">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_20px_80px_rgba(2,6,23,0.18)]"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{product.brand}</p>
-                      <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white">{product.name}</h3>
-                    </div>
-                    <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">{product.spec}</div>
-                  </div>
-                  <p className="mt-4 text-sm leading-7 text-slate-300">适用场景：{product.usage}</p>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-3xl bg-black/10 p-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">起订量</p>
-                      <p className="mt-2 font-medium text-white">{product.moq}</p>
-                    </div>
-                    <div className="rounded-3xl bg-black/10 p-4 text-sm text-slate-300">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">交期</p>
-                      <p className="mt-2 font-medium text-white">{product.leadTime}</p>
-                    </div>
-                  </div>
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {product.badges.map((badge) => (
-                      <span key={badge} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-6 flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-slate-400">{product.pricingHint}</p>
-                      <p className="mt-1 text-xl font-semibold text-white">{product.price}</p>
-                    </div>
+            {catalogCategories.length === 0 ? (
+              <div className="mt-6 rounded-[1.75rem] border border-dashed border-white/15 bg-white/5 p-6 text-sm leading-7 text-slate-300">
+                {catalogState === "loading"
+                  ? "分类目录仍在准备中，稍后会自动展示可切换的分类卡片。"
+                  : catalogState === "error"
+                    ? "本次目录读取失败，因此暂不展示分类按钮；请先重试目录同步。"
+                    : "当前还没有可浏览的真实目录分类。完成品牌、分类与商品建档后，这里会自动出现可切换目录。"}
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {catalogCategories.map((category) => {
+                  const isActive = category.id === activeCategory;
+                  return (
                     <button
+                      key={category.id}
                       type="button"
-                      onClick={() => addToCart(product.id)}
-                      className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
+                      onClick={() => setActiveCategory(category.id)}
+                      className={`rounded-[1.75rem] border p-5 text-left transition ${
+                        isActive
+                          ? "border-sky-400/60 bg-sky-400/12 shadow-[0_20px_60px_rgba(14,165,233,0.16)]"
+                          : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8"
+                      }`}
                     >
-                      加入购物车
+                      <p className="font-medium text-white">{category.label}</p>
+                      <p className="mt-3 text-sm leading-7 text-slate-400">{category.note}</p>
                     </button>
-                  </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              {filteredProducts.length === 0 ? (
+                <div className="rounded-[2rem] border border-dashed border-white/15 bg-white/5 p-8 text-sm leading-7 text-slate-300 lg:col-span-2">
+                  当前分类下暂时没有可展示的商品。
+                  {catalogState === "error"
+                    ? " 请先重试目录同步，确认公开查询恢复后再继续选品。"
+                    : catalogState === "empty"
+                      ? " 当前还没有可浏览的真实目录数据，待商品建档完成后会自动出现在这里。"
+                      : catalogState === "ready"
+                        ? " 你可以切换其他分类，或等待后台完成该品类的商品建档与上架。"
+                        : " 商品目录正在准备中，稍后重试即可看到可浏览条目。"}
                 </div>
-              ))}
+              ) : (
+                filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-[0_20px_80px_rgba(2,6,23,0.18)]"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{product.brand}</p>
+                        <h3 className="mt-3 text-2xl font-semibold tracking-tight text-white">{product.name}</h3>
+                      </div>
+                      <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-slate-300">{product.spec}</div>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-300">适用场景：{product.usage}</p>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-3xl bg-black/10 p-4 text-sm text-slate-300">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">起订量</p>
+                        <p className="mt-2 font-medium text-white">{product.moq}</p>
+                      </div>
+                      <div className="rounded-3xl bg-black/10 p-4 text-sm text-slate-300">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">交期</p>
+                        <p className="mt-2 font-medium text-white">{product.leadTime}</p>
+                      </div>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {product.badges.map((badge) => (
+                        <span key={badge} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-6 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm text-slate-400">{product.pricingHint}</p>
+                        <p className="mt-1 text-xl font-semibold text-white">{product.price}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(product.id)}
+                        className="inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
+                      >
+                        加入购物车
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

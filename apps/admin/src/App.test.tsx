@@ -18,7 +18,9 @@ vi.mock("./lib/trpc", () => {
     useQuery: () => ({
       data,
       isLoading: false,
+      isError: false,
       error: null,
+      refetch: vi.fn(),
     }),
   });
 
@@ -104,6 +106,68 @@ vi.mock("./lib/trpc", () => {
             leadCount: 5,
             moduleCount: 6,
           },
+        }),
+        catalog: createQuery({
+          source: "database",
+          generatedAt: "2026-04-10T18:00:00.000Z",
+          categories: [
+            {
+              id: 201,
+              slug: "chemicals",
+              name: "专业清洁剂",
+              brandCode: "tech",
+              brandName: "环洗朵科技",
+              productCount: 2,
+            },
+            {
+              id: 202,
+              slug: "lab-consumables",
+              name: "实验室耗材",
+              brandCode: "lab",
+              brandName: "iCloush LAB.",
+              productCount: 1,
+            },
+          ],
+          products: [
+            {
+              id: 301,
+              slug: "surface-cleaner-pro",
+              name: "硬表面清洁浓缩液",
+              brandCode: "tech",
+              brandName: "环洗朵科技",
+              categorySlug: "chemicals",
+              categoryName: "专业清洁剂",
+              subtitle: "适用于物业、商办与公共空间。",
+              description: "支持高频清洁与标准化替换。",
+              productType: "sku",
+              status: "active",
+              specLabel: "4L / 桶",
+              minimumOrderLabel: "20 桶起订",
+              leadTimeLabel: "5-7 个工作日",
+              priceLabel: "项目报价",
+              priceValue: null,
+              badges: ["商办空间", "可追溯批次"],
+            },
+            {
+              id: 302,
+              slug: "lab-rinse-kit",
+              name: "实验室净洗试剂组套",
+              brandCode: "lab",
+              brandName: "iCloush LAB.",
+              categorySlug: "lab-consumables",
+              categoryName: "实验室耗材",
+              subtitle: "用于实验室验证与样板测试。",
+              description: "覆盖配方验证与净洗测试流程。",
+              productType: "solution",
+              status: "active",
+              specLabel: "Starter Kit",
+              minimumOrderLabel: "1 套起订",
+              leadTimeLabel: "顾问确认后排期",
+              priceLabel: "顾问报价",
+              priceValue: null,
+              badges: ["顾问式交付", "实验室验证"],
+            },
+          ],
         }),
       },
       admin: {
@@ -384,6 +448,10 @@ import {
   TechPage,
   buildHomepageEntrySnapshots,
   formatMetricValue,
+  getCatalogSourceCode,
+  mapCatalogCategories,
+  mapCatalogProducts,
+  resolveCatalogState,
   resolveSeoConfig,
   resolveSnapshotState,
 } from "./App";
@@ -394,6 +462,18 @@ function setPathname(pathname: string) {
     value: { pathname, search: "", hash: "" },
     configurable: true,
   });
+}
+
+function withCatalogQueryOverride(useQuery: () => unknown, run: () => void) {
+  const catalogQuery = trpc.platform.catalog as { useQuery: () => unknown };
+  const originalUseQuery = catalogQuery.useQuery;
+  catalogQuery.useQuery = useQuery;
+
+  try {
+    run();
+  } finally {
+    catalogQuery.useQuery = originalUseQuery;
+  }
 }
 
 Object.defineProperty(globalThis, "history", {
@@ -436,6 +516,10 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("5 个已接入");
     expect(html).toContain("3 类可浏览");
     expect(html).toContain("2 笔待推进");
+    expect(html).toContain("目录来源：database");
+    expect(html).toContain("硬表面清洁浓缩液");
+    expect(html).toContain('href="/account"');
+    expect(html).toContain('href="/admin/orders"');
   });
 
   it("renders lab site skeleton with service-oriented messaging", () => {
@@ -564,6 +648,221 @@ describe("homepage snapshot state helpers", () => {
     expect(formatMetricValue(undefined, "个", "loading")).toBe("同步中");
     expect(formatMetricValue(undefined, "个", "error")).toBe("暂不可用");
     expect(formatMetricValue(6, "个", "ready")).toBe("6 个");
+  });
+});
+
+describe("shop catalog state coverage", () => {
+  it("filters products by the requested category and preserves catalog entry links", () => {
+    setPathname("/shop");
+    const defaultHtml = renderToStaticMarkup(<ShopPage />);
+    const labHtml = renderToStaticMarkup(<ShopPage initialCategory="lab-consumables" />);
+
+    expect(defaultHtml).toContain("目录来源：database");
+    expect(defaultHtml).toContain("硬表面清洁浓缩液");
+    expect(defaultHtml).not.toContain("实验室净洗试剂组套");
+    expect(defaultHtml).toContain('href="/"');
+    expect(defaultHtml).toContain('href="/account"');
+    expect(defaultHtml).toContain('href="/admin/orders"');
+    expect(labHtml).toContain("当前分类：实验室耗材");
+    expect(labHtml).toContain("实验室净洗试剂组套");
+    expect(labHtml).not.toContain("硬表面清洁浓缩液");
+  });
+
+  it("renders loading state without falling back to local sample categories", () => {
+    setPathname("/shop");
+
+    withCatalogQueryOverride(
+      () => ({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<ShopPage />);
+
+        expect(html).toContain("目录来源：loading");
+        expect(html).toContain("商城目录正在同步");
+        expect(html).toContain("分类目录仍在准备中");
+        expect(html).not.toContain("专业清洁剂");
+        expect(html).not.toContain("硬表面清洁浓缩液");
+      },
+    );
+  });
+
+  it("renders explicit empty-state copy for a database-backed empty catalog", () => {
+    setPathname("/shop");
+
+    withCatalogQueryOverride(
+      () => ({
+        data: {
+          source: "database",
+          generatedAt: "2026-04-11T02:00:00.000Z",
+          categories: [],
+          products: [],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<ShopPage />);
+
+        expect(html).toContain("目录来源：database");
+        expect(html).toContain("暂无可选分类");
+        expect(html).toContain("当前还没有可浏览的真实目录分类");
+        expect(html).toContain("当前还没有可浏览的真实目录数据");
+        expect(html).not.toContain("专业清洁剂");
+        expect(html).not.toContain("硬表面清洁浓缩液");
+      },
+    );
+  });
+
+  it("renders fallback catalog source explicitly when server supplies sample data", () => {
+    setPathname("/shop");
+
+    withCatalogQueryOverride(
+      () => ({
+        data: {
+          source: "fallback",
+          generatedAt: "2026-04-11T02:10:00.000Z",
+          categories: [
+            {
+              id: 901,
+              slug: "fallback-kit",
+              name: "Fallback 样例分类",
+              brandCode: "care",
+              brandName: "iCloush Care",
+              productCount: 1,
+            },
+          ],
+          products: [
+            {
+              id: 902,
+              slug: "fallback-service-kit",
+              name: "Fallback 服务组合",
+              brandCode: "care",
+              brandName: "iCloush Care",
+              categorySlug: "fallback-kit",
+              categoryName: "Fallback 样例分类",
+              subtitle: "用于数据库不可用时的浏览演示。",
+              description: "仅在后端显式声明 fallback 来源时展示。",
+              productType: "service",
+              status: "active",
+              specLabel: "Consulting Kit",
+              minimumOrderLabel: "1 组起订",
+              leadTimeLabel: "恢复后切回真实目录",
+              priceLabel: "顾问报价",
+              priceValue: null,
+              badges: ["fallback", "演示结构"],
+            },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<ShopPage />);
+
+        expect(html).toContain("目录来源：fallback");
+        expect(html).toContain("fallback 样例目录");
+        expect(html).toContain("Fallback 样例分类");
+        expect(html).toContain("Fallback 服务组合");
+      },
+    );
+  });
+
+  it("renders retry affordance when catalog query fails", () => {
+    setPathname("/shop");
+
+    withCatalogQueryOverride(
+      () => ({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        error: new Error("商城目录读取失败"),
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<ShopPage />);
+
+        expect(html).toContain("目录来源：error");
+        expect(html).toContain("商城目录读取失败");
+        expect(html).toContain("重试目录同步");
+        expect(html).toContain("暂不展示分类按钮");
+        expect(html).not.toContain("专业清洁剂");
+      },
+    );
+  });
+
+  it("exposes catalog state helper outputs for database, fallback and empty snapshots", () => {
+    const emptySnapshot = {
+      source: "database",
+      generatedAt: "2026-04-11T02:20:00.000Z",
+      categories: [],
+      products: [],
+    } as const;
+    const fallbackSnapshot = {
+      source: "fallback",
+      generatedAt: "2026-04-11T02:25:00.000Z",
+      categories: [
+        {
+          id: 1,
+          slug: "fallback-kit",
+          name: "Fallback 样例分类",
+          brandCode: "care",
+          brandName: "iCloush Care",
+          productCount: 1,
+        },
+      ],
+      products: [
+        {
+          id: 2,
+          slug: "fallback-service-kit",
+          name: "Fallback 服务组合",
+          brandCode: "care",
+          brandName: "iCloush Care",
+          categorySlug: "fallback-kit",
+          categoryName: "Fallback 样例分类",
+          subtitle: "用于数据库不可用时的浏览演示。",
+          description: "仅在后端显式声明 fallback 来源时展示。",
+          productType: "service",
+          status: "active",
+          specLabel: "Consulting Kit",
+          minimumOrderLabel: "1 组起订",
+          leadTimeLabel: "恢复后切回真实目录",
+          priceLabel: "顾问报价",
+          priceValue: null,
+          badges: ["fallback", "演示结构"],
+        },
+      ],
+    } as const;
+
+    expect(resolveCatalogState(undefined, true, false)).toBe("loading");
+    expect(resolveCatalogState(undefined, false, true)).toBe("error");
+    expect(resolveCatalogState(emptySnapshot, false, false)).toBe("empty");
+    expect(resolveCatalogState(fallbackSnapshot, false, false)).toBe("ready");
+    expect(getCatalogSourceCode(fallbackSnapshot, "ready")).toBe("fallback");
+    expect(getCatalogSourceCode(undefined, "loading")).toBe("loading");
+    expect(mapCatalogCategories(emptySnapshot)).toEqual([]);
+    expect(mapCatalogProducts(emptySnapshot)).toEqual([]);
+    expect(mapCatalogCategories(fallbackSnapshot)).toEqual([
+      {
+        id: "fallback-kit",
+        label: "Fallback 样例分类",
+        note: "iCloush Care · 1 个可浏览商品",
+      },
+    ]);
+    expect(mapCatalogProducts(fallbackSnapshot)[0]).toMatchObject({
+      id: "fallback-service-kit",
+      categoryId: "fallback-kit",
+      brand: "iCloush Care",
+      name: "Fallback 服务组合",
+    });
   });
 });
 

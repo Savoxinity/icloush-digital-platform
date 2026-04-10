@@ -130,6 +130,70 @@ describe("api-gateway helper integration", () => {
     detailSpy.mockRestore();
   });
 
+  it("queries order review queue through OMS with tenant brand context", async () => {
+    const reviewQueueSpy = vi.spyOn(omsModule, "listOrderReviewQueue").mockResolvedValue({
+      total: 1,
+      records: [
+        {
+          order: {
+            id: 101,
+            orderNo: "ORD-20260410-001",
+            status: "under_review",
+            paymentStatus: "offline_review",
+            fulfillmentStatus: "unfulfilled",
+            currency: "CNY",
+            payableAmount: 6800,
+            totalAmount: 6800,
+            itemCount: 1,
+            totalQuantity: 5,
+            itemPreview: [],
+            latestPayment: null,
+            latestReceipt: null,
+          },
+          payment: {
+            id: 301,
+            orderId: 101,
+            provider: "offline_bank_transfer",
+            status: "reviewing",
+          },
+          receipt: {
+            id: 401,
+            orderId: 101,
+            paymentId: 301,
+            reviewStatus: "pending",
+          },
+          reviewStatus: "pending",
+          reviewStage: "awaiting_finance_review",
+        },
+      ],
+    } as Awaited<ReturnType<typeof omsModule.listOrderReviewQueue>>);
+
+    const caller = appRouter.createCaller({
+      db: {} as never,
+      tenant: { brandId: 9, tenantKey: "lab", displayName: "iCloush LAB." },
+      req: {} as never,
+      res: {} as never,
+    });
+
+    const result = await caller.orders.reviewQueue({
+      reviewStatus: "pending",
+      limit: 5,
+    });
+
+    expect(reviewQueueSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 9,
+        reviewStatus: "pending",
+        limit: 5,
+      }),
+    );
+    expect(result.tenant.brandId).toBe(9);
+    expect(result.filters.reviewStatus).toBe("pending");
+    expect(result.records[0]?.receipt.reviewStatus).toBe("pending");
+
+    reviewQueueSpy.mockRestore();
+  });
+
   it("resolves B2B tier price by quantity", () => {
     const result = resolveTierPrice({
       basePrice: 1200,

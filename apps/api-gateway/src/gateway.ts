@@ -6,7 +6,13 @@ import superjson from "superjson";
 import { z } from "zod";
 import { notifyOwner } from "../../admin/server/_core/notification";
 import { brands } from "../../../packages/database/schema";
-import { createOrder, getOrderDetail, listOrders, reviewOrderPayment } from "../../../packages/oms/src/index";
+import {
+  createOrder,
+  getOrderDetail,
+  listOrderReviewQueue,
+  listOrders,
+  reviewOrderPayment,
+} from "../../../packages/oms/src/index";
 import {
   getBankTransferAccountInfo,
   getPaymentApiInventory,
@@ -173,6 +179,7 @@ const paymentStatusSchema = z.enum(["unpaid", "paid", "part_paid", "offline_revi
 const fulfillmentStatusSchema = z.enum(["unfulfilled", "processing", "partial_shipped", "shipped", "delivered"]);
 const paymentProviderSchema = z.enum(["wechat_jsapi", "offline_bank_transfer", "alipay"]);
 const paymentScenarioSchema = z.enum(["full_payment", "installment", "credit_card", "deposit", "offline_review"]);
+const receiptReviewStatusSchema = z.enum(["pending", "approved", "rejected"]);
 
 export const appRouter = router({
   health: publicProcedure.query(() => ({
@@ -265,6 +272,40 @@ export const appRouter = router({
 
         return {
           tenant: ctx.tenant,
+          ...result,
+        };
+      }),
+
+    reviewQueue: connectedDbProcedure
+      .input(
+        z.object({
+          reviewStatus: receiptReviewStatusSchema.default("pending"),
+          orderId: z.coerce.number().int().positive().optional(),
+          orderNo: z.string().min(1).optional(),
+          paymentId: z.coerce.number().int().positive().optional(),
+          receiptId: z.coerce.number().int().positive().optional(),
+          reviewedBy: z.coerce.number().int().positive().optional(),
+          limit: z.coerce.number().int().positive().max(100).default(20),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const result = await listOrderReviewQueue({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          reviewStatus: input.reviewStatus,
+          orderId: input.orderId,
+          orderNo: input.orderNo,
+          paymentId: input.paymentId,
+          receiptId: input.receiptId,
+          reviewedBy: input.reviewedBy,
+          limit: input.limit,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          filters: {
+            reviewStatus: input.reviewStatus,
+          },
           ...result,
         };
       }),

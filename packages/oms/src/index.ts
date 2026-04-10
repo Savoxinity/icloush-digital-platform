@@ -210,6 +210,101 @@ export async function getOrderDetail(args: {
   };
 }
 
+export async function listOrderReviewQueue(args: {
+  db: DatabaseClient;
+  brandId: number;
+  reviewStatus?: typeof bankTransferReceipts.$inferSelect.reviewStatus;
+  orderId?: number;
+  orderNo?: string;
+  paymentId?: number;
+  receiptId?: number;
+  reviewedBy?: number;
+  limit?: number;
+}) {
+  const receiptConditions = [eq(bankTransferReceipts.brandId, args.brandId)];
+
+  if (args.reviewStatus) {
+    receiptConditions.push(eq(bankTransferReceipts.reviewStatus, args.reviewStatus));
+  }
+
+  if (args.orderId) {
+    receiptConditions.push(eq(bankTransferReceipts.orderId, args.orderId));
+  }
+
+  if (args.paymentId) {
+    receiptConditions.push(eq(bankTransferReceipts.paymentId, args.paymentId));
+  }
+
+  if (args.receiptId) {
+    receiptConditions.push(eq(bankTransferReceipts.id, args.receiptId));
+  }
+
+  if (args.reviewedBy) {
+    receiptConditions.push(eq(bankTransferReceipts.reviewedBy, args.reviewedBy));
+  }
+
+  const matchedReceipts = await args.db
+    .select()
+    .from(bankTransferReceipts)
+    .where(and(...receiptConditions))
+    .orderBy(desc(bankTransferReceipts.createdAt))
+    .limit(Math.min(args.limit ?? 20, 100));
+
+  if (matchedReceipts.length === 0) {
+    return {
+      total: 0,
+      records: [],
+    };
+  }
+
+  const orderIds = [...new Set(matchedReceipts.map((receipt) => receipt.orderId))];
+  const [matchedOrders, matchedItems, matchedPayments] = await Promise.all([
+    args.db.select().from(orders).where(inArray(orders.id, orderIds)),
+    args.db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds)),
+    args.db.select().from(payments).where(inArray(payments.orderId, orderIds)),
+  ]);
+
+  const orderById = new Map(matchedOrders.map((order) => [order.id, order]));
+
+  const records = matchedReceipts
+    .map((receipt) => {
+      const order = orderById.get(receipt.orderId);
+      if (!order || (args.orderNo && order.orderNo !== args.orderNo)) {
+        return null;
+      }
+
+      const relatedItems = matchedItems.filter((item) => item.orderId === order.id);
+      const relatedPayments = matchedPayments.filter((payment) => payment.orderId === order.id);
+      const matchedPayment = receipt.paymentId
+        ? relatedPayments.find((payment) => payment.id === receipt.paymentId) ?? latestByCreatedAt(relatedPayments)
+        : latestByCreatedAt(relatedPayments);
+
+      return {
+        order: summarizeOrder({
+          order,
+          items: relatedItems,
+          payments: relatedPayments,
+          receipts: matchedReceipts.filter((candidate) => candidate.orderId === order.id),
+        }),
+        payment: matchedPayment ?? null,
+        receipt,
+        reviewStatus: receipt.reviewStatus,
+        reviewStage:
+          receipt.reviewStatus === "pending"
+            ? "awaiting_finance_review"
+            : receipt.reviewStatus === "approved"
+              ? "approved"
+              : "rejected",
+      };
+    })
+    .filter((record): record is NonNullable<typeof record> => Boolean(record));
+
+  return {
+    total: records.length,
+    records,
+  };
+}
+
 export async function createOrder(args: {
   db: DatabaseClient;
   brandId: number;

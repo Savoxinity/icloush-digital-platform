@@ -30,6 +30,245 @@ vi.mock("./lib/trpc", () => {
           { id: 2, code: "tech", name: "环洗朵科技" },
         ]),
       },
+      platform: {
+        snapshot: createQuery({
+          generatedAt: "2026-04-10T18:00:00.000Z",
+          totals: {
+            siteCount: 4,
+            brandCount: 3,
+            capabilityCount: 6,
+            productCount: 12,
+            categoryCount: 6,
+            orderCount: 9,
+            leadCount: 5,
+          },
+          siteSummaries: [
+            {
+              siteKey: "shop",
+              title: "B2B 商城系统",
+              brandName: "统一商城",
+              brandCodes: ["lab", "tech", "care"],
+              productCount: 5,
+              categoryCount: 3,
+              orderCount: 4,
+              pipelineOrderCount: 2,
+              leadCount: 2,
+              highlightNames: ["实验室净洗方案", "酒店布草奢护方案"],
+            },
+            {
+              siteKey: "lab",
+              title: "iCloush LAB.",
+              brandName: "iCloush LAB.",
+              brandCodes: ["lab"],
+              productCount: 3,
+              categoryCount: 1,
+              orderCount: 2,
+              pipelineOrderCount: 1,
+              leadCount: 1,
+              highlightNames: ["实验室净洗方案", "高端消费洗护延展产品线"],
+            },
+            {
+              siteKey: "tech",
+              title: "环洗朵科技",
+              brandName: "环洗朵科技",
+              brandCodes: ["tech"],
+              productCount: 2,
+              categoryCount: 1,
+              orderCount: 2,
+              pipelineOrderCount: 1,
+              leadCount: 1,
+              highlightNames: ["物业项目标准化清洁剂替换方案", "商办空间玻璃与硬表面清洁提效"],
+            },
+            {
+              siteKey: "care",
+              title: "iCloush Care",
+              brandName: "iCloush Care",
+              brandCodes: ["care"],
+              productCount: 2,
+              categoryCount: 1,
+              orderCount: 1,
+              pipelineOrderCount: 1,
+              leadCount: 1,
+              highlightNames: ["酒店布草奢护方案", "服务式公寓织物护理"],
+            },
+          ],
+          accountSummary: {
+            orderCount: 4,
+            pendingOrderCount: 2,
+            pendingReviewCount: 1,
+            actionCount: 3,
+          },
+          adminSummary: {
+            brandCount: 3,
+            reviewQueueCount: 1,
+            leadCount: 5,
+            moduleCount: 6,
+          },
+        }),
+      },
+      admin: {
+        operations: createQuery({
+          generatedAt: "2026-04-10T18:05:00.000Z",
+          scope: {
+            brandId: 1,
+            brandCode: "icloush-lab",
+            brandName: "iCloush LAB.",
+            isGlobal: false,
+          },
+          products: {
+            totals: {
+              productCount: 6,
+              activeCount: 4,
+              draftCount: 2,
+              categoryCount: 3,
+              seoReadyCount: 4,
+              contentReadyCount: 3,
+            },
+            products: [
+              {
+                id: 11,
+                brandId: 1,
+                brandName: "iCloush LAB.",
+                categoryName: "实验室方案",
+                name: "实验室净洗方案",
+                subtitle: "覆盖配方验证、场景测试与顾问式交付。",
+                productType: "solution",
+                status: "active",
+                seoReady: true,
+                contentReady: true,
+                updatedAt: "2026-04-10T12:00:00.000Z",
+              },
+            ],
+            brandViews: [
+              {
+                brandId: 1,
+                brandName: "iCloush LAB.",
+                productCount: 6,
+                activeCount: 4,
+                categoryCount: 3,
+                seoReadyCount: 4,
+                productTypeMix: ["solution", "service"],
+              },
+            ],
+            alerts: ["仍有 2 个商品处于草稿态，建议优先补齐副标题与内容字段。"],
+          },
+          customers: {
+            totals: {
+              membershipCount: 5,
+              activeMembershipCount: 4,
+              pendingMembershipCount: 1,
+              enterpriseAccountCount: 3,
+              leadCount: 4,
+              qualifiedLeadCount: 2,
+            },
+            customers: [
+              {
+                membershipId: 31,
+                brandId: 1,
+                brandName: "iCloush LAB.",
+                userId: 501,
+                displayName: "上海研净实验室",
+                enterpriseName: "上海研净实验室",
+                contactName: "陈工",
+                memberType: "enterprise",
+                status: "active",
+                email: "lab@example.com",
+                mobile: "13800000000",
+                accountType: "enterprise",
+                globalRole: "user",
+                lastSignedIn: "2026-04-09T10:00:00.000Z",
+              },
+            ],
+            leads: [
+              {
+                id: 71,
+                brandId: 1,
+                brandName: "iCloush LAB.",
+                sourceSite: "lab",
+                sourcePage: "/lab/contact",
+                companyName: "广州净洗科技",
+                contactName: "李经理",
+                leadStatus: "qualified",
+                email: "lead@example.com",
+                mobile: "13900000000",
+                createdAt: "2026-04-08T10:00:00.000Z",
+              },
+            ],
+            brandViews: [
+              {
+                brandId: 1,
+                brandName: "iCloush LAB.",
+                membershipCount: 5,
+                activeMembershipCount: 4,
+                enterpriseAccountCount: 3,
+                leadCount: 4,
+                qualifiedLeadCount: 2,
+              },
+            ],
+            alerts: ["已有 2 条高意向线索进入 qualified 阶段，建议同步到客户跟进节奏。"],
+          },
+          content: {
+            totals: {
+              siteCount: 4,
+              storyReadyCount: 3,
+              seoReadySiteCount: 2,
+              productStoryCount: 4,
+              leadCaptureCount: 4,
+            },
+            siteEntries: [
+              {
+                siteKey: "lab",
+                title: "iCloush LAB.",
+                brandName: "iCloush LAB.",
+                domain: "lab.icloush.com",
+                storyReady: true,
+                seoReady: true,
+                leadCount: 2,
+                featuredNames: ["实验室净洗方案"],
+                statusLabel: "品牌叙事已就绪",
+              },
+            ],
+            queue: [
+              {
+                title: "补齐 LAB 样品申请页",
+                channel: "品牌官网",
+                reason: "当前高意向线索已增长，建议补齐咨询承接内容。",
+                priority: "high",
+              },
+            ],
+            alerts: ["仍有 1 个站点尚未补齐品牌叙事，建议优先完成内容治理。"],
+          },
+          seo: {
+            totals: {
+              siteMetaReadyCount: 2,
+              productMetaReadyCount: 4,
+              activeProductCount: 4,
+              missingMetaCount: 2,
+            },
+            siteEntries: [
+              {
+                siteKey: "lab",
+                title: "iCloush LAB.",
+                brandName: "iCloush LAB.",
+                domain: "lab.icloush.com",
+                activeProductCount: 4,
+                seoReadyProductCount: 3,
+                siteMetaReady: true,
+                statusLabel: "站点元信息已就绪",
+              },
+            ],
+            opportunities: [
+              {
+                title: "补齐实验室净洗方案元描述",
+                impact: "当前核心商品仍缺少稳定的搜索摘要。",
+                action: "补充 title / description 字段",
+                severity: "high",
+              },
+            ],
+            alerts: ["当前仍有 2 项元信息待补齐，建议优先处理高流量商品。"],
+          },
+        }),
+      },
       orders: {
         myList: createQuery({
           total: 1,
@@ -165,12 +404,21 @@ globalThis.addEventListener ??= () => undefined;
 globalThis.removeEventListener ??= () => undefined;
 
 describe("admin front-stage skeleton pages", () => {
-  it("renders platform home with commerce and brand navigation copy", () => {
+  it("renders platform home with live site summaries, brand layering, and operating loop copy", () => {
     setPathname("/");
     const html = renderToStaticMarkup(<PlatformHome />);
 
     expect(html).toContain("统一平台总入口");
     expect(html).toContain("平台结构概览");
+    expect(html).toContain("Live business snapshots");
+    expect(html).toContain("当前首页摘要已切换为真实业务聚合数据");
+    expect(html).toContain("4 个站点");
+    expect(html).toContain("6 类能力");
+    expect(html).toContain("B2B 商城系统");
+    expect(html).toContain("5 个真实商品");
+    expect(html).toContain("客户中心");
+    expect(html).toContain("后台总览");
+    expect(html).toContain("统一平台真正要解决的是经营协同");
   });
 
   it("renders shop page with checkout and payment planning copy", () => {
@@ -181,6 +429,9 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("采购结算单");
     expect(html).toContain("支付方式选择");
     expect(html).toContain("微信支付 JSAPI");
+    expect(html).toContain("5 个已接入");
+    expect(html).toContain("3 类可浏览");
+    expect(html).toContain("2 笔待推进");
   });
 
   it("renders lab site skeleton with service-oriented messaging", () => {
@@ -188,6 +439,9 @@ describe("admin front-stage skeleton pages", () => {
     const html = renderToStaticMarkup(<LabPage />);
 
     expect(html).toContain("iCloush LAB");
+    expect(html).toContain("3 个");
+    expect(html).toContain("2 笔");
+    expect(html).toContain("1 条");
   });
 
   it("renders tech site skeleton with industrial solution messaging", () => {
@@ -195,6 +449,9 @@ describe("admin front-stage skeleton pages", () => {
     const html = renderToStaticMarkup(<TechPage />);
 
     expect(html).toContain("环洗朵科技");
+    expect(html).toContain("真实商品");
+    expect(html).toContain("方案订单");
+    expect(html).toContain("项目线索");
   });
 
   it("renders care site skeleton with service package messaging", () => {
@@ -203,6 +460,8 @@ describe("admin front-stage skeleton pages", () => {
 
     expect(html).toContain("iCloush Care");
     expect(html).toContain("服务介绍");
+    expect(html).toContain("在途服务订单");
+    expect(html).toContain("咨询线索");
   });
 
   it("renders account page with real order summary placeholders", () => {
@@ -212,57 +471,65 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("ORD-1-ME-001");
     expect(html).toContain("最近一笔订单摘要");
     expect(html).toContain("订单与结算待办");
+    expect(html).toContain("待结算 / 待审核");
+    expect(html).toContain("下一步建议");
+    expect(html).toContain("在后台查看审核闭环");
   });
 
-  it("renders admin overview with site matrix and module navigation", () => {
+  it("renders admin overview with live module snapshots and module navigation", () => {
     setPathname("/admin");
     const html = renderToStaticMarkup(<AdminContent />);
 
     expect(html).toContain("后台总览");
     expect(html).toContain("站点矩阵");
-    expect(html).toContain("商城与官网统一运营入口");
+    expect(html).toContain("真实运营快照");
     expect(html).toContain("产品管理");
+    expect(html).toContain("客户管理");
     expect(html).toContain("SEO 配置");
   });
 
-  it("renders admin product console with workstreams and placeholder actions", () => {
+  it("renders admin product console with real product snapshot", () => {
     setPathname("/admin/products");
     const html = renderToStaticMarkup(<AdminContent />);
 
     expect(html).toContain("商品治理工位");
-    expect(html).toContain("待接真实商品接口的后台操作位");
-    expect(html).toContain("新建商品模板");
-    expect(html).toContain("iCloush LAB.");
+    expect(html).toContain("真实商品、分类与内容就绪度");
+    expect(html).toContain("实验室净洗方案");
+    expect(html).toContain("品牌商品分布");
+    expect(html).toContain("治理提醒");
   });
 
-  it("renders admin customer console with lifecycle planning copy", () => {
+  it("renders admin customer console with real customers and leads", () => {
     setPathname("/admin/customers");
     const html = renderToStaticMarkup(<AdminContent />);
 
-    expect(html).toContain("客户生命周期骨架");
-    expect(html).toContain("客户中心映射");
-    expect(html).toContain("采购主体");
-    expect(html).toContain("定义跟进字段");
+    expect(html).toContain("客户经营总览");
+    expect(html).toContain("真实客户档案与线索状态");
+    expect(html).toContain("上海研净实验室");
+    expect(html).toContain("最新线索");
+    expect(html).toContain("品牌客户分布");
   });
 
-  it("renders admin content console with site matrix and actions", () => {
+  it("renders admin content console with site governance queue", () => {
     setPathname("/admin/content");
     const html = renderToStaticMarkup(<AdminContent />);
 
     expect(html).toContain("内容编排矩阵");
-    expect(html).toContain("内容工作流");
-    expect(html).toContain("新建官网专题页");
-    expect(html).toContain("B2B 商城系统");
+    expect(html).toContain("商城与多品牌站点内容治理");
+    expect(html).toContain("内容工作队列");
+    expect(html).toContain("补齐 LAB 样品申请页");
+    expect(html).toContain("内容治理提醒");
   });
 
-  it("renders admin seo console with governance checklist", () => {
+  it("renders admin seo console with live optimization opportunities", () => {
     setPathname("/admin/seo");
     const html = renderToStaticMarkup(<AdminContent />);
 
     expect(html).toContain("SEO 治理清单");
-    expect(html).toContain("站点优先级");
-    expect(html).toContain("生成标题模板");
-    expect(html).toContain("结构化内容");
+    expect(html).toContain("站点元信息与商品元字段覆盖率");
+    expect(html).toContain("补齐实验室净洗方案元描述");
+    expect(html).toContain("优化机会");
+    expect(html).toContain("SEO 治理提醒");
   });
 
   it("renders admin order console with review queue and fulfillment stages", () => {
@@ -270,10 +537,13 @@ describe("admin front-stage skeleton pages", () => {
     const html = renderToStaticMarkup(<AdminContent />);
 
     expect(html).toContain("审核队列");
+    expect(html).toContain("客户中心联动");
+    expect(html).toContain("客户待办");
     expect(html).toContain("履约阶段");
     expect(html).toContain("近期订单");
     expect(html).toContain("ORD-1-QUEUE-001");
     expect(html).toContain("审核通过");
+    expect(html).toContain("切换到客户中心");
   });
 });
 

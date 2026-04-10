@@ -59,6 +59,222 @@ type ShopProduct = {
   badges: string[];
 };
 
+type PlatformSiteKey = "shop" | "lab" | "tech" | "care";
+
+type PlatformSiteSummary = {
+  siteKey: PlatformSiteKey;
+  title: string;
+  brandName: string;
+  brandCodes: string[];
+  productCount: number;
+  categoryCount: number;
+  orderCount: number;
+  pipelineOrderCount: number;
+  leadCount: number;
+  highlightNames: string[];
+};
+
+type PlatformSnapshot = {
+  generatedAt: string;
+  totals: {
+    siteCount: number;
+    brandCount: number;
+    capabilityCount: number;
+    productCount: number;
+    categoryCount: number;
+    orderCount: number;
+    leadCount: number;
+  };
+  siteSummaries: PlatformSiteSummary[];
+  accountSummary: {
+    orderCount: number;
+    pendingOrderCount: number;
+    pendingReviewCount: number;
+    actionCount: number;
+  };
+  adminSummary: {
+    brandCount: number;
+    reviewQueueCount: number;
+    leadCount: number;
+    moduleCount: number;
+  };
+};
+
+type AdminScopeSummary = {
+  brandId: number | null;
+  brandCode: string | null;
+  brandName: string;
+  isGlobal: boolean;
+};
+
+type AdminProductOverviewItem = {
+  id: number;
+  brandId: number;
+  brandName: string;
+  categoryName: string;
+  name: string;
+  subtitle: string | null;
+  productType: string;
+  status: string;
+  seoReady: boolean;
+  contentReady: boolean;
+  updatedAt: string | null;
+};
+
+type AdminBrandProductView = {
+  brandId: number;
+  brandName: string;
+  productCount: number;
+  activeCount: number;
+  categoryCount: number;
+  seoReadyCount: number;
+  productTypeMix: string[];
+};
+
+type AdminCustomerOverviewItem = {
+  membershipId: number;
+  brandId: number;
+  brandName: string;
+  userId: number;
+  displayName: string;
+  enterpriseName: string | null;
+  contactName: string | null;
+  memberType: string;
+  status: string;
+  email: string | null;
+  mobile: string | null;
+  accountType: string;
+  globalRole: string;
+  lastSignedIn: string | null;
+};
+
+type AdminLeadOverviewItem = {
+  id: number;
+  brandId: number;
+  brandName: string;
+  sourceSite: string;
+  sourcePage: string | null;
+  companyName: string | null;
+  contactName: string;
+  leadStatus: string;
+  email: string | null;
+  mobile: string | null;
+  createdAt: string | null;
+};
+
+type AdminCustomerBrandView = {
+  brandId: number;
+  brandName: string;
+  membershipCount: number;
+  activeMembershipCount: number;
+  enterpriseAccountCount: number;
+  leadCount: number;
+  qualifiedLeadCount: number;
+};
+
+type AdminContentSiteEntry = {
+  siteKey: PlatformSiteKey;
+  title: string;
+  brandName: string;
+  domain: string | null;
+  storyReady: boolean;
+  seoReady: boolean;
+  leadCount: number;
+  featuredNames: string[];
+  statusLabel: string;
+};
+
+type AdminContentQueueItem = {
+  title: string;
+  channel: string;
+  reason: string;
+  priority: "high" | "medium";
+};
+
+type AdminSeoSiteEntry = {
+  siteKey: PlatformSiteKey;
+  title: string;
+  brandName: string;
+  domain: string | null;
+  activeProductCount: number;
+  seoReadyProductCount: number;
+  siteMetaReady: boolean;
+  statusLabel: string;
+};
+
+type AdminSeoOpportunity = {
+  title: string;
+  impact: string;
+  action: string;
+  severity: "high" | "medium";
+};
+
+type AdminOperationsSnapshot = {
+  generatedAt: string;
+  scope: AdminScopeSummary;
+  products: {
+    totals: {
+      productCount: number;
+      activeCount: number;
+      draftCount: number;
+      categoryCount: number;
+      seoReadyCount: number;
+      contentReadyCount: number;
+    };
+    products: AdminProductOverviewItem[];
+    brandViews: AdminBrandProductView[];
+    alerts: string[];
+  };
+  customers: {
+    totals: {
+      membershipCount: number;
+      activeMembershipCount: number;
+      pendingMembershipCount: number;
+      enterpriseAccountCount: number;
+      leadCount: number;
+      qualifiedLeadCount: number;
+    };
+    customers: AdminCustomerOverviewItem[];
+    leads: AdminLeadOverviewItem[];
+    brandViews: AdminCustomerBrandView[];
+    alerts: string[];
+  };
+  content: {
+    totals: {
+      siteCount: number;
+      storyReadyCount: number;
+      seoReadySiteCount: number;
+      productStoryCount: number;
+      leadCaptureCount: number;
+    };
+    siteEntries: AdminContentSiteEntry[];
+    queue: AdminContentQueueItem[];
+    alerts: string[];
+  };
+  seo: {
+    totals: {
+      siteMetaReadyCount: number;
+      productMetaReadyCount: number;
+      activeProductCount: number;
+      missingMetaCount: number;
+    };
+    siteEntries: AdminSeoSiteEntry[];
+    opportunities: AdminSeoOpportunity[];
+    alerts: string[];
+  };
+};
+
+const formatDateLabel = (value: string | null | undefined) => {
+  if (!value) {
+    return "待同步";
+  }
+
+  return new Date(value).toLocaleDateString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
 const siteEntries: SiteEntry[] = [
   {
     title: "B2B 商城系统",
@@ -97,7 +313,115 @@ const siteEntries: SiteEntry[] = [
 const capabilityNotes = [
   "统一商品、订单、客户、内容与 SEO 底座，支撑商城与三大品牌官网协同运营。",
   "前台保持各品牌独立气质与访问路径，后台承接统一数据管理与运营工作流。",
-  "本轮已落下多站点可浏览前台骨架，下一步继续接入真实商品、客户与订单数据。",
+  "当前首页已从模板占位页升级为真实业务总入口，下一步继续接入真实商品、客户与订单数据。",
+];
+
+const platformMetrics = [
+  {
+    label: "统一品牌矩阵",
+    value: "4 个站点",
+    detail: "商城、iCloush LAB.、环洗朵科技与 iCloush Care 已纳入统一平台入口。",
+    icon: Sparkles,
+  },
+  {
+    label: "经营能力底座",
+    value: "6 类能力",
+    detail: "商品、订单、支付、客户、内容与 SEO 共享同一套业务底座。",
+    icon: CircleCheckBig,
+  },
+  {
+    label: "当前核心场景",
+    value: "酒店与企业采购",
+    detail: "优先服务酒店布草、物业清洁、高端织物护理与顾问式方案销售。",
+    icon: Building2,
+  },
+];
+
+const brandStoryCards = [
+  {
+    title: "B2B 商城系统",
+    audience: "酒店、物业、渠道与企业采购",
+    summary: "承接标准品采购、组合方案下单与订单追踪，是统一交易入口。",
+    icon: ShoppingBag,
+    tone: "from-sky-500/20 via-white to-cyan-500/10",
+    accent: "text-sky-700",
+    highlights: ["分类浏览", "购物车结算", "订单闭环"],
+  },
+  {
+    title: "iCloush LAB.",
+    audience: "高端香氛护理与研发合作客户",
+    summary: "强调研发能力、配方方法与产品线逻辑，负责品牌背书与高价值转化。",
+    icon: Beaker,
+    tone: "from-violet-500/20 via-white to-indigo-500/10",
+    accent: "text-violet-700",
+    highlights: ["老钱工业风", "研发能力", "产品方法论"],
+  },
+  {
+    title: "环洗朵科技",
+    audience: "化学品清洁剂 B2B 决策者",
+    summary: "聚焦专业化学品清洗剂、解决方案与案例证明，面向高频复购业务。",
+    icon: Factory,
+    tone: "from-emerald-500/20 via-white to-teal-500/10",
+    accent: "text-emerald-700",
+    highlights: ["行业方案", "客户案例", "规模供货"],
+  },
+  {
+    title: "iCloush Care",
+    audience: "高端酒店与奢护洗涤项目客户",
+    summary: "呈现高端酒店织物护理与服务流程，承担高客单服务型转化。",
+    icon: Building2,
+    tone: "from-amber-500/20 via-white to-orange-500/10",
+    accent: "text-amber-700",
+    highlights: ["服务流程", "合作酒店", "顾问咨询"],
+  },
+];
+
+const operatingLoop = [
+  {
+    title: "前台获客",
+    detail: "通过商城、品牌官网与客户中心承接搜索流量、品牌认知与采购线索。",
+  },
+  {
+    title: "中台协同",
+    detail: "后台统一治理产品、订单、客户、内容与 SEO，避免多站点重复运营。",
+  },
+  {
+    title: "数据闭环",
+    detail: "线索、订单、审核与履约结果回流到统一平台，为下一轮转化优化提供依据。",
+  },
+];
+
+const homepageActionCards = [
+  {
+    title: "快速进入交易链路",
+    detail: "适合直接查看分类、加入购物车、填写采购资料并进入订单流程。",
+    href: "/shop",
+    cta: "进入商城",
+    icon: WalletCards,
+  },
+  {
+    title: "查看品牌能力矩阵",
+    detail: "从不同品牌站点理解研发、化学品解决方案与高端服务之间的分工。",
+    href: "/lab",
+    cta: "查看品牌站点",
+    icon: BookOpenText,
+  },
+  {
+    title: "进入客户与运营视图",
+    detail: "进入客户中心或后台查看订单状态、审核队列与跨品牌运营结构。",
+    href: "/admin",
+    cta: "进入后台",
+    icon: Users,
+  },
+];
+
+const mobileQuickLinks = [
+  { label: "商城", href: "/shop" },
+  { label: "LAB", href: "/lab" },
+  { label: "环洗朵科技", href: "/tech" },
+  { label: "iCloush Care", href: "/care" },
+  { label: "客户中心", href: "/account" },
+  { label: "后台", href: "/admin" },
 ];
 
 const routeSeoMap: Record<
@@ -628,35 +952,210 @@ function SiteNav() {
   );
 }
 
+const homepageEntrySnapshots = [
+  {
+    title: "B2B 商城系统",
+    href: "/shop",
+    kicker: "真实商品摘要",
+    icon: ShoppingBag,
+    tone: "from-sky-500/25 via-sky-50 to-cyan-500/10",
+    metrics: [`${shopProducts.length} 个在售样例`, `${shopCategories.length} 个采购分类`],
+    summary: `已汇总 ${Array.from(new Set(shopProducts.map((product) => product.brand))).join("、")} 的标准品与方案型产品，示例订单 ${demoOrders[0]?.code ?? "IC-2026-0018"} 已进入 ${demoOrders[0]?.status ?? "待发货"}。`,
+    highlights: [shopProducts[0]?.name ?? "高浓缩织物洁净剂", shopProducts.find(product => product.categoryId === "chemicals")?.name ?? "玻璃与硬表面专业清洁剂"],
+    cta: "进入商城选品",
+  },
+  {
+    title: "iCloush LAB.",
+    href: "/lab",
+    kicker: "品牌与研发摘要",
+    icon: Beaker,
+    tone: "from-violet-500/25 via-violet-50 to-indigo-500/10",
+    metrics: [`${labCapabilities.length} 条研发能力`, `${shopProducts.filter(product => product.brand === "iCloush LAB.").length} 个顾问型样例`],
+    summary: "站点已不再停留于品牌口号，而是直接引用研发能力、配方验证与产品方法论素材来承接商务沟通。",
+    highlights: [labCapabilities[0] ?? "配方研发能力", shopProducts.find(product => product.brand === "iCloush LAB.")?.name ?? "布草柔护增艳剂"],
+    cta: "查看 LAB 站点",
+  },
+  {
+    title: "环洗朵科技",
+    href: "/tech",
+    kicker: "行业方案摘要",
+    icon: ShieldCheck,
+    tone: "from-emerald-500/25 via-emerald-50 to-teal-500/10",
+    metrics: [`${techSolutions.length} 类行业方案`, `${shopProducts.filter(product => product.brand === "环洗朵科技").length} 个主销样例`],
+    summary: "围绕酒店布草、商业空间与机构洗护的方案型表达已经与商品样例打通，便于从行业场景直接下钻到采购链路。",
+    highlights: [techSolutions[0] ?? "酒店布草与客房织物清洁方案", shopProducts.find(product => product.brand === "环洗朵科技")?.name ?? "高浓缩织物洁净剂"],
+    cta: "查看行业方案",
+  },
+  {
+    title: "iCloush Care",
+    href: "/care",
+    kicker: "服务履约摘要",
+    icon: Building2,
+    tone: "from-amber-500/25 via-amber-50 to-orange-500/10",
+    metrics: [`${careProcess.length} 步服务流程`, `${demoOrders.filter(order => order.brand === "iCloush Care").length} 笔高端服务样例订单`],
+    summary: "高端酒店织物护理入口已接入服务流程与项目型订单样例，能够展示从需求评估到长期优化的完整服务链。",
+    highlights: [careProcess[0] ?? "需求沟通与现状评估", shopProducts.find(product => product.brand === "iCloush Care")?.name ?? "酒店织物奢护组合"],
+    cta: "查看服务站点",
+  },
+];
+
+const homepageOperationalSnapshots = [
+  {
+    title: "客户中心",
+    href: "/account",
+    detail: `当前已沉淀 ${demoOrders.length} 笔示例订单与 ${customerActionCards.length} 个客户待办动作，便于把首页入口延伸到订单跟踪与资料补齐。`,
+    icon: Users,
+  },
+  {
+    title: "后台总览",
+    href: "/admin",
+    detail: `后台已统一承接 ${platformMetrics[1]?.value ?? "6 类能力"}，并为订单审核、产品、客户、内容与 SEO 提供运营入口。`,
+    icon: WalletCards,
+  },
+];
+
+function getSiteSnapshot(snapshot: PlatformSnapshot | undefined, siteKey: PlatformSiteKey) {
+  return snapshot?.siteSummaries.find((item) => item.siteKey === siteKey);
+}
+
+function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined) {
+  return [
+    {
+      label: "统一品牌矩阵",
+      value: `${snapshot?.totals.siteCount ?? 4} 个站点`,
+      detail: `商城、iCloush LAB.、环洗朵科技与 iCloush Care 已纳入统一平台入口，当前对应 ${snapshot?.totals.brandCount ?? 3} 个品牌主体。`,
+      icon: Sparkles,
+    },
+    {
+      label: "经营能力底座",
+      value: `${snapshot?.totals.capabilityCount ?? 6} 类能力`,
+      detail: `商品 ${snapshot?.totals.productCount ?? 0}、分类 ${snapshot?.totals.categoryCount ?? 0}、订单 ${snapshot?.totals.orderCount ?? 0}、线索 ${snapshot?.totals.leadCount ?? 0} 等摘要已纳入统一视图。`,
+      icon: CircleCheckBig,
+    },
+    {
+      label: "当前核心场景",
+      value: "酒店与企业采购",
+      detail: `当前平台已可同时观察 ${snapshot?.accountSummary.pendingOrderCount ?? 0} 笔在途订单与 ${snapshot?.adminSummary.reviewQueueCount ?? 0} 笔待审核动作。`,
+      icon: Building2,
+    },
+  ];
+}
+
+function buildHomepageEntrySnapshots(snapshot: PlatformSnapshot | undefined) {
+  const shopSnapshot = getSiteSnapshot(snapshot, "shop");
+  const labSnapshot = getSiteSnapshot(snapshot, "lab");
+  const techSnapshot = getSiteSnapshot(snapshot, "tech");
+  const careSnapshot = getSiteSnapshot(snapshot, "care");
+
+  return homepageEntrySnapshots.map((entry) => {
+    if (entry.title === "B2B 商城系统" && shopSnapshot) {
+      return {
+        ...entry,
+        metrics: [`${shopSnapshot.productCount} 个真实商品`, `${shopSnapshot.categoryCount} 个采购分类`],
+        summary: `商城入口已接入 ${shopSnapshot.productCount} 个真实商品、${shopSnapshot.orderCount} 笔订单与 ${shopSnapshot.leadCount} 条线索摘要，覆盖 ${Math.max(shopSnapshot.brandCodes.length, 1)} 个品牌主体，当前有 ${shopSnapshot.pipelineOrderCount} 笔订单仍在执行链路中。`,
+        highlights: shopSnapshot.highlightNames.slice(0, 2),
+      };
+    }
+
+    if (entry.title === "iCloush LAB." && labSnapshot) {
+      return {
+        ...entry,
+        metrics: [`${labSnapshot.productCount} 个真实商品`, `${labSnapshot.leadCount} 条商务线索`],
+        summary: `LAB 站点已可映射 ${labSnapshot.productCount} 个商品与 ${labSnapshot.orderCount} 笔订单摘要，使研发能力、产品方法论与商务转化之间形成更明确的业务对应关系。`,
+        highlights: labSnapshot.highlightNames.slice(0, 2),
+      };
+    }
+
+    if (entry.title === "环洗朵科技" && techSnapshot) {
+      return {
+        ...entry,
+        metrics: [`${techSnapshot.productCount} 个真实商品`, `${techSnapshot.orderCount} 笔方案型订单`],
+        summary: `环洗朵科技站点当前引用 ${techSnapshot.productCount} 个真实商品与 ${techSnapshot.leadCount} 条线索摘要，方便从行业方案直接下钻到采购和客户跟进动作。`,
+        highlights: techSnapshot.highlightNames.slice(0, 2),
+      };
+    }
+
+    if (entry.title === "iCloush Care" && careSnapshot) {
+      return {
+        ...entry,
+        metrics: [`${careSnapshot.pipelineOrderCount} 笔在途服务订单`, `${careSnapshot.leadCount} 条高端服务线索`],
+        summary: `Care 站点已接入 ${careSnapshot.orderCount} 笔服务型订单摘要与 ${careSnapshot.leadCount} 条咨询线索，能够更直观地展示从咨询、评估到履约优化的服务闭环。`,
+        highlights: careSnapshot.highlightNames.slice(0, 2),
+      };
+    }
+
+    return entry;
+  });
+}
+
+function buildHomepageOperationalSnapshots(snapshot: PlatformSnapshot | undefined) {
+  return homepageOperationalSnapshots.map((entry) => {
+    if (entry.title === "客户中心" && snapshot?.accountSummary) {
+      return {
+        ...entry,
+        detail: `当前已沉淀 ${snapshot.accountSummary.orderCount} 笔真实订单摘要，其中 ${snapshot.accountSummary.pendingOrderCount} 笔仍在推进，另有 ${snapshot.accountSummary.pendingReviewCount} 笔待审核动作需要跟进。`,
+      };
+    }
+
+    if (entry.title === "后台总览" && snapshot?.adminSummary) {
+      return {
+        ...entry,
+        detail: `后台当前覆盖 ${snapshot.adminSummary.moduleCount} 类运营能力，已可统一查看 ${snapshot.adminSummary.brandCount} 个品牌主体、${snapshot.adminSummary.leadCount} 条线索与 ${snapshot.adminSummary.reviewQueueCount} 笔审核队列。`,
+      };
+    }
+
+    return entry;
+  });
+}
+
 export function PlatformHome() {
+  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
+  const resolvedPlatformMetrics = buildHomepageMetrics(platformSnapshot);
+  const resolvedHomepageEntrySnapshots = buildHomepageEntrySnapshots(platformSnapshot);
+  const resolvedHomepageOperationalSnapshots = buildHomepageOperationalSnapshots(platformSnapshot);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#dbeafe_0%,#f8fafc_35%,#ffffff_100%)] text-slate-900">
       <header className="sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
-              iC
-            </div>
-            <div>
-              <p className="text-sm text-slate-500">iCloush Digital Platform</p>
-              <p className="font-semibold tracking-tight">统一平台总入口</p>
-            </div>
-          </Link>
-          <SiteNav />
+        <div className="container py-3">
+          <div className="flex min-h-10 items-center justify-between gap-4">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
+                iC
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">iCloush Digital Platform</p>
+                <p className="font-semibold tracking-tight">统一平台总入口</p>
+              </div>
+            </Link>
+            <SiteNav />
+          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
+            {mobileQuickLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="shrink-0 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </header>
 
       <main>
-        <section className="container grid gap-10 py-16 md:grid-cols-[1.15fr_0.85fr] md:py-24">
+        <section className="container grid gap-8 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
           <div>
             <div className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-4 py-1 text-xs font-medium uppercase tracking-[0.2em] text-sky-700">
               Unified commerce + brand system
             </div>
             <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-tight tracking-tight text-slate-950 md:text-6xl">
-              在统一底座上建设自有商城、品牌官网与后台中台。
+              把自有商城、品牌官网、客户中心与后台中台收束到同一条经营链路里。
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-              当前版本已经将模板占位首页替换为真实业务入口，覆盖商城、iCloush LAB.、环洗朵科技、富朵朵 iCloush Care、客户中心与后台入口，并开始形成统一采购与品牌转化闭环。
+              当前首页已不再是模板占位页，而是面向真实业务场景的统一总入口。它清晰区分商城交易、品牌背书、行业解决方案与高端服务路径，并把客户中心与后台中台纳入同一套运营视图。
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link
@@ -666,40 +1165,63 @@ export function PlatformHome() {
                 进入商城系统
               </Link>
               <Link
-                href="/lab"
+                href="/admin"
                 className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
               >
-                浏览品牌矩阵
+                查看统一后台
               </Link>
             </div>
             <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {capabilityNotes.map((item) => (
+              {resolvedPlatformMetrics.map((metric) => (
                 <div
-                  key={item}
-                  className="rounded-3xl border border-slate-200 bg-white/70 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur"
+                  key={metric.label}
+                  className="rounded-[1.75rem] border border-slate-200 bg-white/80 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur"
                 >
-                  <Sparkles className="h-5 w-5 text-sky-600" />
-                  <p className="mt-4 text-sm leading-7 text-slate-600">{item}</p>
+                  <metric.icon className="h-5 w-5 text-sky-600" />
+                  <p className="mt-4 text-xs uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
+                  <p className="mt-2 text-xl font-semibold tracking-tight text-slate-950">{metric.value}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{metric.detail}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-white/70 bg-slate-950 p-8 text-white shadow-[0_30px_100px_rgba(15,23,42,0.18)]">
-            <p className="text-sm text-slate-400">平台结构概览</p>
+          <div className="rounded-[2rem] border border-white/70 bg-slate-950 p-6 text-white shadow-[0_30px_100px_rgba(15,23,42,0.18)] md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-400">平台结构概览</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight">从获客、交易到履约与复购的统一视图</h2>
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">Monorepo Ready</div>
+            </div>
             <div className="mt-6 space-y-4">
               <div className="rounded-3xl bg-white/5 p-5">
                 <p className="text-sm text-slate-400">统一底座</p>
                 <p className="mt-2 text-lg font-medium">用户、商品、订单、支付、内容、SEO</p>
+                <p className="mt-3 text-sm leading-7 text-slate-300">所有站点共享一套品牌、租户、内容与交易能力，便于后续接入真实数据与自动化流程。</p>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl bg-white/5 p-5">
-                  <p className="text-sm text-slate-400">前台站点</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-200">商城、LAB、科技站与 Care 独立表达。</p>
-                </div>
-                <div className="rounded-3xl bg-white/5 p-5">
-                  <p className="text-sm text-slate-400">后台中台</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-200">统一管理产品、订单、客户、内容与 SEO。</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {capabilityNotes.map((item) => (
+                  <div key={item} className="rounded-3xl bg-white/5 p-5 text-sm leading-7 text-slate-200">
+                    <Sparkles className="h-5 w-5 text-sky-300" />
+                    <p className="mt-4">{item}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                <p className="text-sm text-slate-400">推荐访问路径</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {homepageActionCards.map((card) => (
+                    <Link key={card.title} href={card.href} className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10">
+                      <card.icon className="h-5 w-5 text-sky-300" />
+                      <p className="mt-4 text-sm font-medium text-white">{card.title}</p>
+                      <p className="mt-2 text-xs leading-6 text-slate-300">{card.detail}</p>
+                      <p className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-sky-300">
+                        {card.cta}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </p>
+                    </Link>
+                  ))}
                 </div>
               </div>
             </div>
@@ -707,47 +1229,164 @@ export function PlatformHome() {
         </section>
 
         <section className="container py-6 md:py-10">
-          <div className="flex items-end justify-between gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Platform entry matrix</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">四类前台触点已形成可浏览入口</h2>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Live business snapshots</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">每个站点入口都开始承接真实业务摘要，而不再只是静态文案。</h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+                首页现在直接引用商品样例、行业方案、研发能力、服务流程与订单示例，让用户在进入各站点前就能看到各自的业务边界与下一步动作。
+              </p>
             </div>
-            <Link href="/admin" className="hidden items-center gap-2 text-sm font-medium text-slate-700 md:inline-flex">
+            <Link href="/admin" className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               查看后台结构
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            {siteEntries.map((entry) => (
+          {platformSnapshotQuery.isLoading ? (
+            <div className="mt-8 rounded-[1.75rem] border border-sky-200 bg-sky-50/80 px-5 py-4 text-sm leading-7 text-sky-800">
+              首页正在同步真实品牌、商品、订单与线索摘要，当前页面会先回退到内置演示内容以保证访问连续性。
+            </div>
+          ) : platformSnapshotQuery.isError ? (
+            <div className="mt-8 rounded-[1.75rem] border border-amber-200 bg-amber-50/90 px-5 py-4 text-sm leading-7 text-amber-800">
+              真实平台摘要暂时不可用，当前展示的是站点内置演示数据；待数据库连接恢复后，首页会继续显示最新业务聚合结果。
+            </div>
+          ) : platformSnapshot?.generatedAt ? (
+            <div className="mt-8 rounded-[1.75rem] border border-emerald-200 bg-emerald-50/90 px-5 py-4 text-sm leading-7 text-emerald-800">
+              当前首页摘要已切换为真实业务聚合数据，最近更新时间为 {new Date(platformSnapshot.generatedAt).toLocaleString()}。
+            </div>
+          ) : null}
+
+          <div className="mt-8 grid gap-5 xl:grid-cols-2">
+            {resolvedHomepageEntrySnapshots.map((snapshot) => (
               <Link
-                key={entry.title}
-                href={entry.href}
-                className="group overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.07)] transition hover:-translate-y-1 hover:shadow-[0_30px_100px_rgba(15,23,42,0.12)]"
+                key={snapshot.title}
+                href={snapshot.href}
+                className={`group rounded-[2rem] border border-slate-200 bg-gradient-to-br ${snapshot.tone} p-5 shadow-[0_24px_80px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_30px_100px_rgba(15,23,42,0.12)] md:p-7`}
               >
-                <div className={`h-2 bg-gradient-to-r ${entry.tone}`} />
-                <div className="p-8">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-900">
-                      <entry.icon className="h-6 w-6" />
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm">
+                      <snapshot.icon className="h-6 w-6" />
                     </div>
-                    <ArrowRight className="h-5 w-5 text-slate-300 transition group-hover:text-slate-700" />
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{snapshot.kicker}</p>
+                      <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{snapshot.title}</h3>
+                    </div>
                   </div>
-                  <h3 className="mt-6 text-2xl font-semibold tracking-tight text-slate-950">{entry.title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-slate-600">{entry.description}</p>
-                  <div className="mt-6 flex flex-wrap gap-2">
-                    {entry.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600"
-                      >
-                        {tag}
+                  <div className="flex flex-wrap gap-2 sm:max-w-[14rem] sm:justify-end">
+                    {snapshot.metrics.map((metric) => (
+                      <span key={metric} className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700">
+                        {metric}
                       </span>
                     ))}
                   </div>
                 </div>
+                <p className="mt-5 text-sm leading-7 text-slate-700">{snapshot.summary}</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {snapshot.highlights.map((highlight) => (
+                    <div key={highlight} className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm leading-6 text-slate-700">
+                      {highlight}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-900">
+                  {snapshot.cta}
+                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                </p>
               </Link>
             ))}
+          </div>
+
+          <div className="mt-8 grid gap-6 xl:grid-cols-2">
+            {brandStoryCards.map((card, index) => (
+              <Link
+                key={card.title}
+                href={siteEntries[index]?.href ?? "/"}
+                className={`group rounded-[2rem] border border-slate-200 bg-gradient-to-br ${card.tone} p-6 shadow-[0_24px_80px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:shadow-[0_30px_100px_rgba(15,23,42,0.12)] md:p-8`}
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm">
+                    <card.icon className="h-6 w-6" />
+                  </div>
+                  <span className={`rounded-full bg-white px-3 py-1 text-xs font-medium ${card.accent}`}>{card.audience}</span>
+                </div>
+                <h3 className="mt-6 text-2xl font-semibold tracking-tight text-slate-950">{card.title}</h3>
+                <p className="mt-4 text-sm leading-7 text-slate-700">{card.summary}</p>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {card.highlights.map((tag) => (
+                    <span key={tag} className="rounded-full border border-white/80 bg-white/70 px-3 py-1 text-xs text-slate-700">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-900">
+                  进入该站点
+                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="container pb-14 pt-8 md:pb-20 md:pt-12">
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.05)] md:p-8">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Operating loop</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">统一平台真正要解决的是经营协同，而不是页面拼接。</h2>
+              <div className="mt-8 space-y-4">
+                {operatingLoop.map((item, index) => (
+                  <div key={item.title} className="rounded-3xl bg-slate-50 p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-950 text-xs font-semibold text-white">
+                        0{index + 1}
+                      </div>
+                      <p className="font-medium text-slate-950">{item.title}</p>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-600">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] md:p-8">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-400">Entry matrix</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight">从首页可以直接进入采购、品牌认知、客户跟踪与运营动作。</h2>
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                {siteEntries.map((entry) => (
+                  <Link key={entry.title} href={entry.href} className="rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${entry.tone} text-white`}>
+                        <entry.icon className="h-5 w-5" />
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <p className="mt-5 text-lg font-medium text-white">{entry.title}</p>
+                    <p className="mt-3 text-sm leading-7 text-slate-300">{entry.description}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {entry.tags.map((tag) => (
+                        <span key={tag} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-slate-300">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {resolvedHomepageOperationalSnapshots.map((snapshot) => (
+                  <Link key={snapshot.title} href={snapshot.href} className="rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-sky-300">
+                        <snapshot.icon className="h-5 w-5" />
+                      </div>
+                      <p className="text-base font-medium text-white">{snapshot.title}</p>
+                    </div>
+                    <p className="mt-4 text-sm leading-7 text-slate-300">{snapshot.detail}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -756,6 +1395,9 @@ export function PlatformHome() {
 }
 
 export function ShopPage() {
+  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
+  const shopSnapshot = getSiteSnapshot(platformSnapshot, "shop");
   const [activeCategory, setActiveCategory] = useState<string>(shopCategories[0]?.id ?? "chemicals");
   const [cart, setCart] = useState<Record<string, number>>({});
 
@@ -818,6 +1460,23 @@ export function ShopPage() {
                 </div>
               ))}
             </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "真实商品", value: `${shopSnapshot?.productCount ?? shopProducts.length} 个已接入` },
+                { label: "采购分类", value: `${shopSnapshot?.categoryCount ?? shopCategories.length} 类可浏览` },
+                { label: "进行中订单", value: `${shopSnapshot?.pipelineOrderCount ?? demoOrders.length} 笔待推进` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">
+                  <p className="text-xs uppercase tracking-[0.2em] text-sky-200/80">{item.label}</p>
+                  <p className="mt-3 text-sm leading-7 text-sky-50">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-400">
+              {platformSnapshotQuery.isError
+                ? "实时平台摘要暂时不可用，当前仍保留演示商品结构以保证采购路径可以继续浏览。"
+                : "商城顶部统计已接入平台真实摘要，可用于快速校验产品、分类与订单链路是否贯通。"}
+            </p>
           </div>
 
           <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
@@ -1010,6 +1669,10 @@ export function ShopPage() {
 }
 
 export function LabPage() {
+  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
+  const labSnapshot = getSiteSnapshot(platformSnapshot, "lab");
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#0f172a_0%,#111827_45%,#f8fafc_45%,#f8fafc_100%)] text-white">
       <header className="container flex h-16 items-center justify-between text-sm text-slate-300">
@@ -1030,6 +1693,23 @@ export function LabPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300 md:text-lg">
               LAB 站点承担品牌介绍、研发能力展示、产品线认知与商务联系入口。本轮进一步补齐了研发能力卡片、产品线与商务联系区块，使其更贴近真实官网首页结构。
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "真实商品", value: `${labSnapshot?.productCount ?? 0} 个` },
+                { label: "品牌订单", value: `${labSnapshot?.orderCount ?? 0} 笔` },
+                { label: "商务线索", value: `${labSnapshot?.leadCount ?? 0} 条` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur">
+                  <p className="text-xs uppercase tracking-[0.2em] text-violet-200/70">{item.label}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-100">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-400">
+              {platformSnapshotQuery.isError
+                ? "当前展示的品牌结构仍以演示内容为主，真实摘要同步失败后会自动回退。"
+                : "首屏补充了来自统一平台的真实品牌摘要，可用于校验研发展示与商务转化链路。"}
             </p>
           </div>
 
@@ -1109,6 +1789,10 @@ export function LabPage() {
 }
 
 export function TechPage() {
+  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
+  const techSnapshot = getSiteSnapshot(platformSnapshot, "tech");
+
   return (
     <div className="min-h-screen bg-[#f3f7f7] text-slate-900">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur-xl">
@@ -1131,6 +1815,23 @@ export function TechPage() {
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
               本轮将官网首屏升级为更接近真实 ToB 官网的信息结构，强化企业介绍、解决方案、案例与采购入口之间的联动关系。
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "真实商品", value: `${techSnapshot?.productCount ?? 0} 个` },
+                { label: "方案订单", value: `${techSnapshot?.orderCount ?? 0} 笔` },
+                { label: "项目线索", value: `${techSnapshot?.leadCount ?? 0} 条` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[1.75rem] border border-emerald-200 bg-white/80 p-5 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-700/80">{item.label}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-700">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-500">
+              {platformSnapshotQuery.isError
+                ? "当前仍保留结构化演示内容，真实平台摘要同步失败时会自动回退到静态站点文案。"
+                : "首屏统计已接入统一平台摘要，可辅助校验行业方案、订单和线索是否形成同一条经营链路。"}
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link
@@ -1204,6 +1905,10 @@ export function TechPage() {
 }
 
 export function CarePage() {
+  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
+  const careSnapshot = getSiteSnapshot(platformSnapshot, "care");
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#fffaf2_0%,#fffdf9_45%,#ffffff_100%)] text-slate-900">
       <header className="border-b border-amber-100 bg-white/90 backdrop-blur-xl">
@@ -1226,6 +1931,23 @@ export function CarePage() {
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
               Care 站点聚焦服务介绍、流程体验、合作酒店展示与在线咨询入口。本轮进一步强化了高端服务感的结构表达，适合作为后续咨询表单与项目案例承载页。
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "服务商品", value: `${careSnapshot?.productCount ?? 0} 个` },
+                { label: "在途服务订单", value: `${careSnapshot?.pipelineOrderCount ?? 0} 笔` },
+                { label: "咨询线索", value: `${careSnapshot?.leadCount ?? 0} 条` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[1.75rem] border border-amber-200 bg-white/85 p-5 shadow-sm">
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-700/80">{item.label}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-700">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-500">
+              {platformSnapshotQuery.isError
+                ? "真实平台摘要当前不可用，页面将继续以静态服务结构保障浏览与咨询路径。"
+                : "首屏新增统一平台摘要，可直接观察服务型订单和咨询线索是否开始沉淀。"}
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link
@@ -1324,7 +2046,8 @@ export function AccountPage() {
     },
   );
 
-  const featuredOrderNo = myOrdersQuery.data?.records[0]?.orderNo;
+  const myOrderRecords = (myOrdersQuery.data?.records ?? []) as OrderSummaryRecord[];
+  const featuredOrderNo = myOrderRecords[0]?.orderNo;
   const orderDetailQuery = trpc.orders.detail.useQuery(
     {
       brandId: activeBrandId ?? 1,
@@ -1335,28 +2058,75 @@ export function AccountPage() {
     },
   );
 
+  const pendingSettlementCount = myOrderRecords.filter(
+    order => order.paymentStatus === "unpaid" || order.paymentStatus === "offline_review",
+  ).length;
+  const inFulfillmentCount = myOrderRecords.filter(
+    order => order.status === "paid" || order.status === "processing" || order.fulfillmentStatus === "shipped",
+  ).length;
+  const deliveredCount = myOrderRecords.filter(
+    order => order.fulfillmentStatus === "delivered" || order.status === "completed",
+  ).length;
+
   const currentTodos = useMemo(() => {
     if (!isAuthenticated) {
       return ["待补开票资料", "待上传付款凭证", "待确认发货与签收"];
     }
 
-    const orders = (myOrdersQuery.data?.records ?? []) as OrderSummaryRecord[];
     const todos: string[] = [];
 
-    if (orders.some(order => order.paymentStatus === "unpaid" || order.paymentStatus === "offline_review")) {
+    if (myOrderRecords.some(order => order.paymentStatus === "unpaid" || order.paymentStatus === "offline_review")) {
       todos.push("待上传付款凭证或等待财务审核");
     }
 
-    if (orders.some(order => order.status === "paid" || order.status === "processing")) {
+    if (myOrderRecords.some(order => order.status === "paid" || order.status === "processing")) {
       todos.push("待确认发货排期与履约窗口");
     }
 
-    if (orders.some(order => order.fulfillmentStatus === "shipped" || order.fulfillmentStatus === "delivered")) {
+    if (myOrderRecords.some(order => order.fulfillmentStatus === "shipped" || order.fulfillmentStatus === "delivered")) {
       todos.push("待确认签收并反馈售后结果");
     }
 
     return todos.length > 0 ? todos : ["当前品牌暂无待办，可继续采购或查看历史订单"];
-  }, [isAuthenticated, myOrdersQuery.data?.records]);
+  }, [isAuthenticated, myOrderRecords]);
+
+  const accountSummaryCards = [
+    {
+      label: "我的订单",
+      value: isAuthenticated ? String(myOrderRecords.length) : "--",
+      detail: isAuthenticated ? "基于当前品牌与账号查询最近订单" : "登录后可查看真实订单数量",
+    },
+    {
+      label: "待结算 / 待审核",
+      value: isAuthenticated ? String(pendingSettlementCount) : "--",
+      detail: isAuthenticated ? "包含待付款与线下回单待审核订单" : "登录后展示真实结算待办",
+    },
+    {
+      label: "履约进行中",
+      value: isAuthenticated ? String(inFulfillmentCount) : "--",
+      detail: isAuthenticated ? "已付款或已进入发货履约排期的订单" : "登录后展示真实履约阶段",
+    },
+    {
+      label: "已完成 / 已签收",
+      value: isAuthenticated ? String(deliveredCount) : "--",
+      detail: isAuthenticated ? "用于回访复购与售后跟踪" : "登录后展示历史完成订单",
+    },
+  ];
+
+  const featuredOrderSummary = orderDetailQuery.data?.summary;
+  const featuredActionMessage = !isAuthenticated
+    ? "请先登录以查看真实订单、审核结论与履约状态。"
+    : !featuredOrderSummary
+      ? "当前品牌下暂无可展示的订单摘要，可继续采购创建订单。"
+      : featuredOrderSummary.paymentStatus === "offline_review"
+        ? "该订单已进入线下付款审核阶段，客户中心与后台会同步显示审核进度。"
+        : featuredOrderSummary.paymentStatus === "unpaid"
+          ? "该订单尚未完成付款，可上传回单或切换支付方式后继续推进。"
+          : featuredOrderSummary.fulfillmentStatus === "shipped"
+            ? "该订单已发货，请在收货后及时确认并反馈履约结果。"
+            : featuredOrderSummary.fulfillmentStatus === "delivered"
+              ? "该订单已进入签收完成阶段，可继续发起复购或售后协同。"
+              : "该订单已进入履约流程，建议继续关注排期、发货与签收节点。";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -1403,15 +2173,14 @@ export function AccountPage() {
               <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-400">当前品牌视图</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{selectedBrand?.name || "等待品牌数据"}</p>
             </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl border border-slate-200 p-5">
-                <p className="text-sm text-slate-500">企业资料</p>
-                <p className="mt-2 font-medium text-slate-950">待接入企业名称、税号、联系人、地址簿与默认发票信息</p>
-              </div>
-              <div className="rounded-3xl border border-slate-200 p-5">
-                <p className="text-sm text-slate-500">支付偏好</p>
-                <p className="mt-2 font-medium text-slate-950">优先承接对公转账审核，已保留微信与支付宝扩展字段</p>
-              </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {accountSummaryCards.map((card) => (
+                <div key={card.label} className="rounded-3xl border border-slate-200 p-5">
+                  <p className="text-sm text-slate-500">{card.label}</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">{card.value}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{card.detail}</p>
+                </div>
+              ))}
             </div>
             <div className="mt-6 grid gap-4">
               {customerActionCards.map((card) => (
@@ -1482,7 +2251,7 @@ export function AccountPage() {
                   当前品牌下还没有可展示的订单，可继续采购创建新订单。
                 </div>
               ) : (
-                ((myOrdersQuery.data?.records ?? []) as OrderSummaryRecord[]).map((order) => (
+                myOrderRecords.map((order) => (
                   <div key={order.orderNo} className="rounded-3xl border border-slate-200 p-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
@@ -1525,16 +2294,27 @@ export function AccountPage() {
                   </div>
                 ))}
               </div>
-              {orderDetailQuery.data ? (
-                <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
-                  <p className="text-sm text-slate-500">最近一笔订单摘要</p>
-                  <p className="mt-2 font-medium text-slate-950">{orderDetailQuery.data.summary.orderNo}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">
-                    支付状态：{getPaymentStatusLabel(orderDetailQuery.data.summary.paymentStatus)}；履约状态：
-                    {getFulfillmentStatusLabel(orderDetailQuery.data.summary.fulfillmentStatus)}。
-                  </p>
+              <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500">最近一笔订单摘要</p>
+                    <p className="mt-2 font-medium text-slate-950">{featuredOrderSummary?.orderNo ?? "等待真实订单"}</p>
+                  </div>
+                  <Link
+                    href="/admin/orders"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-950"
+                  >
+                    在后台查看审核闭环
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
-              ) : null}
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  {featuredOrderSummary
+                    ? `支付状态：${getPaymentStatusLabel(featuredOrderSummary.paymentStatus)}；履约状态：${getFulfillmentStatusLabel(featuredOrderSummary.fulfillmentStatus)}；回单审核：${getReviewStatusLabel(featuredOrderSummary.latestReceipt?.reviewStatus)}。`
+                    : "当前品牌暂无订单摘要，客户中心会在创建订单后同步展示最新状态。"}
+                </p>
+                <p className="mt-3 text-sm font-medium leading-7 text-slate-900">下一步建议：{featuredActionMessage}</p>
+              </div>
             </div>
           </div>
         </section>
@@ -1618,6 +2398,20 @@ export function AdminContent() {
   );
 
   const shouldLoadOrderInsights = (isOverviewSection || isOrdersSection) && Boolean(activeBrandId);
+  const shouldLoadAdminOperations = Boolean(activeBrandId);
+
+  const adminOperationsQuery = trpc.admin.operations.useQuery(
+    activeBrandId ? { brandId: activeBrandId } : {},
+    {
+      enabled: shouldLoadAdminOperations,
+    },
+  );
+
+  const adminOperations = adminOperationsQuery.data as AdminOperationsSnapshot | undefined;
+  const productSnapshot = adminOperations?.products;
+  const customerSnapshot = adminOperations?.customers;
+  const contentSnapshot = adminOperations?.content;
+  const seoSnapshot = adminOperations?.seo;
 
   const adminOrdersQuery = trpc.orders.list.useQuery(
     {
@@ -1639,6 +2433,8 @@ export function AdminContent() {
     },
   );
 
+  const [lastReviewMessage, setLastReviewMessage] = useState<string | null>(null);
+
   const reviewPaymentMutation = trpc.orders.reviewPayment.useMutation({
     onSuccess: async () => {
       await Promise.all([utils.orders.list.invalidate(), utils.orders.reviewQueue.invalidate()]);
@@ -1650,30 +2446,52 @@ export function AdminContent() {
   const reviewRecords = reviewQueueQuery.data?.records ?? [];
   const pendingReviewCount = reviewRecords.filter((record) => record.reviewStatus === "pending").length;
   const activeFulfillmentCount = orderRecords.filter((order) => ["paid", "processing", "shipped", "completed"].includes(order.status)).length;
+  const customerVisibleIssues = orderRecords.filter(
+    (order) => order.paymentStatus === "offline_review" || order.paymentStatus === "unpaid",
+  ).length;
+  const completedOrderCount = orderRecords.filter(
+    (order) => order.fulfillmentStatus === "delivered" || order.status === "completed",
+  ).length;
+  const overviewFocusItems = [
+    productSnapshot?.alerts[0],
+    customerSnapshot?.alerts[0],
+    contentSnapshot?.alerts[0],
+    seoSnapshot?.alerts[0],
+  ].filter((item): item is string => Boolean(item));
 
   const statCards = [
     {
-      label: "品牌 / 站点",
-      value: String(siteEntries.length),
-      hint: "1 套商城 + 3 个品牌官网已纳入统一控制台视图。",
-      icon: Sparkles,
+      label: "商品主数据",
+      value: String(productSnapshot?.totals.productCount ?? 0),
+      hint: productSnapshot
+        ? `已同步 ${productSnapshot.totals.activeCount} 个在售条目与 ${productSnapshot.totals.categoryCount} 个分类。`
+        : "商品总览正在同步。",
+      icon: Package,
     },
     {
-      label: "订单规模",
-      value: shouldLoadOrderInsights ? String(adminOrdersQuery.data?.total ?? 0) : "36",
-      hint: shouldLoadOrderInsights ? "总览与订单页已对接真实订单查询。" : "其余模块先复用 Sprint 规划基线。",
-      icon: ShoppingBag,
+      label: "客户与线索",
+      value: String((customerSnapshot?.totals.membershipCount ?? 0) + (customerSnapshot?.totals.leadCount ?? 0)),
+      hint: customerSnapshot
+        ? `客户档案 ${customerSnapshot.totals.membershipCount} 条，线索 ${customerSnapshot.totals.leadCount} 条。`
+        : "客户与线索总览正在同步。",
+      icon: Users,
     },
     {
-      label: "待审核回单",
-      value: shouldLoadOrderInsights ? String(pendingReviewCount) : "3",
-      hint: pendingReviewCount > 0 ? "优先处理线下付款凭证与付款主体核验。" : "当前无挂起审核单，可转入履约与客户跟进。",
-      icon: WalletCards,
+      label: "内容 / SEO 就绪",
+      value: `${contentSnapshot?.totals.storyReadyCount ?? 0}/${contentSnapshot?.totals.siteCount ?? siteEntries.length}`,
+      hint: seoSnapshot
+        ? `已有 ${seoSnapshot.totals.productMetaReadyCount} 个商品具备 SEO 元信息。`
+        : "站点内容与 SEO 就绪度正在同步。",
+      icon: BadgePercent,
     },
     {
       label: "当前品牌",
-      value: selectedBrand?.shortName ?? selectedBrand?.name ?? "待同步",
-      hint: selectedBrand ? `多租户视图已可切换至 ${selectedBrand.name}。` : "品牌主数据读取中。",
+      value: adminOperations?.scope.brandName ?? selectedBrand?.shortName ?? selectedBrand?.name ?? "待同步",
+      hint: adminOperations?.scope.isGlobal
+        ? "当前为全局运营视图。"
+        : selectedBrand
+          ? `多租户视图已切换至 ${selectedBrand.name}。`
+          : "品牌主数据读取中。",
       icon: Building2,
     },
   ];
@@ -1682,8 +2500,10 @@ export function AdminContent() {
     {
       title: "产品管理",
       path: "/admin/products",
-      status: "骨架已建",
-      description: "围绕商品资料、分类结构、阶梯定价与上架节奏搭建统一产品工作台。",
+      status: productSnapshot ? "真实数据" : "同步中",
+      description: productSnapshot
+        ? `覆盖 ${productSnapshot.totals.productCount} 个商品、${productSnapshot.totals.categoryCount} 个分类与 ${productSnapshot.totals.seoReadyCount} 个已补齐元信息条目。`
+        : "围绕商品资料、分类结构、阶梯定价与上架节奏搭建统一产品工作台。",
       icon: Package,
     },
     {
@@ -1696,22 +2516,28 @@ export function AdminContent() {
     {
       title: "客户管理",
       path: "/admin/customers",
-      status: "待联通",
-      description: "聚焦 B2B 账户、采购主体、跟进动作与客户中心权限的统一管理。",
+      status: customerSnapshot ? "真实数据" : "同步中",
+      description: customerSnapshot
+        ? `覆盖 ${customerSnapshot.totals.membershipCount} 条客户档案与 ${customerSnapshot.totals.qualifiedLeadCount} 条高意向线索。`
+        : "聚焦 B2B 账户、采购主体、跟进动作与客户中心权限的统一管理。",
       icon: Users,
     },
     {
       title: "内容发布",
       path: "/admin/content",
-      status: "待联通",
-      description: "为商城与官网提供选题、页面位、栏目层级与品牌素材的一体化入口。",
+      status: contentSnapshot ? "真实数据" : "同步中",
+      description: contentSnapshot
+        ? `当前已纳管 ${contentSnapshot.totals.siteCount} 个站点，${contentSnapshot.totals.storyReadyCount} 个站点已具备品牌叙事基础。`
+        : "为商城与官网提供选题、页面位、栏目层级与品牌素材的一体化入口。",
       icon: BookOpenText,
     },
     {
       title: "SEO 配置",
       path: "/admin/seo",
-      status: "待联通",
-      description: "统一管理标题、描述、结构化信息、站点地图与推广落地页基线。",
+      status: seoSnapshot ? "真实数据" : "同步中",
+      description: seoSnapshot
+        ? `当前仍有 ${seoSnapshot.totals.missingMetaCount} 项元信息待补齐，可直接进入治理面板排查。`
+        : "统一管理标题、描述、结构化信息、站点地图与推广落地页基线。",
       icon: BadgePercent,
     },
   ];
@@ -1837,10 +2663,6 @@ export function AdminContent() {
               "发货后需回写物流或服务进度，确保客户中心与后台状态一致。",
             ];
 
-  const placeholderAction = (label: string) => {
-    sonnerToast(`${label} 已加入后续 Sprint，本轮先保留统一后台入口与字段骨架。`);
-  };
-
   return (
     <div className="space-y-6">
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.06)]">
@@ -1875,7 +2697,7 @@ export function AdminContent() {
                 {selectedBrand?.name ?? "正在同步品牌清单"}
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-600">
-                后台当前通过统一控制台管理商城与三个品牌门户；订单页与总览页已接入真实查询，其余模块先建立信息架构与运营骨架。
+                后台当前通过统一控制台管理商城与三个品牌门户；产品、订单、客户、内容与 SEO 面板均已切换到同一品牌上下文的真实运营快照。
               </p>
               <label className="mt-5 block text-sm text-slate-500">
                 当前品牌
@@ -1976,11 +2798,14 @@ export function AdminContent() {
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Sprint 1 焦点</p>
               <div className="mt-5 space-y-3">
-                {[
-                  "订单列表、详情与审核闭环已联通真实查询。",
-                  "支付身份映射、退款单、回调日志等底层结构已预留。",
-                  "产品、客户、内容与 SEO 模块进入后台统一框架阶段。",
-                ].map((item) => (
+                {(overviewFocusItems.length > 0
+                  ? overviewFocusItems
+                  : [
+                      "后台四个核心模块正在同步真实运营快照。",
+                      "订单、产品、客户、内容与 SEO 已围绕同一品牌上下文联动。",
+                      "当前仍可按品牌切换查看不同站点的经营状态。",
+                    ]
+                ).map((item) => (
                   <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
                     {item}
                   </div>
@@ -2021,124 +2846,224 @@ export function AdminContent() {
       ) : null}
 
       {isProductsSection ? (
-        <>
-          <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">商品治理工位</p>
-              <div className="mt-6 space-y-4">
-                {productWorkstreams.map((item) => (
-                  <div key={item.title} className="rounded-3xl border border-slate-200 p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-medium text-slate-950">{item.title}</p>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{item.tag}</span>
-                    </div>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">品牌商品视角</p>
-              <div className="mt-6 space-y-4">
-                {[
-                  {
-                    name: "iCloush LAB.",
-                    detail: "更适合承接研发背书、场景方案、顾问型项目报价与样品试用入口。",
-                  },
-                  {
-                    name: "环洗朵科技",
-                    detail: "承担专业化学品标准品、批量采购、复购与渠道型商品的主销售阵地。",
-                  },
-                  {
-                    name: "iCloush Care",
-                    detail: "偏服务型产品与高客单方案页，商品管理应支持项目制与排期字段。",
-                  },
-                ].map((item) => (
-                  <div key={item.name} className="rounded-3xl bg-slate-50 p-5">
-                    <p className="font-medium text-slate-950">{item.name}</p>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">占位动作</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">待接真实商品接口的后台操作位</h2>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">商品治理工位</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">真实商品、分类与内容就绪度</h2>
               </div>
-              <div className="rounded-full bg-amber-50 px-4 py-2 text-sm text-amber-700">当前为 Sprint 骨架，按钮会给出提示</div>
+              <div className={`rounded-full px-4 py-2 text-sm ${adminOperationsQuery.isError ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {adminOperationsQuery.isError ? "快照回退中" : adminOperations?.scope.isGlobal ? "全局品牌视图" : adminOperations?.scope.brandName ?? "品牌视图"}
+              </div>
             </div>
-            <div className="mt-6 flex flex-wrap gap-3">
-              {[
-                "新建商品模板",
-                "导入阶梯价格",
-                "配置品牌上架范围",
-              ].map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => placeholderAction(label)}
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </section>
-        </>
-      ) : null}
-
-      {isCustomersSection ? (
-        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户生命周期骨架</p>
-            <div className="mt-6 space-y-4">
-              {customerWorkstreams.map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 p-5">
-                  <p className="font-medium text-slate-950">{item.title}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
-                  <button
-                    type="button"
-                    onClick={() => placeholderAction(item.action)}
-                    className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
-                  >
-                    {item.action}
-                  </button>
+            {adminOperationsQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                正在同步真实商品与分类摘要。
+              </div>
+            ) : adminOperationsQuery.isError || !productSnapshot ? (
+              <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
+                商品运营快照暂时不可用，稍后重试即可恢复品牌级商品治理视图。
+              </div>
+            ) : (
+              <>
+                <div className="mt-6 grid gap-4 md:grid-cols-4">
+                  {[
+                    { label: "商品总量", value: `${productSnapshot.totals.productCount} 个` },
+                    { label: "在售商品", value: `${productSnapshot.totals.activeCount} 个` },
+                    { label: "草稿商品", value: `${productSnapshot.totals.draftCount} 个` },
+                    { label: "内容就绪", value: `${productSnapshot.totals.contentReadyCount} 个` },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-3xl bg-slate-50 p-5">
+                      <p className="text-sm text-slate-500">{item.label}</p>
+                      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{item.value}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                <div className="mt-6 space-y-4">
+                  {productSnapshot.products.length === 0 ? (
+                    <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                      当前品牌下暂无商品，建议先在数据库中补充最小商品主数据。
+                    </div>
+                  ) : (
+                    productSnapshot.products.slice(0, 6).map((product) => (
+                      <div key={product.id} className="rounded-3xl border border-slate-200 p-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-lg font-medium text-slate-950">{product.name}</p>
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{product.brandName}</span>
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{product.categoryName}</span>
+                            </div>
+                            <p className="mt-3 text-sm leading-7 text-slate-600">{product.subtitle ?? "当前条目尚未补充副标题，适合在内容模块中继续完善转化文案。"}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full bg-slate-950 px-3 py-1 text-xs uppercase tracking-[0.16em] text-white">{product.productType}</span>
+                            <span className={`rounded-full px-3 py-1 text-xs ${product.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                              {product.status === "active" ? "在售中" : "草稿中"}
+                            </span>
+                            <span className={`rounded-full px-3 py-1 text-xs ${product.seoReady ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-600"}`}>
+                              {product.seoReady ? "SEO 已就绪" : "SEO 待补齐"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                          <span className={`rounded-full px-3 py-1 ${product.contentReady ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                            {product.contentReady ? "内容已就绪" : "内容待补齐"}
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">最近更新 {formatDateLabel(product.updatedAt)}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户中心映射</p>
-              <div className="mt-5 space-y-3">
-                {[
-                  "客户中心订单列表已改为真实查询，可作为客户档案的首个已联通触点。",
-                  "后续可在客户详情中补充付款凭证、审核结果、发票状态与履约时间线。",
-                  "管理员与客户角色后续需要结合多租户品牌归属做更细分权限控制。",
-                ].map((item) => (
-                  <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-                    {item}
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">品牌商品分布</p>
+              <div className="mt-5 space-y-4">
+                {(productSnapshot?.brandViews.length ? productSnapshot.brandViews : []).map((item) => (
+                  <div key={item.brandId} className="rounded-3xl bg-slate-50 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-slate-950">{item.brandName}</p>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{item.productCount} 个商品</span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                      在售 {item.activeCount} 个，分类 {item.categoryCount} 个，SEO 就绪 {item.seoReadyCount} 个。
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {item.productTypeMix.map((mix) => (
+                        <span key={mix} className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{mix}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">推荐字段</p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {[
-                  "采购主体",
-                  "开票信息",
-                  "品牌归属",
-                  "合作阶段",
-                  "销售负责人",
-                  "复购频次",
-                ].map((item) => (
-                  <span key={item} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                    {item}
-                  </span>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">治理提醒</p>
+              <div className="mt-5 space-y-3">
+                {(productSnapshot?.alerts.length ? productSnapshot.alerts : productWorkstreams.map((item) => item.detail)).map((item) => (
+                  <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">{item}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {isCustomersSection ? (
+        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户经营总览</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">真实客户档案与线索状态</h2>
+              </div>
+              <div className={`rounded-full px-4 py-2 text-sm ${adminOperationsQuery.isError ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {adminOperationsQuery.isError ? "快照回退中" : `${customerSnapshot?.totals.qualifiedLeadCount ?? 0} 条高意向线索`}
+              </div>
+            </div>
+            {adminOperationsQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                正在同步客户档案与线索列表。
+              </div>
+            ) : adminOperationsQuery.isError || !customerSnapshot ? (
+              <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
+                客户运营快照暂时不可用，稍后重试即可恢复客户与线索视图。
+              </div>
+            ) : (
+              <>
+                <div className="mt-6 grid gap-4 md:grid-cols-4">
+                  {[
+                    { label: "客户档案", value: `${customerSnapshot.totals.membershipCount} 条` },
+                    { label: "活跃账户", value: `${customerSnapshot.totals.activeMembershipCount} 条` },
+                    { label: "企业主体", value: `${customerSnapshot.totals.enterpriseAccountCount} 个` },
+                    { label: "待跟进线索", value: `${customerSnapshot.totals.leadCount - customerSnapshot.totals.qualifiedLeadCount} 条` },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-3xl bg-slate-50 p-5">
+                      <p className="text-sm text-slate-500">{item.label}</p>
+                      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                  <div className="space-y-4">
+                    <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户档案</p>
+                    {customerSnapshot.customers.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                        当前品牌下暂无客户档案记录。
+                      </div>
+                    ) : (
+                      customerSnapshot.customers.slice(0, 5).map((customer) => (
+                        <div key={customer.membershipId} className="rounded-3xl border border-slate-200 p-5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-slate-950">{customer.displayName}</p>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{customer.brandName}</span>
+                            <span className={`rounded-full px-3 py-1 text-xs ${customer.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                              {customer.status === "active" ? "已激活" : customer.status}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm leading-7 text-slate-600">{customer.enterpriseName ?? customer.contactName ?? "当前仅同步到基础用户身份，可继续补充采购主体与联系人。"}</p>
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{customer.memberType}</span>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{customer.accountType}</span>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">最近登录 {formatDateLabel(customer.lastSignedIn)}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="space-y-4">
+                    <p className="text-sm uppercase tracking-[0.2em] text-slate-500">最新线索</p>
+                    {customerSnapshot.leads.length === 0 ? (
+                      <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                        当前品牌下暂无线索记录。
+                      </div>
+                    ) : (
+                      customerSnapshot.leads.slice(0, 5).map((lead) => (
+                        <div key={lead.id} className="rounded-3xl border border-slate-200 p-5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-slate-950">{lead.contactName}</p>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{lead.brandName}</span>
+                            <span className={`rounded-full px-3 py-1 text-xs ${lead.leadStatus === "qualified" || lead.leadStatus === "closed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                              {lead.leadStatus}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm leading-7 text-slate-600">{lead.companyName ?? lead.sourcePage ?? `${lead.sourceSite} 来源线索`}</p>
+                          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">来源 {lead.sourceSite}</span>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">创建于 {formatDateLabel(lead.createdAt)}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="space-y-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">品牌客户分布</p>
+              <div className="mt-5 space-y-4">
+                {(customerSnapshot?.brandViews.length ? customerSnapshot.brandViews : []).map((item) => (
+                  <div key={item.brandId} className="rounded-3xl bg-slate-50 p-5">
+                    <p className="font-medium text-slate-950">{item.brandName}</p>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                      档案 {item.membershipCount} 条，活跃 {item.activeMembershipCount} 条，企业账户 {item.enterpriseAccountCount} 个，线索 {item.leadCount} 条。
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户经营提醒</p>
+              <div className="mt-5 space-y-3">
+                {(customerSnapshot?.alerts.length ? customerSnapshot.alerts : customerWorkstreams.map((item) => item.detail)).map((item) => (
+                  <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">{item}</div>
                 ))}
               </div>
             </div>
@@ -2149,51 +3074,70 @@ export function AdminContent() {
       {isContentSection ? (
         <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">内容编排矩阵</p>
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {siteEntries.map((entry) => (
-                <div key={entry.title} className="rounded-3xl border border-slate-200 p-5">
-                  <p className="font-medium text-slate-950">{entry.title}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{entry.description}</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {entry.tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">内容编排矩阵</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">商城与多品牌站点内容治理</h2>
+              </div>
+              <div className={`rounded-full px-4 py-2 text-sm ${adminOperationsQuery.isError ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {adminOperationsQuery.isError ? "快照回退中" : `${contentSnapshot?.totals.storyReadyCount ?? 0} 个站点已具备品牌叙事`}
+              </div>
             </div>
+            {adminOperationsQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                正在同步站点内容治理视图。
+              </div>
+            ) : adminOperationsQuery.isError || !contentSnapshot ? (
+              <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
+                内容运营快照暂时不可用，稍后重试即可恢复站点级内容治理面板。
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {contentSnapshot.siteEntries.map((entry) => (
+                  <div key={entry.siteKey} className="rounded-3xl border border-slate-200 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-slate-950">{entry.title}</p>
+                        <p className="mt-1 text-sm text-slate-500">{entry.brandName}</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs ${entry.storyReady ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {entry.statusLabel}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">域名 {entry.domain ?? "待配置"}，已沉淀 {entry.leadCount} 条线索，可直接回看站点内容承接效果。</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {(entry.featuredNames.length > 0 ? entry.featuredNames : ["待补充代表性商品或专题"]).map((item) => (
+                        <span key={item} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{item}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">内容工作流</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">内容工作队列</p>
               <div className="mt-5 space-y-4">
-                {contentWorkstreams.map((item) => (
+                {((contentSnapshot?.queue.length ? contentSnapshot.queue : contentWorkstreams.map((item) => ({ title: item.title, channel: item.path ?? "后台", reason: item.detail, priority: "medium" as const })))).map((item) => (
                   <div key={item.title} className="rounded-3xl bg-slate-50 p-5">
-                    <p className="font-medium text-slate-950">{item.title}</p>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-slate-950">{item.title}</p>
+                      <span className={`rounded-full px-3 py-1 text-xs ${item.priority === "high" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}`}>
+                        {item.priority === "high" ? "高优先级" : "中优先级"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.reason}</p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.16em] text-slate-400">渠道：{item.channel}</p>
                   </div>
                 ))}
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">占位动作</p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {[
-                  "新建官网专题页",
-                  "调整商城 Banner",
-                  "上传品牌素材",
-                ].map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => placeholderAction(label)}
-                    className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-                  >
-                    {label}
-                  </button>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">内容治理提醒</p>
+              <div className="mt-5 space-y-3">
+                {(contentSnapshot?.alerts.length ? contentSnapshot.alerts : contentWorkstreams.map((item) => item.detail)).map((item) => (
+                  <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">{item}</div>
                 ))}
               </div>
             </div>
@@ -2202,46 +3146,67 @@ export function AdminContent() {
       ) : null}
 
       {isSeoSection ? (
-        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">SEO 治理清单</p>
-            <div className="mt-6 space-y-4">
-              {seoWorkstreams.map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 p-5">
-                  <p className="font-medium text-slate-950">{item.title}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
-                </div>
-              ))}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">SEO 治理清单</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">站点元信息与商品元字段覆盖率</h2>
+              </div>
+              <div className={`rounded-full px-4 py-2 text-sm ${adminOperationsQuery.isError ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {adminOperationsQuery.isError ? "快照回退中" : `${seoSnapshot?.totals.missingMetaCount ?? 0} 项待补齐`}
+              </div>
             </div>
+            {adminOperationsQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
+                正在同步 SEO 运营快照。
+              </div>
+            ) : adminOperationsQuery.isError || !seoSnapshot ? (
+              <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-700">
+                SEO 运营快照暂时不可用，稍后重试即可恢复站点治理面板。
+              </div>
+            ) : (
+              <div className="mt-6 space-y-4">
+                {seoSnapshot.siteEntries.map((entry) => (
+                  <div key={entry.siteKey} className="rounded-3xl border border-slate-200 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-slate-950">{entry.title}</p>
+                        <p className="mt-1 text-sm text-slate-500">{entry.brandName}</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs ${entry.siteMetaReady ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {entry.statusLabel}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">域名 {entry.domain ?? "待配置"}，已激活商品 {entry.activeProductCount} 个，其中 {entry.seoReadyProductCount} 个已补齐 SEO 字段。</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="space-y-6">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">站点优先级</p>
-              <div className="mt-5 space-y-3">
-                {siteEntries.map((entry) => (
-                  <div key={entry.title} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-                    <p className="font-medium text-slate-950">{entry.title}</p>
-                    <p className="mt-2">{entry.description}</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">优化机会</p>
+              <div className="mt-5 space-y-4">
+                {((seoSnapshot?.opportunities.length ? seoSnapshot.opportunities : seoWorkstreams.map((item) => ({ title: item.title, impact: item.detail, action: "补齐站点基线", severity: "medium" as const })))).map((item) => (
+                  <div key={item.title} className="rounded-3xl bg-slate-50 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-slate-950">{item.title}</p>
+                      <span className={`rounded-full px-3 py-1 text-xs ${item.severity === "high" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700"}`}>
+                        {item.severity === "high" ? "高影响" : "中影响"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.impact}</p>
+                    <p className="mt-3 text-sm font-medium text-slate-900">建议动作：{item.action}</p>
                   </div>
                 ))}
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">占位动作</p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                {[
-                  "生成标题模板",
-                  "规划站点地图",
-                  "补齐结构化字段",
-                ].map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => placeholderAction(label)}
-                    className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-                  >
-                    {label}
-                  </button>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">SEO 治理提醒</p>
+              <div className="mt-5 space-y-3">
+                {(seoSnapshot?.alerts.length ? seoSnapshot.alerts : seoWorkstreams.map((item) => item.detail)).map((item) => (
+                  <div key={item} className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">{item}</div>
                 ))}
               </div>
             </div>
@@ -2260,6 +3225,11 @@ export function AdminContent() {
               <div className="rounded-full bg-amber-50 px-4 py-2 text-sm text-amber-700">聚焦高优先级异常单</div>
             </div>
             <div className="mt-6 space-y-4">
+              {lastReviewMessage ? (
+                <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-7 text-emerald-700">
+                  {lastReviewMessage}
+                </div>
+              ) : null}
               {reviewQueueQuery.isLoading ? (
                 <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-600">
                   正在同步真实审核队列。
@@ -2313,14 +3283,21 @@ export function AdminContent() {
                           className="inline-flex h-10 items-center justify-center rounded-full bg-slate-950 px-4 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-300"
                           onClick={() => {
                             if (!activeBrandId) return;
-                            reviewPaymentMutation.mutate({
-                              brandId: activeBrandId,
-                              orderId: record.order.id,
-                              paymentId: record.payment?.id,
-                              receiptId: record.receipt.id,
-                              approved: true,
-                              reviewNote: "后台审核通过",
-                            });
+                            reviewPaymentMutation.mutate(
+                              {
+                                brandId: activeBrandId,
+                                orderId: record.order.id,
+                                paymentId: record.payment?.id,
+                                receiptId: record.receipt.id,
+                                approved: true,
+                                reviewNote: "后台审核通过",
+                              },
+                              {
+                                onSuccess: () => {
+                                  setLastReviewMessage(`${record.order.orderNo} 已审核通过，客户中心将同步显示为已完成付款审核并进入履约排期。`);
+                                },
+                              },
+                            );
                           }}
                         >
                           审核通过
@@ -2331,14 +3308,21 @@ export function AdminContent() {
                           className="inline-flex h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                           onClick={() => {
                             if (!activeBrandId) return;
-                            reviewPaymentMutation.mutate({
-                              brandId: activeBrandId,
-                              orderId: record.order.id,
-                              paymentId: record.payment?.id,
-                              receiptId: record.receipt.id,
-                              approved: false,
-                              reviewNote: "需补充付款主体或回单信息",
-                            });
+                            reviewPaymentMutation.mutate(
+                              {
+                                brandId: activeBrandId,
+                                orderId: record.order.id,
+                                paymentId: record.payment?.id,
+                                receiptId: record.receipt.id,
+                                approved: false,
+                                reviewNote: "需补充付款主体或回单信息",
+                              },
+                              {
+                                onSuccess: () => {
+                                  setLastReviewMessage(`${record.order.orderNo} 已退回补资料，客户中心会继续提示客户补充付款主体或回单信息。`);
+                                },
+                              },
+                            );
                           }}
                         >
                           驳回并补资料
@@ -2351,6 +3335,42 @@ export function AdminContent() {
             </div>
           </div>
           <div className="space-y-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户中心联动</p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">客户侧将看到的最新状态</h2>
+                </div>
+                <Link
+                  href="/account"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-950"
+                >
+                  切换到客户中心
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <p className="mt-4 text-sm leading-7 text-slate-600">
+                当前品牌 {selectedBrand?.name || "待确认品牌"} 下，客户中心将同步展示 {customerVisibleIssues} 条待结算 / 待审核提示、
+                {activeFulfillmentCount} 条履约进行中订单，以及 {completedOrderCount} 条已完成或已签收订单。
+              </p>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl bg-slate-50 p-5">
+                  <p className="text-sm text-slate-500">客户待办</p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{customerVisibleIssues}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">包括待付款与待审核回单，适合客服主动提醒。</p>
+                </div>
+                <div className="rounded-3xl bg-slate-50 p-5">
+                  <p className="text-sm text-slate-500">履约进行中</p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{activeFulfillmentCount}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">已付款或进入履约排期的订单，需要同步排产与发货进度。</p>
+                </div>
+                <div className="rounded-3xl bg-slate-50 p-5">
+                  <p className="text-sm text-slate-500">已完成闭环</p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{completedOrderCount}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">可转入复购、售后回访或品牌运营动作。</p>
+                </div>
+              </div>
+            </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-500">履约阶段</p>
               <div className="mt-6 space-y-4">

@@ -11,7 +11,7 @@ import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { getDb } from "./db";
+import { getAdminOperationsSnapshot, getDb, getPlatformSnapshot } from "./db";
 
 const orderStatusSchema = z.enum([
   "pending_payment",
@@ -77,6 +77,10 @@ const reviewPaymentSchema = z.object({
   reviewNote: z.string().trim().max(500).nullish(),
 });
 
+const adminOperationsSchema = z.object({
+  brandId: z.number().int().positive().optional(),
+});
+
 const fallbackBrands = [
   { id: 1, code: "huanxiduo", name: "环洗朵科技", shortName: "环洗朵", businessType: "b2b", status: "active" },
   { id: 2, code: "icloush-lab", name: "iCloush LAB.", shortName: "LAB", businessType: "hybrid", status: "active" },
@@ -130,6 +134,16 @@ export const appRouter = router({
         .from(brands);
 
       return records.length > 0 ? records : fallbackBrands;
+    }),
+  }),
+  platform: router({
+    snapshot: publicProcedure.query(async () => {
+      return getPlatformSnapshot();
+    }),
+  }),
+  admin: router({
+    operations: adminProcedure.input(adminOperationsSchema).query(async ({ input }) => {
+      return getAdminOperationsSnapshot(input);
     }),
   }),
   orders: router({

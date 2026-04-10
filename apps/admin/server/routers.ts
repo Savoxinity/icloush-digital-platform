@@ -19,6 +19,9 @@ import {
   getPublicCatalog,
   getSiteContactConfig,
   listSiteCaseStudies,
+  listSiteSolutionModules,
+  replaceSiteCaseStudies,
+  replaceSiteSolutionModules,
   submitSiteLead,
   upsertSiteContactConfig,
 } from "./db";
@@ -105,6 +108,8 @@ const siteCaseStudiesQuerySchema = z.object({
   limit: z.number().int().min(1).max(12).optional(),
 });
 
+const siteSolutionModulesQuerySchema = siteCaseStudiesQuerySchema;
+
 const siteLeadSubmissionSchema = z
   .object({
     siteKey: platformSiteKeySchema,
@@ -138,6 +143,35 @@ const siteContactUpdateSchema = z.object({
   contactAddress: z.string().trim().max(255).nullish(),
   serviceHours: z.string().trim().max(255).nullish(),
   responseSla: z.string().trim().max(120).nullish(),
+});
+
+const siteSolutionModuleInputSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  summary: z.string().trim().min(10).max(4000),
+  audience: z.string().trim().max(255).nullish(),
+  sortOrder: z.number().int().min(0).max(999).nullish(),
+});
+
+const siteCaseStudyInputSchema = z.object({
+  title: z.string().trim().min(2).max(255),
+  subtitle: z.string().trim().max(255).nullish(),
+  summary: z.string().trim().min(10).max(4000),
+  location: z.string().trim().max(120).nullish(),
+  segment: z.string().trim().max(120).nullish(),
+  partnerName: z.string().trim().max(255).nullish(),
+  sortOrder: z.number().int().min(0).max(999).nullish(),
+});
+
+const siteSolutionModulesUpdateSchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  items: z.array(siteSolutionModuleInputSchema).min(1).max(8),
+});
+
+const siteCaseStudiesUpdateSchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  items: z.array(siteCaseStudyInputSchema).min(1).max(8),
 });
 
 const fallbackBrands = [
@@ -207,6 +241,9 @@ export const appRouter = router({
     contactConfig: publicProcedure.input(siteContactQuerySchema).query(async ({ input }) => {
       return getSiteContactConfig(input);
     }),
+    solutionModules: publicProcedure.input(siteSolutionModulesQuerySchema).query(async ({ input }) => {
+      return listSiteSolutionModules(input);
+    }),
     caseStudies: publicProcedure.input(siteCaseStudiesQuerySchema).query(async ({ input }) => {
       return listSiteCaseStudies(input);
     }),
@@ -242,6 +279,12 @@ export const appRouter = router({
     }),
     updateContactConfig: adminProcedure.input(siteContactUpdateSchema).mutation(async ({ input }) => {
       return upsertSiteContactConfig(input);
+    }),
+    updateSolutionModules: adminProcedure.input(siteSolutionModulesUpdateSchema).mutation(async ({ input }) => {
+      return replaceSiteSolutionModules(input);
+    }),
+    updateCaseStudies: adminProcedure.input(siteCaseStudiesUpdateSchema).mutation(async ({ input }) => {
+      return replaceSiteCaseStudies(input);
     }),
   }),
   admin: router({

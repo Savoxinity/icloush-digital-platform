@@ -217,26 +217,79 @@ vi.mock("./lib/trpc", () => {
                 responseSla: "1 个工作日内答复",
               },
         ),
-        caseStudies: createQuery({
-          items: [
-            {
-              id: 1,
-              siteKey: "care",
-              title: "高端酒店布草奢护方案",
-              subtitle: "覆盖客房、餐饮与康体区布草护理节奏。",
-              summary: "通过周转监控与护理 SOP 降低返洗率。",
-              partnerName: "上海静安艺廊酒店",
-              location: "上海",
-              segment: "高端酒店",
-              metrics: ["平均返洗率下降 18%", "旺季排班效率提升 22%"],
-              tags: ["酒店", "布草护理"],
-              imageUrl: null,
-              sortOrder: 1,
-            },
-          ],
-        }),
+        solutionModules: createQuery((input?: { siteKey?: string }) =>
+          input?.siteKey === "tech"
+            ? {
+                source: "database",
+                items: [
+                  {
+                    id: 11,
+                    siteKey: "tech",
+                    title: "酒店布草与客房织物清洁方案",
+                    summary: "围绕客房布草、餐饮织物与高频补货场景配置预洗、主洗、柔护与异味控制建议。",
+                    audience: "酒店后勤、外包洗涤团队",
+                    sortOrder: 1,
+                  },
+                  {
+                    id: 12,
+                    siteKey: "tech",
+                    title: "物业与商业空间硬表面清洁方案",
+                    summary: "覆盖石材、金属、玻璃与公共区域高频触点，强调低残留、标准稀释比例与班次化补货机制。",
+                    audience: "物业项目、商办空间班组",
+                    sortOrder: 2,
+                  },
+                ],
+              }
+            : {
+                source: "fallback",
+                items: [],
+              },
+        ),
+        caseStudies: createQuery((input?: { siteKey?: string }) =>
+          input?.siteKey === "tech"
+            ? {
+                source: "database",
+                items: [
+                  {
+                    id: 21,
+                    siteKey: "tech",
+                    title: "物业项目标准化清洁剂替换方案",
+                    subtitle: "从多品牌混用切换到标准配比与集中采购。",
+                    summary: "结合采购预算与现场作业反馈，以标准配比、集中采购与巡检抽样方式替换旧有多品牌混用模式。",
+                    partnerName: "华东商办物业联合体",
+                    location: "上海",
+                    segment: "物业",
+                    metrics: [],
+                    tags: ["物业", "标准化替换"],
+                    imageUrl: null,
+                    sortOrder: 1,
+                  },
+                ],
+              }
+            : {
+                source: "database",
+                items: [
+                  {
+                    id: 1,
+                    siteKey: "care",
+                    title: "高端酒店布草奢护方案",
+                    subtitle: "覆盖客房、餐饮与康体区布草护理节奏。",
+                    summary: "通过周转监控与护理 SOP 降低返洗率。",
+                    partnerName: "上海静安艺廊酒店",
+                    location: "上海",
+                    segment: "高端酒店",
+                    metrics: ["平均返洗率下降 18%", "旺季排班效率提升 22%"],
+                    tags: ["酒店", "布草护理"],
+                    imageUrl: null,
+                    sortOrder: 1,
+                  },
+                ],
+              },
+        ),
         submitLead: createMutation(),
         updateContactConfig: createMutation(),
+        updateSolutionModules: createMutation(),
+        updateCaseStudies: createMutation(),
       },
       admin: {
         operations: createQuery({
@@ -620,7 +673,7 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("提交合作需求");
   });
 
-  it("renders tech site skeleton with industrial solution messaging", () => {
+  it("renders tech site with managed solution modules and case studies", () => {
     setPathname("/tech");
     const html = renderToStaticMarkup(<TechPage />);
 
@@ -628,9 +681,13 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("真实商品");
     expect(html).toContain("方案订单");
     expect(html).toContain("项目线索");
+    expect(html).toContain("官网首屏已切换为统一内容治理模式");
+    expect(html).toContain("方案内容源");
+    expect(html).toContain("后台已接管");
     expect(html).toContain("酒店布草与客房织物清洁方案");
-    expect(html).toContain("项目化试样、配比建议与导入节奏");
+    expect(html).toContain("适用对象：酒店后勤、外包洗涤团队");
     expect(html).toContain("物业项目标准化清洁剂替换方案");
+    expect(html).toContain("合作对象：华东商办物业联合体");
   });
 
   it("renders care site skeleton with service package messaging", () => {
@@ -766,7 +823,7 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("品牌客户分布");
   });
 
-  it("renders admin content console with site governance queue", () => {
+  it("renders admin content console with tech solution and case governance cards", () => {
     setPathname("/admin/content");
     const html = renderToStaticMarkup(<AdminContent />);
 
@@ -775,7 +832,10 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("内容工作队列");
     expect(html).toContain("补齐 LAB 样品申请页");
     expect(html).toContain("LAB 联系配置");
-    expect(html).toContain("保存 LAB 联系配置");
+    expect(html).toContain("环洗朵科技行业解决方案");
+    expect(html).toContain("保存行业解决方案");
+    expect(html).toContain("环洗朵科技客户案例");
+    expect(html).toContain("保存客户案例");
     expect(html).toContain("内容治理提醒");
   });
 

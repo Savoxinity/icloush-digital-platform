@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -11,6 +11,7 @@ import {
   products,
   siteCaseStudies,
   siteContactConfigs,
+  siteSolutionModules,
   users,
 } from "../../../packages/database/schema";
 import { ENV } from "./_core/env";
@@ -1330,6 +1331,25 @@ export type SiteCaseStudySnapshot = {
   items: SiteCaseStudyItem[];
 };
 
+export type SiteSolutionModuleItem = {
+  id: number;
+  brandId: number | null;
+  brandCode: string;
+  brandName: string;
+  siteKey: PlatformSiteKey;
+  title: string;
+  summary: string;
+  audience: string | null;
+  sortOrder: number;
+  source: "database" | "fallback";
+};
+
+export type SiteSolutionModuleSnapshot = {
+  generatedAt: string;
+  source: "database" | "fallback";
+  items: SiteSolutionModuleItem[];
+};
+
 export type SiteLeadSubmissionInput = {
   siteKey: PlatformSiteKey;
   sourcePage?: string | null;
@@ -1411,7 +1431,110 @@ const FALLBACK_SITE_CONTACT_CONFIGS: SiteContactConfigSnapshot[] = [
   },
 ];
 
+const FALLBACK_SITE_SOLUTION_MODULES: SiteSolutionModuleItem[] = [
+  {
+    id: 4001,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "酒店布草与客房织物清洁方案",
+    summary:
+      "围绕客房布草、餐饮织物与高频补货场景配置预洗、主洗、柔护与异味控制建议，适合酒店后勤与外包洗涤团队协同执行。",
+    audience: "酒店后勤与洗涤团队",
+    sortOrder: 1,
+    source: "fallback",
+  },
+  {
+    id: 4002,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "物业与商业空间硬表面清洁方案",
+    summary:
+      "覆盖石材、金属、玻璃与公共区域高频触点，强调低残留、标准稀释比例与班次化补货机制。",
+    audience: "物业与商办保洁团队",
+    sortOrder: 2,
+    source: "fallback",
+  },
+  {
+    id: 4003,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "机构日常洗护标准化配方方案",
+    summary:
+      "面向医院后勤、校园宿管与集中保洁项目输出标准配方包，便于在多点位复制清洁质量与培训口径。",
+    audience: "机构后勤与集中保洁项目",
+    sortOrder: 3,
+    source: "fallback",
+  },
+  {
+    id: 4004,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "企业定制行业应用方案",
+    summary:
+      "针对特殊材质、异味场景与高损耗工况提供项目化试样、配比建议与导入节奏，缩短从测试到上线的沟通周期。",
+    audience: "项目采购与应用测试团队",
+    sortOrder: 4,
+    source: "fallback",
+  },
+];
+
 const FALLBACK_SITE_CASE_STUDIES: SiteCaseStudyItem[] = [
+  {
+    id: 3101,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "高星级酒店布草体系升级",
+    subtitle: "返洗率治理与异味管理流程重构",
+    summary:
+      "围绕客房布草返洗率偏高的问题，重新梳理去渍、柔护与异味管理流程，并配套班次培训与补货计划。",
+    location: "上海",
+    segment: "高星级酒店",
+    partnerName: "华东高星酒店项目",
+    sortOrder: 1,
+    source: "fallback",
+  },
+  {
+    id: 3102,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "商办空间玻璃与硬表面清洁提效",
+    subtitle: "多场景物料标准包与巡检节奏统一",
+    summary:
+      "将玻璃清洁、金属养护与公共区域保洁耗材统一纳入班组标准包，减少不同场景切换时的重复备料与误配。",
+    location: "深圳",
+    segment: "甲级写字楼与商办综合体",
+    partnerName: "华南商办空间项目",
+    sortOrder: 2,
+    source: "fallback",
+  },
+  {
+    id: 3103,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    title: "物业项目标准化清洁剂替换方案",
+    subtitle: "采购预算与标准配比协同优化",
+    summary:
+      "结合采购预算与现场作业反馈，以标准配比、集中采购与巡检抽样方式替换旧有多品牌混用模式。",
+    location: "杭州",
+    segment: "住宅与园区物业",
+    partnerName: "长三角物业项目",
+    sortOrder: 3,
+    source: "fallback",
+  },
   {
     id: 3001,
     brandId: 3,
@@ -1671,6 +1794,87 @@ export async function upsertSiteContactConfig(input: {
   });
 }
 
+export async function listSiteSolutionModules(params: { siteKey: PlatformSiteKey; brandCode?: string; limit?: number }) {
+  const siteKey = params.siteKey;
+  const fallbackItems = FALLBACK_SITE_SOLUTION_MODULES.filter((record) => record.siteKey === siteKey)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .slice(0, params.limit ?? 6);
+  const fallbackSnapshot: SiteSolutionModuleSnapshot = {
+    generatedAt: new Date().toISOString(),
+    source: "fallback",
+    items: fallbackItems,
+  };
+  const brandCode = params.brandCode?.trim() || getDefaultBrandCode(siteKey);
+  const db = await getDb();
+
+  if (!db) {
+    return fallbackSnapshot;
+  }
+
+  try {
+    const brandRecords = await db
+      .select({
+        id: brands.id,
+        code: brands.code,
+        name: brands.name,
+      })
+      .from(brands)
+      .where(eq(brands.code, brandCode))
+      .limit(1);
+
+    const brandRecord = brandRecords[0];
+    if (!brandRecord) {
+      return fallbackSnapshot;
+    }
+
+    const records = await db
+      .select({
+        id: siteSolutionModules.id,
+        siteKey: siteSolutionModules.siteKey,
+        title: siteSolutionModules.title,
+        summary: siteSolutionModules.summary,
+        audience: siteSolutionModules.audience,
+        sortOrder: siteSolutionModules.sortOrder,
+        status: siteSolutionModules.status,
+        updatedAt: siteSolutionModules.updatedAt,
+      })
+      .from(siteSolutionModules)
+      .where(eq(siteSolutionModules.brandId, brandRecord.id))
+      .orderBy(desc(siteSolutionModules.updatedAt))
+      .limit(Math.max((params.limit ?? 6) * 3, 18));
+
+    const items = records
+      .filter((record) => record.siteKey === siteKey && record.status === "published")
+      .sort((left, right) => left.sortOrder - right.sortOrder || right.updatedAt.getTime() - left.updatedAt.getTime())
+      .slice(0, params.limit ?? 6)
+      .map((record) => ({
+        id: record.id,
+        brandId: brandRecord.id,
+        brandCode: brandRecord.code,
+        brandName: brandRecord.name,
+        siteKey,
+        title: record.title,
+        summary: record.summary,
+        audience: normalizeNullableText(record.audience),
+        sortOrder: record.sortOrder,
+        source: "database" as const,
+      }));
+
+    if (items.length === 0) {
+      return fallbackSnapshot;
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "database",
+      items,
+    } satisfies SiteSolutionModuleSnapshot;
+  } catch (error) {
+    console.warn("[Database] Failed to load site solution modules:", error);
+    return fallbackSnapshot;
+  }
+}
+
 export async function listSiteCaseStudies(params: { siteKey: PlatformSiteKey; brandCode?: string; limit?: number }) {
   const siteKey = params.siteKey;
   const fallbackItems = FALLBACK_SITE_CASE_STUDIES.filter((record) => record.siteKey === siteKey).slice(0, params.limit ?? 6);
@@ -1754,6 +1958,126 @@ export async function listSiteCaseStudies(params: { siteKey: PlatformSiteKey; br
     console.warn("[Database] Failed to load site case studies:", error);
     return fallbackSnapshot;
   }
+}
+
+export async function replaceSiteSolutionModules(input: {
+  siteKey: PlatformSiteKey;
+  brandCode?: string;
+  items: Array<{
+    title: string;
+    summary: string;
+    audience?: string | null;
+    sortOrder?: number | null;
+  }>;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("数据库当前不可用，无法保存站点解决方案。");
+  }
+
+  const brandCode = input.brandCode?.trim() || getDefaultBrandCode(input.siteKey);
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands)
+    .where(eq(brands.code, brandCode))
+    .limit(1);
+
+  const brandRecord = brandRecords[0];
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 ${brandCode}，无法保存站点解决方案。`);
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(siteSolutionModules).where(and(eq(siteSolutionModules.brandId, brandRecord.id), eq(siteSolutionModules.siteKey, input.siteKey)));
+
+    if (input.items.length > 0) {
+      await tx.insert(siteSolutionModules).values(
+        input.items.map((item, index) => ({
+          brandId: brandRecord.id,
+          siteKey: input.siteKey,
+          title: item.title.trim(),
+          summary: item.summary.trim(),
+          audience: normalizeNullableText(item.audience),
+          sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : index + 1,
+          status: "published" as const,
+        })),
+      );
+    }
+  });
+
+  return listSiteSolutionModules({
+    siteKey: input.siteKey,
+    brandCode,
+    limit: Math.max(input.items.length, 1),
+  });
+}
+
+export async function replaceSiteCaseStudies(input: {
+  siteKey: PlatformSiteKey;
+  brandCode?: string;
+  items: Array<{
+    title: string;
+    subtitle?: string | null;
+    summary: string;
+    location?: string | null;
+    segment?: string | null;
+    partnerName?: string | null;
+    sortOrder?: number | null;
+  }>;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("数据库当前不可用，无法保存站点案例。");
+  }
+
+  const brandCode = input.brandCode?.trim() || getDefaultBrandCode(input.siteKey);
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands)
+    .where(eq(brands.code, brandCode))
+    .limit(1);
+
+  const brandRecord = brandRecords[0];
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 ${brandCode}，无法保存站点案例。`);
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(siteCaseStudies).where(and(eq(siteCaseStudies.brandId, brandRecord.id), eq(siteCaseStudies.siteKey, input.siteKey)));
+
+    if (input.items.length > 0) {
+      await tx.insert(siteCaseStudies).values(
+        input.items.map((item, index) => ({
+          brandId: brandRecord.id,
+          siteKey: input.siteKey,
+          title: item.title.trim(),
+          subtitle: normalizeNullableText(item.subtitle),
+          summary: item.summary.trim(),
+          location: normalizeNullableText(item.location),
+          segment: normalizeNullableText(item.segment),
+          partnerName: normalizeNullableText(item.partnerName),
+          sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : index + 1,
+          status: "published" as const,
+        })),
+      );
+    }
+  });
+
+  return listSiteCaseStudies({
+    siteKey: input.siteKey,
+    brandCode,
+    limit: Math.max(input.items.length, 1),
+  });
 }
 
 export async function submitSiteLead(input: SiteLeadSubmissionInput): Promise<SiteLeadSubmissionResult> {

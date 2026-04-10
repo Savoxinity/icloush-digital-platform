@@ -356,6 +356,20 @@ export const siteCaseStudies = mysqlTable("siteCaseStudies", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const siteSolutionModules = mysqlTable("siteSolutionModules", {
+  id: int("id").autoincrement().primaryKey(),
+  brandId: int("brandId").notNull(),
+  siteKey: mysqlEnum("siteKey", ["shop", "lab", "tech", "care"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: text("summary").notNull(),
+  audience: varchar("audience", { length: 255 }),
+  sortOrder: int("sortOrder").notNull().default(0),
+  status: mysqlEnum("status", ["draft", "published", "archived"]).notNull().default("published"),
+  metaJson: json("metaJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const leads = mysqlTable("leads", {
   id: int("id").autoincrement().primaryKey(),
   brandId: int("brandId").notNull(),
@@ -408,6 +422,9 @@ export type InsertSiteContactConfig = typeof siteContactConfigs.$inferInsert;
 
 export type SiteCaseStudy = typeof siteCaseStudies.$inferSelect;
 export type InsertSiteCaseStudy = typeof siteCaseStudies.$inferInsert;
+
+export type SiteSolutionModule = typeof siteSolutionModules.$inferSelect;
+export type InsertSiteSolutionModule = typeof siteSolutionModules.$inferInsert;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;

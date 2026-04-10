@@ -1126,6 +1126,44 @@ export type LabContactDraft = {
   responseSla: string;
 };
 
+export type TechSolutionDraft = {
+  title: string;
+  summary: string;
+  audience: string;
+  sortOrder: string;
+};
+
+export type TechCaseStudyDraft = {
+  title: string;
+  subtitle: string;
+  summary: string;
+  location: string;
+  segment: string;
+  partnerName: string;
+  sortOrder: string;
+};
+
+export function createEmptyTechSolutionDraft(): TechSolutionDraft {
+  return {
+    title: "",
+    summary: "",
+    audience: "",
+    sortOrder: "",
+  };
+}
+
+export function createEmptyTechCaseStudyDraft(): TechCaseStudyDraft {
+  return {
+    title: "",
+    subtitle: "",
+    summary: "",
+    location: "",
+    segment: "",
+    partnerName: "",
+    sortOrder: "",
+  };
+}
+
 export function buildLabContactConfigPayload(draft: LabContactDraft) {
   return {
     siteKey: "lab" as const,
@@ -1145,12 +1183,100 @@ export function buildLabContactConfigPayload(draft: LabContactDraft) {
   };
 }
 
+export function mapTechSolutionDrafts(
+  items:
+    | Array<{ title: string; summary: string; audience?: string | null; sortOrder?: number | null }>
+    | null
+    | undefined,
+) {
+  if (!items || items.length === 0) {
+    return [createEmptyTechSolutionDraft()];
+  }
+
+  return items.map((item, index) => ({
+    title: item.title ?? "",
+    summary: item.summary ?? "",
+    audience: item.audience ?? "",
+    sortOrder: String(item.sortOrder ?? index + 1),
+  }));
+}
+
+export function mapTechCaseStudyDrafts(
+  items:
+    | Array<{
+        title: string;
+        subtitle?: string | null;
+        summary: string;
+        location?: string | null;
+        segment?: string | null;
+        partnerName?: string | null;
+        sortOrder?: number | null;
+      }>
+    | null
+    | undefined,
+) {
+  if (!items || items.length === 0) {
+    return [createEmptyTechCaseStudyDraft()];
+  }
+
+  return items.map((item, index) => ({
+    title: item.title ?? "",
+    subtitle: item.subtitle ?? "",
+    summary: item.summary ?? "",
+    location: item.location ?? "",
+    segment: item.segment ?? "",
+    partnerName: item.partnerName ?? "",
+    sortOrder: String(item.sortOrder ?? index + 1),
+  }));
+}
+
+export function buildTechSolutionModulesPayload(drafts: ReadonlyArray<TechSolutionDraft>) {
+  return {
+    siteKey: "tech" as const,
+    items: drafts
+      .map((draft, index) => ({
+        title: draft.title.trim(),
+        summary: draft.summary.trim(),
+        audience: draft.audience.trim(),
+        sortOrder: Number(draft.sortOrder || index + 1),
+      }))
+      .filter((item) => item.title && item.summary),
+  };
+}
+
+export function buildTechCaseStudiesPayload(drafts: ReadonlyArray<TechCaseStudyDraft>) {
+  return {
+    siteKey: "tech" as const,
+    items: drafts
+      .map((draft, index) => ({
+        title: draft.title.trim(),
+        subtitle: draft.subtitle.trim(),
+        summary: draft.summary.trim(),
+        location: draft.location.trim(),
+        segment: draft.segment.trim(),
+        partnerName: draft.partnerName.trim(),
+        sortOrder: Number(draft.sortOrder || index + 1),
+      }))
+      .filter((item) => item.title && item.summary),
+  };
+}
+
 export function getLabContactUpdateSuccessMessage() {
   return "LAB 联系配置已更新，前台联系入口会同步展示最新内容。";
 }
 
 export function getLabContactUpdateErrorMessage(error: { message?: string | null } | null | undefined) {
   return error?.message || "联系配置更新失败，请稍后重试。";
+}
+
+export function getTechContentUpdateSuccessMessage(kind: "solution" | "case") {
+  return kind === "solution"
+    ? "环洗朵科技行业解决方案已更新，前台方案卡片会同步展示最新内容。"
+    : "环洗朵科技客户案例已更新，前台案例模块会同步展示最新内容。";
+}
+
+export function getTechContentUpdateErrorMessage(error: { message?: string | null } | null | undefined, kind: "solution" | "case") {
+  return error?.message || (kind === "solution" ? "行业解决方案保存失败，请稍后重试。" : "客户案例保存失败，请稍后重试。");
 }
 
 export async function syncLabContactConfigAfterSave(refetchers: ReadonlyArray<() => Promise<unknown> | unknown>) {
@@ -1162,6 +1288,20 @@ export function submitLabContactConfigUpdate(
   draft: LabContactDraft,
 ) {
   return mutate(buildLabContactConfigPayload(draft));
+}
+
+export function submitTechSolutionModulesUpdate(
+  mutate: (payload: ReturnType<typeof buildTechSolutionModulesPayload>) => unknown,
+  drafts: ReadonlyArray<TechSolutionDraft>,
+) {
+  return mutate(buildTechSolutionModulesPayload(drafts));
+}
+
+export function submitTechCaseStudiesUpdate(
+  mutate: (payload: ReturnType<typeof buildTechCaseStudiesPayload>) => unknown,
+  drafts: ReadonlyArray<TechCaseStudyDraft>,
+) {
+  return mutate(buildTechCaseStudiesPayload(drafts));
 }
 
 function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
@@ -2242,9 +2382,26 @@ export function LabPage() {
 
 export function TechPage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const techSolutionsQuery = trpc.site.solutionModules.useQuery({ siteKey: "tech", limit: 6 });
+  const techCaseStudiesQuery = trpc.site.caseStudies.useQuery({ siteKey: "tech", limit: 6 });
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const techSnapshot = getSiteSnapshot(platformSnapshot, "tech");
   const techSnapshotState = resolveSnapshotState(techSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
+  const techSolutionItems = (techSolutionsQuery.data?.items ?? []) as Array<{
+    id: number;
+    title: string;
+    summary: string;
+    audience?: string | null;
+  }>;
+  const techCaseItems = (techCaseStudiesQuery.data?.items ?? []) as Array<{
+    id: number;
+    title: string;
+    subtitle?: string | null;
+    summary: string;
+    segment?: string | null;
+    location?: string | null;
+    partnerName?: string | null;
+  }>;
 
   return (
     <div className="min-h-screen bg-[#f3f7f7] text-slate-900">
@@ -2267,7 +2424,7 @@ export function TechPage() {
               围绕专业化学品清洗剂与行业方案建立更强的 B2B 说服力。
             </h1>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-              本轮将官网首屏升级为更接近真实 ToB 官网的信息结构，强化企业介绍、解决方案、案例与采购入口之间的联动关系。
+              官网首屏已切换为统一内容治理模式，行业解决方案与客户案例可直接从后台维护并同步到前台展示。
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {[
@@ -2295,7 +2452,7 @@ export function TechPage() {
                   {techSnapshotState === "loading"
                     ? "环洗朵科技站点摘要正在同步，方案订单与项目线索会在真实快照返回后更新。"
                     : techSnapshotState === "error"
-                      ? "环洗朵科技摘要读取失败，当前仅保留站点结构与行业方案说明，不再展示静态统计。"
+                      ? "环洗朵科技摘要读取失败，当前仅保留站点结构与内容治理入口，不再展示静态统计。"
                       : techSnapshotState === "empty"
                         ? "环洗朵科技站点已接入统一入口，但目前暂无可展示的品牌级摘要。"
                         : "首屏统计已接入统一平台摘要，可辅助校验行业方案、订单和线索是否形成同一条经营链路。"}
@@ -2330,7 +2487,7 @@ export function TechPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-slate-500">企业介绍模块</p>
             <p className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">展示企业实力、资质背书与方案能力。</p>
             <p className="mt-4 text-sm leading-7 text-slate-600">
-              环洗朵科技当前聚焦酒店、物业与商办空间的专业清洁剂与标准化应用方案，页面已将行业覆盖、合作模式与方案能力放在同一叙事层级，便于客户快速判断是否匹配其项目需求。
+              环洗朵科技当前聚焦酒店、物业与商办空间的专业清洁剂与标准化应用方案，企业介绍卡片会和后台内容治理一起校验内容是否已切换为可维护源。
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl bg-slate-50 p-5">
@@ -2341,62 +2498,117 @@ export function TechPage() {
                 <p className="text-sm text-slate-500">合作模式</p>
                 <p className="mt-2 font-medium text-slate-950">标准供货、年度协议、项目定制</p>
               </div>
+              <div className="rounded-3xl bg-slate-50 p-5">
+                <p className="text-sm text-slate-500">方案内容源</p>
+                <p className="mt-2 font-medium text-slate-950">{techSolutionsQuery.data?.source === "database" ? "后台已接管" : "默认内容回退中"}</p>
+              </div>
+              <div className="rounded-3xl bg-slate-50 p-5">
+                <p className="text-sm text-slate-500">案例内容源</p>
+                <p className="mt-2 font-medium text-slate-950">{techCaseStudiesQuery.data?.source === "database" ? "后台已接管" : "默认内容回退中"}</p>
+              </div>
             </div>
           </div>
         </section>
 
         <section className="mt-16 grid gap-6 lg:grid-cols-2">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">行业解决方案</p>
-            <div className="mt-6 grid gap-4">
-              {[
-                {
-                  title: "酒店布草与客房织物清洁方案",
-                  detail: "围绕客房布草、餐饮织物与高频补货场景配置预洗、主洗、柔护与异味控制建议，适合酒店后勤与外包洗涤团队协同执行。",
-                },
-                {
-                  title: "物业与商业空间硬表面清洁方案",
-                  detail: "覆盖石材、金属、玻璃与公共区域高频触点，强调低残留、标准稀释比例与班次化补货机制。",
-                },
-                {
-                  title: "机构日常洗护标准化配方方案",
-                  detail: "面向医院后勤、校园宿管与集中保洁项目输出标准配方包，便于在多点位复制清洁质量与培训口径。",
-                },
-                {
-                  title: "企业定制行业应用方案",
-                  detail: "针对特殊材质、异味场景与高损耗工况提供项目化试样、配比建议与导入节奏，缩短从测试到上线的沟通周期。",
-                },
-              ].map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="font-medium text-slate-950">{item.title}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
-                </div>
-              ))}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">行业解决方案</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">优先展示来自后台内容治理的数据；若暂无正式内容，则回退为默认方案说明。</p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs ${techSolutionsQuery.data?.source === "database" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                {techSolutionsQuery.data?.source === "database" ? "数据库内容" : "默认内容"}
+              </span>
             </div>
+            {techSolutionsQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-500">
+                正在同步行业解决方案内容。
+              </div>
+            ) : techSolutionsQuery.isError ? (
+              <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-800">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>行业解决方案读取失败，请稍后重试。</p>
+                  <button
+                    type="button"
+                    onClick={() => techSolutionsQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试读取
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4">
+                {techSolutionItems.length > 0 ? (
+                  techSolutionItems.map((item) => (
+                    <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="font-medium text-slate-950">{item.title}</p>
+                        {item.audience ? <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-500">适用对象：{item.audience}</span> : null}
+                      </div>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">{item.summary}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-500">
+                    暂无可展示的行业解决方案，可在后台内容治理面板补充后同步到前台。
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户案例</p>
-            <div className="mt-6 space-y-4">
-              {[
-                {
-                  title: "高星级酒店布草体系升级",
-                  detail: "围绕客房布草返洗率偏高的问题，重新梳理去渍、柔护与异味管理流程，并配套班次培训与补货计划。",
-                },
-                {
-                  title: "商办空间玻璃与硬表面清洁提效",
-                  detail: "将玻璃清洁、金属养护与公共区域保洁耗材统一纳入班组标准包，减少不同场景切换时的重复备料与误配。",
-                },
-                {
-                  title: "物业项目标准化清洁剂替换方案",
-                  detail: "结合采购预算与现场作业反馈，以标准配比、集中采购与巡检抽样方式替换旧有多品牌混用模式。",
-                },
-              ].map((item) => (
-                <div key={item.title} className="rounded-3xl border border-slate-200 p-5">
-                  <p className="font-medium text-slate-950">{item.title}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.detail}</p>
-                </div>
-              ))}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户案例</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">后台保存后会优先展示数据库案例，并保留项目类型、地点与客户类型等说明字段。</p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs ${techCaseStudiesQuery.data?.source === "database" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                {techCaseStudiesQuery.data?.source === "database" ? "数据库内容" : "默认内容"}
+              </span>
             </div>
+            {techCaseStudiesQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-500">
+                正在同步客户案例内容。
+              </div>
+            ) : techCaseStudiesQuery.isError ? (
+              <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-800">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>客户案例读取失败，请稍后重试。</p>
+                  <button
+                    type="button"
+                    onClick={() => techCaseStudiesQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试读取
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-4">
+                {techCaseItems.length > 0 ? (
+                  techCaseItems.map((item) => (
+                    <div key={item.id} className="rounded-3xl border border-slate-200 p-5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="font-medium text-slate-950">{item.title}</p>
+                        {item.subtitle ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">{item.subtitle}</span> : null}
+                      </div>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">{item.summary}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                        {item.segment ? <span className="rounded-full bg-slate-100 px-3 py-1">项目类型：{item.segment}</span> : null}
+                        {item.location ? <span className="rounded-full bg-slate-100 px-3 py-1">项目地点：{item.location}</span> : null}
+                        {item.partnerName ? <span className="rounded-full bg-slate-100 px-3 py-1">合作对象：{item.partnerName}</span> : null}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-500">
+                    暂无可展示的客户案例，可在后台内容治理面板补充后同步到前台。
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </main>
@@ -3250,6 +3462,14 @@ export function AdminContent() {
     { siteKey: "lab", contactScene: "business" },
     { enabled: isContentSection },
   );
+  const techSolutionModulesQuery = trpc.site.solutionModules.useQuery(
+    { siteKey: "tech", limit: 6 },
+    { enabled: isContentSection },
+  );
+  const techCaseStudiesQuery = trpc.site.caseStudies.useQuery(
+    { siteKey: "tech", limit: 6 },
+    { enabled: isContentSection },
+  );
   const [labContactDraft, setLabContactDraft] = useState<LabContactDraft>({
     headline: "",
     description: "",
@@ -3264,6 +3484,8 @@ export function AdminContent() {
     serviceHours: "",
     responseSla: "",
   });
+  const [techSolutionDrafts, setTechSolutionDrafts] = useState<TechSolutionDraft[]>([createEmptyTechSolutionDraft()]);
+  const [techCaseDrafts, setTechCaseDrafts] = useState<TechCaseStudyDraft[]>([createEmptyTechCaseStudyDraft()]);
 
   useEffect(() => {
     const nextContact = labContactConfigQuery.data;
@@ -3288,6 +3510,14 @@ export function AdminContent() {
     });
   }, [labContactConfigQuery.data]);
 
+  useEffect(() => {
+    setTechSolutionDrafts(mapTechSolutionDrafts(techSolutionModulesQuery.data?.items));
+  }, [techSolutionModulesQuery.data]);
+
+  useEffect(() => {
+    setTechCaseDrafts(mapTechCaseStudyDrafts(techCaseStudiesQuery.data?.items));
+  }, [techCaseStudiesQuery.data]);
+
   const updateLabContactConfigMutation = trpc.site.updateContactConfig.useMutation({
     onSuccess: async () => {
       await syncLabContactConfigAfterSave([labContactConfigQuery.refetch, adminOperationsQuery.refetch]);
@@ -3295,6 +3525,26 @@ export function AdminContent() {
     },
     onError: error => {
       sonnerToast(getLabContactUpdateErrorMessage(error));
+    },
+  });
+
+  const updateTechSolutionModulesMutation = trpc.site.updateSolutionModules.useMutation({
+    onSuccess: async () => {
+      await syncLabContactConfigAfterSave([techSolutionModulesQuery.refetch, adminOperationsQuery.refetch]);
+      sonnerToast(getTechContentUpdateSuccessMessage("solution"));
+    },
+    onError: error => {
+      sonnerToast(getTechContentUpdateErrorMessage(error, "solution"));
+    },
+  });
+
+  const updateTechCaseStudiesMutation = trpc.site.updateCaseStudies.useMutation({
+    onSuccess: async () => {
+      await syncLabContactConfigAfterSave([techCaseStudiesQuery.refetch, adminOperationsQuery.refetch]);
+      sonnerToast(getTechContentUpdateSuccessMessage("case"));
+    },
+    onError: error => {
+      sonnerToast(getTechContentUpdateErrorMessage(error, "case"));
     },
   });
 
@@ -4156,6 +4406,323 @@ export function AdminContent() {
                     <button
                       type="button"
                       onClick={() => labContactConfigQuery.refetch()}
+                      className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                    >
+                      重试读取
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">环洗朵科技行业解决方案</p>
+              <div className="mt-5 space-y-4">
+                <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+                  当前维护的是环洗朵科技官网的行业解决方案模块，保存后前台会优先展示后台内容；若数据库为空，则自动回退默认内容。
+                </div>
+                {techSolutionModulesQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                    正在载入环洗朵科技行业解决方案。
+                  </div>
+                ) : (
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitTechSolutionModulesUpdate(updateTechSolutionModulesMutation.mutate, techSolutionDrafts);
+                    }}
+                  >
+                    <div className="space-y-4">
+                      {techSolutionDrafts.map((draft, index) => (
+                        <div key={`tech-solution-${index}`} className="rounded-3xl border border-slate-200 p-4">
+                          <div className="grid gap-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">方案标题</span>
+                                <input
+                                  value={draft.title}
+                                  onChange={(event) =>
+                                    setTechSolutionDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, title: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：酒店布草与客房织物清洁方案"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">适用对象</span>
+                                <input
+                                  value={draft.audience}
+                                  onChange={(event) =>
+                                    setTechSolutionDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, audience: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：酒店后勤、外包洗涤团队"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">排序</span>
+                                <input
+                                  value={draft.sortOrder}
+                                  onChange={(event) =>
+                                    setTechSolutionDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, sortOrder: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="1"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">方案说明</span>
+                                <textarea
+                                  value={draft.summary}
+                                  onChange={(event) =>
+                                    setTechSolutionDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, summary: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  rows={4}
+                                  placeholder="说明方案覆盖场景、导入方式、执行重点与交付口径。"
+                                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-xs leading-6 text-slate-500">
+                        {techSolutionModulesQuery.isError ? "当前读取的是默认或缓存内容，建议先重试读取后再保存。" : `当前内容源：${techSolutionModulesQuery.data?.source === "database" ? "数据库" : "默认内容"}`}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTechSolutionDrafts((current) => [...current, createEmptyTechSolutionDraft()])}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          新增方案卡片
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTechSolutionDrafts(mapTechSolutionDrafts(techSolutionModulesQuery.data?.items))}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          重置为当前内容
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={updateTechSolutionModulesMutation.isPending}
+                          className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {updateTechSolutionModulesMutation.isPending ? "保存中..." : "保存行业解决方案"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+                {techSolutionModulesQuery.isError ? (
+                  <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p>环洗朵科技行业解决方案读取失败，当前仍可编辑并重新保存。</p>
+                    <button
+                      type="button"
+                      onClick={() => techSolutionModulesQuery.refetch()}
+                      className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                    >
+                      重试读取
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">环洗朵科技客户案例</p>
+              <div className="mt-5 space-y-4">
+                <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+                  当前维护的是环洗朵科技官网客户案例模块，支持项目标题、案例摘要、项目类型、地点与合作对象等真实字段。
+                </div>
+                {techCaseStudiesQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                    正在载入环洗朵科技客户案例。
+                  </div>
+                ) : (
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitTechCaseStudiesUpdate(updateTechCaseStudiesMutation.mutate, techCaseDrafts);
+                    }}
+                  >
+                    <div className="space-y-4">
+                      {techCaseDrafts.map((draft, index) => (
+                        <div key={`tech-case-${index}`} className="rounded-3xl border border-slate-200 p-4">
+                          <div className="grid gap-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">案例标题</span>
+                                <input
+                                  value={draft.title}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, title: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：高星级酒店布草体系升级"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">副标题</span>
+                                <input
+                                  value={draft.subtitle}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, subtitle: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：客房织物洗护升级项目"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">项目类型</span>
+                                <input
+                                  value={draft.segment}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, segment: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：酒店 / 物业"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">项目地点</span>
+                                <input
+                                  value={draft.location}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, location: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：上海 / 华东"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">合作对象</span>
+                                <input
+                                  value={draft.partnerName}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, partnerName: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：高端酒店集团"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">排序</span>
+                                <input
+                                  value={draft.sortOrder}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, sortOrder: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="1"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">案例摘要</span>
+                                <textarea
+                                  value={draft.summary}
+                                  onChange={(event) =>
+                                    setTechCaseDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, summary: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  rows={4}
+                                  placeholder="说明客户痛点、方案动作、执行成效与协作方式。"
+                                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-xs leading-6 text-slate-500">
+                        {techCaseStudiesQuery.isError ? "当前读取的是默认或缓存内容，建议先重试读取后再保存。" : `当前内容源：${techCaseStudiesQuery.data?.source === "database" ? "数据库" : "默认内容"}`}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTechCaseDrafts((current) => [...current, createEmptyTechCaseStudyDraft()])}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          新增案例卡片
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTechCaseDrafts(mapTechCaseStudyDrafts(techCaseStudiesQuery.data?.items))}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          重置为当前内容
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={updateTechCaseStudiesMutation.isPending}
+                          className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {updateTechCaseStudiesMutation.isPending ? "保存中..." : "保存客户案例"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+                {techCaseStudiesQuery.isError ? (
+                  <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p>环洗朵科技客户案例读取失败，当前仍可编辑并重新保存。</p>
+                    <button
+                      type="button"
+                      onClick={() => techCaseStudiesQuery.refetch()}
                       className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
                     >
                       重试读取

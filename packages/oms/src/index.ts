@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { bankTransferReceipts, brandMemberships, orderItems, orders, payments } from "../../database/schema";
+import {
+  bankTransferReceipts,
+  brandMemberships,
+  orderItems,
+  orders,
+  payments,
+} from "../../database/schema";
 import { priceOrderItems, type CustomerType } from "../../pim/src/index";
 
 export type DatabaseClient = ReturnType<typeof drizzle>;
@@ -42,6 +48,38 @@ const normalizeMetaJson = (value: unknown): Record<string, unknown> => {
 const buildSkuLabel = (specName?: string | null, packSize?: string | null) =>
   [specName, packSize].filter(Boolean).join(" / ") || null;
 
+const latestByCreatedAt = <T extends { createdAt: Date | null }>(rows: T[]) =>
+  [...rows].sort((left, right) => {
+    const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+    const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+    return rightTime - leftTime;
+  })[0] ?? null;
+
+const summarizeOrder = (args: {
+  order: typeof orders.$inferSelect;
+  items: Array<typeof orderItems.$inferSelect>;
+  payments: Array<typeof payments.$inferSelect>;
+  receipts: Array<typeof bankTransferReceipts.$inferSelect>;
+}) => {
+  const totalQuantity = args.items.reduce((sum, item) => sum + item.quantity, 0);
+  const latestPayment = latestByCreatedAt(args.payments);
+  const latestReceipt = latestByCreatedAt(args.receipts);
+
+  return {
+    ...args.order,
+    totalQuantity,
+    itemCount: args.items.length,
+    itemPreview: args.items.slice(0, 3).map((item) => ({
+      productName: item.productName,
+      skuLabel: item.skuLabel,
+      quantity: item.quantity,
+      lineAmount: item.lineAmount,
+    })),
+    latestPayment,
+    latestReceipt,
+  };
+};
+
 export function assertOrderStatusTransition(current: OrderStatus, next: OrderStatus) {
   if (!ORDER_STATUS_TRANSITIONS[current]?.includes(next)) {
     throw new TRPCError({
@@ -49,6 +87,127 @@ export function assertOrderStatusTransition(current: OrderStatus, next: OrderSta
       message: `订单状态不允许从 ${current} 变更到 ${next}。`,
     });
   }
+}
+
+export async function listOrders(args: {
+  db: DatabaseClient;
+  brandId: number;
+  userId?: number;
+  membershipId?: number;
+  orderId?: number;
+  orderNo?: string;
+  status?: OrderStatus;
+  paymentStatus?: typeof orders.$inferSelect.paymentStatus;
+  fulfillmentStatus?: typeof orders.$inferSelect.fulfillmentStatus;
+  limit?: number;
+}) {
+  const conditions = [eq(orders.brandId, args.brandId)];
+
+  if (args.userId) {
+    conditions.push(eq(orders.userId, args.userId));
+  }
+
+  if (args.membershipId) {
+    conditions.push(eq(orders.membershipId, args.membershipId));
+  }
+
+  if (args.orderId) {
+    conditions.push(eq(orders.id, args.orderId));
+  }
+
+  if (args.orderNo) {
+    conditions.push(eq(orders.orderNo, args.orderNo));
+  }
+
+  if (args.status) {
+    conditions.push(eq(orders.status, args.status));
+  }
+
+  if (args.paymentStatus) {
+    conditions.push(eq(orders.paymentStatus, args.paymentStatus));
+  }
+
+  if (args.fulfillmentStatus) {
+    conditions.push(eq(orders.fulfillmentStatus, args.fulfillmentStatus));
+  }
+
+  const matchedOrders = await args.db
+    .select()
+    .from(orders)
+    .where(and(...conditions))
+    .orderBy(desc(orders.createdAt))
+    .limit(Math.min(args.limit ?? 20, 100));
+
+  if (matchedOrders.length === 0) {
+    return {
+      total: 0,
+      records: [],
+    };
+  }
+
+  const orderIds = matchedOrders.map((order) => order.id);
+  const [matchedItems, matchedPayments, matchedReceipts] = await Promise.all([
+    args.db.select().from(orderItems).where(inArray(orderItems.orderId, orderIds)),
+    args.db.select().from(payments).where(inArray(payments.orderId, orderIds)),
+    args.db.select().from(bankTransferReceipts).where(inArray(bankTransferReceipts.orderId, orderIds)),
+  ]);
+
+  const records = matchedOrders.map((order) =>
+    summarizeOrder({
+      order,
+      items: matchedItems.filter((item) => item.orderId === order.id),
+      payments: matchedPayments.filter((payment) => payment.orderId === order.id),
+      receipts: matchedReceipts.filter((receipt) => receipt.orderId === order.id),
+    }),
+  );
+
+  return {
+    total: records.length,
+    records,
+  };
+}
+
+export async function getOrderDetail(args: {
+  db: DatabaseClient;
+  brandId: number;
+  orderId?: number;
+  orderNo?: string;
+}) {
+  if (!args.orderId && !args.orderNo) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "查询订单详情时必须提供 orderId 或 orderNo。",
+    });
+  }
+
+  const matched = await listOrders({
+    db: args.db,
+    brandId: args.brandId,
+    orderId: args.orderId,
+    orderNo: args.orderNo,
+    limit: 1,
+  });
+
+  const summary = matched.records[0];
+  if (!summary) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "订单不存在。",
+    });
+  }
+
+  const [items, paymentRows, receiptRows] = await Promise.all([
+    args.db.select().from(orderItems).where(eq(orderItems.orderId, summary.id)),
+    args.db.select().from(payments).where(eq(payments.orderId, summary.id)),
+    args.db.select().from(bankTransferReceipts).where(eq(bankTransferReceipts.orderId, summary.id)),
+  ]);
+
+  return {
+    summary,
+    items,
+    payments: paymentRows,
+    receipts: receiptRows,
+  };
 }
 
 export async function createOrder(args: {

@@ -4,6 +4,7 @@ import {
   extractRequestedBrandId,
   normalizeHost,
 } from "../src/gateway";
+import * as omsModule from "../../../packages/oms/src/index";
 import { assertOrderStatusTransition } from "../../../packages/oms/src/index";
 import { buildWechatPaymentDraft, getPaymentApiInventory } from "../../../packages/payments/src/index";
 import { resolveTierPrice } from "../../../packages/pim/src/index";
@@ -38,6 +39,95 @@ describe("api-gateway helper integration", () => {
       code: "BAD_REQUEST",
       message: "缺少租户上下文。请在请求头传入 x-brand-id / brand_id，或通过已绑定域名访问。",
     });
+  });
+
+  it("queries order list through OMS with tenant brand context", async () => {
+    const listSpy = vi.spyOn(omsModule, "listOrders").mockResolvedValue({
+      total: 1,
+      records: [
+        {
+          id: 101,
+          orderNo: "ORD-20260410-001",
+          status: "under_review",
+          paymentStatus: "offline_review",
+          fulfillmentStatus: "unfulfilled",
+          currency: "CNY",
+          payableAmount: 6800,
+          totalAmount: 6800,
+          items: [],
+          payments: [],
+          receipts: [],
+        },
+      ],
+    } as Awaited<ReturnType<typeof omsModule.listOrders>>);
+
+    const caller = appRouter.createCaller({
+      db: {} as never,
+      tenant: { brandId: 9, tenantKey: "lab", displayName: "iCloush LAB." },
+      req: {} as never,
+      res: {} as never,
+    });
+
+    const result = await caller.orders.list({
+      status: "under_review",
+      limit: 10,
+    });
+
+    expect(listSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 9,
+        status: "under_review",
+        limit: 10,
+      }),
+    );
+    expect(result.tenant.brandId).toBe(9);
+    expect(result.total).toBe(1);
+    expect(result.records[0]?.orderNo).toBe("ORD-20260410-001");
+
+    listSpy.mockRestore();
+  });
+
+  it("queries order detail through OMS with tenant brand context", async () => {
+    const detailSpy = vi.spyOn(omsModule, "getOrderDetail").mockResolvedValue({
+      summary: {
+        id: 101,
+        orderNo: "ORD-20260410-001",
+        status: "under_review",
+        paymentStatus: "offline_review",
+        fulfillmentStatus: "unfulfilled",
+        currency: "CNY",
+        payableAmount: 6800,
+        totalAmount: 6800,
+        items: [],
+        payments: [],
+        receipts: [],
+      },
+      items: [],
+      payments: [],
+      receipts: [],
+    } as Awaited<ReturnType<typeof omsModule.getOrderDetail>>);
+
+    const caller = appRouter.createCaller({
+      db: {} as never,
+      tenant: { brandId: 9, tenantKey: "lab", displayName: "iCloush LAB." },
+      req: {} as never,
+      res: {} as never,
+    });
+
+    const result = await caller.orders.detail({
+      orderNo: "ORD-20260410-001",
+    });
+
+    expect(detailSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 9,
+        orderNo: "ORD-20260410-001",
+      }),
+    );
+    expect(result.tenant.brandId).toBe(9);
+    expect(result.summary.orderNo).toBe("ORD-20260410-001");
+
+    detailSpy.mockRestore();
   });
 
   it("resolves B2B tier price by quantity", () => {

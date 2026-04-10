@@ -1,4 +1,4 @@
-import path from "path";
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 const appRoot = path.resolve(import.meta.dirname);
@@ -16,6 +16,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
+    include: ["server/**/*.test.ts", "server/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 });

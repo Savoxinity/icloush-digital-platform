@@ -6,7 +6,7 @@ import superjson from "superjson";
 import { z } from "zod";
 import { notifyOwner } from "../../admin/server/_core/notification";
 import { brands } from "../../../packages/database/schema";
-import { createOrder, reviewOrderPayment } from "../../../packages/oms/src/index";
+import { createOrder, getOrderDetail, listOrders, reviewOrderPayment } from "../../../packages/oms/src/index";
 import {
   getBankTransferAccountInfo,
   getPaymentApiInventory,
@@ -168,6 +168,9 @@ const connectedDbProcedure = tenantProcedure.use(({ ctx, next }) => {
 });
 
 const customerTypeSchema = z.enum(["b2b", "b2c"]);
+const orderStatusSchema = z.enum(["pending_payment", "under_review", "paid", "processing", "shipped", "completed", "cancelled", "closed"]);
+const paymentStatusSchema = z.enum(["unpaid", "paid", "part_paid", "offline_review", "refunded"]);
+const fulfillmentStatusSchema = z.enum(["unfulfilled", "processing", "partial_shipped", "shipped", "delivered"]);
 const paymentProviderSchema = z.enum(["wechat_jsapi", "offline_bank_transfer", "alipay"]);
 const paymentScenarioSchema = z.enum(["full_payment", "installment", "credit_card", "deposit", "offline_review"]);
 
@@ -212,6 +215,60 @@ export const appRouter = router({
   }),
 
   orders: router({
+    list: connectedDbProcedure
+      .input(
+        z.object({
+          userId: z.coerce.number().int().positive().optional(),
+          membershipId: z.coerce.number().int().positive().optional(),
+          orderId: z.coerce.number().int().positive().optional(),
+          orderNo: z.string().min(1).optional(),
+          status: orderStatusSchema.optional(),
+          paymentStatus: paymentStatusSchema.optional(),
+          fulfillmentStatus: fulfillmentStatusSchema.optional(),
+          limit: z.coerce.number().int().positive().max(100).default(20),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const result = await listOrders({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          userId: input.userId,
+          membershipId: input.membershipId,
+          orderId: input.orderId,
+          orderNo: input.orderNo,
+          status: input.status,
+          paymentStatus: input.paymentStatus,
+          fulfillmentStatus: input.fulfillmentStatus,
+          limit: input.limit,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          ...result,
+        };
+      }),
+
+    detail: connectedDbProcedure
+      .input(
+        z.object({
+          orderId: z.coerce.number().int().positive().optional(),
+          orderNo: z.string().min(1).optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const result = await getOrderDetail({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          orderId: input.orderId,
+          orderNo: input.orderNo,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          ...result,
+        };
+      }),
+
     create: connectedDbProcedure
       .input(
         z.object({

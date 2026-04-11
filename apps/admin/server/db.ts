@@ -10,6 +10,7 @@ import {
   productSkus,
   products,
   siteCaseStudies,
+  siteClientLogos,
   siteContactConfigs,
   siteSolutionModules,
   users,
@@ -1357,6 +1358,26 @@ export type SiteSolutionModuleSnapshot = {
   items: SiteSolutionModuleItem[];
 };
 
+export type SiteClientLogoItem = {
+  id: number;
+  brandId: number | null;
+  brandCode: string;
+  brandName: string;
+  siteKey: PlatformSiteKey;
+  clientName: string;
+  logoText: string;
+  tagline: string | null;
+  accentColor: string | null;
+  sortOrder: number;
+  source: "database" | "fallback";
+};
+
+export type SiteClientLogoSnapshot = {
+  generatedAt: string;
+  source: "database" | "fallback";
+  items: SiteClientLogoItem[];
+};
+
 export type SiteLeadSubmissionInput = {
   siteKey: PlatformSiteKey;
   sourcePage?: string | null;
@@ -1673,25 +1694,9 @@ const FALLBACK_SITE_CASE_STUDIES: SiteCaseStudyItem[] = [
     summary:
       "将玻璃清洁、金属养护与公共区域保洁耗材统一纳入班组标准包，减少不同场景切换时的重复备料与误配。",
     location: "深圳",
-    segment: "甲级写字楼与商办综合体",
-    partnerName: "华南商办空间项目",
+    segment: "商办物业",
+    partnerName: "华南综合商业运营方",
     sortOrder: 2,
-    source: "fallback",
-  },
-  {
-    id: 3103,
-    brandId: 4,
-    brandCode: "huanxiduo",
-    brandName: "环洗朵科技",
-    siteKey: "tech",
-    title: "物业项目标准化清洁剂替换方案",
-    subtitle: "采购预算与标准配比协同优化",
-    summary:
-      "结合采购预算与现场作业反馈，以标准配比、集中采购与巡检抽样方式替换旧有多品牌混用模式。",
-    location: "杭州",
-    segment: "住宅与园区物业",
-    partnerName: "长三角物业项目",
-    sortOrder: 3,
     source: "fallback",
   },
   {
@@ -1721,25 +1726,64 @@ const FALLBACK_SITE_CASE_STUDIES: SiteCaseStudyItem[] = [
     summary:
       "通过洗衣房动线梳理、异常批次复核与驻场培训，帮助酒店在客房高周转期间维持稳定交付，并降低返工成本。",
     location: "杭州",
-    segment: "高端商务酒店",
+    segment: "城市商务酒店",
     partnerName: "城市商务酒店",
     sortOrder: 2,
     source: "fallback",
   },
+];
+
+const FALLBACK_SITE_CLIENT_LOGOS: SiteClientLogoItem[] = [
   {
-    id: 3003,
-    brandId: 3,
-    brandCode: "icloush-care",
-    brandName: "iCloush Care",
-    siteKey: "care",
-    title: "服务式公寓织物亲肤维护计划",
-    subtitle: "长住客群导向的异味控制与周期维护",
-    summary:
-      "针对长住客群对亲肤度和异味控制的要求，建立季度维护排期、异常追溯与住客触感复核机制。",
-    location: "上海",
-    segment: "服务式公寓",
-    partnerName: "服务式公寓项目",
+    id: 5101,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    clientName: "洲际酒店运营中心",
+    logoText: "IHG",
+    tagline: "高端酒店布草洗护协同",
+    accentColor: "#0f766e",
+    sortOrder: 1,
+    source: "fallback",
+  },
+  {
+    id: 5102,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    clientName: "华东商办物业联合体",
+    logoText: "EPM",
+    tagline: "大型物业项目标准化清洁体系",
+    accentColor: "#1d4ed8",
+    sortOrder: 2,
+    source: "fallback",
+  },
+  {
+    id: 5103,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    clientName: "万象空间服务网络",
+    logoText: "MIXC",
+    tagline: "商业综合体场景配方支持",
+    accentColor: "#7c3aed",
     sortOrder: 3,
+    source: "fallback",
+  },
+  {
+    id: 5104,
+    brandId: 4,
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    siteKey: "tech",
+    clientName: "华住洗涤协作伙伴",
+    logoText: "HTLS",
+    tagline: "连锁酒店洗涤供应协同",
+    accentColor: "#b45309",
+    sortOrder: 4,
     source: "fallback",
   },
 ];
@@ -2170,6 +2214,146 @@ export async function replaceSiteSolutionModules(input: {
   });
 
   return listSiteSolutionModules({
+    siteKey: input.siteKey,
+    brandCode,
+    limit: Math.max(input.items.length, 1),
+  });
+}
+
+export async function listSiteClientLogos(params: { siteKey: PlatformSiteKey; brandCode?: string; limit?: number }) {
+  const siteKey = params.siteKey;
+  const fallbackItems = FALLBACK_SITE_CLIENT_LOGOS.filter((record) => record.siteKey === siteKey).slice(0, params.limit ?? 8);
+  const fallbackSnapshot: SiteClientLogoSnapshot = {
+    generatedAt: new Date().toISOString(),
+    source: "fallback",
+    items: fallbackItems,
+  };
+  const brandCode = params.brandCode?.trim() || getDefaultBrandCode(siteKey);
+  const db = await getDb();
+
+  if (!db) {
+    return fallbackSnapshot;
+  }
+
+  try {
+    const brandRecords = await db
+      .select({
+        id: brands.id,
+        code: brands.code,
+        name: brands.name,
+      })
+      .from(brands)
+      .where(eq(brands.code, brandCode))
+      .limit(1);
+
+    const brandRecord = brandRecords[0];
+    if (!brandRecord) {
+      return fallbackSnapshot;
+    }
+
+    const records = await db
+      .select({
+        id: siteClientLogos.id,
+        siteKey: siteClientLogos.siteKey,
+        clientName: siteClientLogos.clientName,
+        logoText: siteClientLogos.logoText,
+        tagline: siteClientLogos.tagline,
+        accentColor: siteClientLogos.accentColor,
+        status: siteClientLogos.status,
+        sortOrder: siteClientLogos.sortOrder,
+        updatedAt: siteClientLogos.updatedAt,
+      })
+      .from(siteClientLogos)
+      .where(eq(siteClientLogos.brandId, brandRecord.id))
+      .orderBy(desc(siteClientLogos.updatedAt))
+      .limit(Math.max((params.limit ?? 8) * 3, 24));
+
+    const items = records
+      .filter((record) => record.siteKey === siteKey && record.status === "published")
+      .sort((left, right) => left.sortOrder - right.sortOrder || right.updatedAt.getTime() - left.updatedAt.getTime())
+      .slice(0, params.limit ?? 8)
+      .map((record) => ({
+        id: record.id,
+        brandId: brandRecord.id,
+        brandCode: brandRecord.code,
+        brandName: brandRecord.name,
+        siteKey,
+        clientName: record.clientName,
+        logoText: record.logoText,
+        tagline: normalizeNullableText(record.tagline),
+        accentColor: normalizeNullableText(record.accentColor),
+        sortOrder: record.sortOrder,
+        source: "database" as const,
+      }));
+
+    if (items.length === 0) {
+      return fallbackSnapshot;
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "database",
+      items,
+    } satisfies SiteClientLogoSnapshot;
+  } catch (error) {
+    console.warn("[Database] Failed to load site client logos:", error);
+    return fallbackSnapshot;
+  }
+}
+
+export async function replaceSiteClientLogos(input: {
+  siteKey: PlatformSiteKey;
+  brandCode?: string;
+  items: Array<{
+    clientName: string;
+    logoText: string;
+    tagline?: string | null;
+    accentColor?: string | null;
+    sortOrder?: number | null;
+  }>;
+}) {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("数据库当前不可用，无法保存客户 Logo 墙。");
+  }
+
+  const brandCode = input.brandCode?.trim() || getDefaultBrandCode(input.siteKey);
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands)
+    .where(eq(brands.code, brandCode))
+    .limit(1);
+
+  const brandRecord = brandRecords[0];
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 ${brandCode}，无法保存客户 Logo 墙。`);
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(siteClientLogos).where(and(eq(siteClientLogos.brandId, brandRecord.id), eq(siteClientLogos.siteKey, input.siteKey)));
+
+    if (input.items.length > 0) {
+      await tx.insert(siteClientLogos).values(
+        input.items.map((item, index) => ({
+          brandId: brandRecord.id,
+          siteKey: input.siteKey,
+          clientName: item.clientName.trim(),
+          logoText: item.logoText.trim(),
+          tagline: normalizeNullableText(item.tagline),
+          accentColor: normalizeNullableText(item.accentColor),
+          sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : index + 1,
+          status: "published" as const,
+        })),
+      );
+    }
+  });
+
+  return listSiteClientLogos({
     siteKey: input.siteKey,
     brandCode,
     limit: Math.max(input.items.length, 1),

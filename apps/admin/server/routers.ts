@@ -20,8 +20,10 @@ import {
   getSiteContactConfig,
   listEnterpriseApplicationsByUser,
   listSiteCaseStudies,
+  listSiteClientLogos,
   listSiteSolutionModules,
   replaceSiteCaseStudies,
+  replaceSiteClientLogos,
   replaceSiteSolutionModules,
   reviewEnterpriseApplication as reviewEnterpriseApplicationInDb,
   submitEnterpriseApplication as submitEnterpriseApplicationToDb,
@@ -112,6 +114,11 @@ const siteCaseStudiesQuerySchema = z.object({
 });
 
 const siteSolutionModulesQuerySchema = siteCaseStudiesQuerySchema;
+const siteClientLogosQuerySchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  limit: z.number().int().min(1).max(16).optional(),
+});
 
 const siteLeadSubmissionSchema = z
   .object({
@@ -204,6 +211,20 @@ const siteCaseStudiesUpdateSchema = z.object({
   items: z.array(siteCaseStudyInputSchema).min(1).max(8),
 });
 
+const siteClientLogoInputSchema = z.object({
+  clientName: z.string().trim().min(2).max(255),
+  logoText: z.string().trim().min(1).max(32),
+  tagline: z.string().trim().max(255).nullish(),
+  accentColor: z.string().trim().max(32).nullish(),
+  sortOrder: z.number().int().min(0).max(999).nullish(),
+});
+
+const siteClientLogosUpdateSchema = z.object({
+  siteKey: platformSiteKeySchema,
+  brandCode: z.string().trim().min(1).optional(),
+  items: z.array(siteClientLogoInputSchema).min(1).max(12),
+});
+
 const fallbackBrands = [
   { id: 1, code: "huanxiduo", name: "环洗朵科技", shortName: "环洗朵", businessType: "b2b", status: "active" },
   { id: 2, code: "icloush-lab", name: "iCloush LAB.", shortName: "LAB", businessType: "hybrid", status: "active" },
@@ -276,6 +297,9 @@ export const appRouter = router({
     }),
     caseStudies: publicProcedure.input(siteCaseStudiesQuerySchema).query(async ({ input }) => {
       return listSiteCaseStudies(input);
+    }),
+    clientLogos: publicProcedure.input(siteClientLogosQuerySchema).query(async ({ input }) => {
+      return listSiteClientLogos(input);
     }),
     submitLead: publicProcedure.input(siteLeadSubmissionSchema).mutation(async ({ input }) => {
       const receipt = await submitSiteLead(input);
@@ -355,6 +379,9 @@ export const appRouter = router({
     }),
     updateCaseStudies: adminProcedure.input(siteCaseStudiesUpdateSchema).mutation(async ({ input }) => {
       return replaceSiteCaseStudies(input);
+    }),
+    updateClientLogos: adminProcedure.input(siteClientLogosUpdateSchema).mutation(async ({ input }) => {
+      return replaceSiteClientLogos(input);
     }),
   }),
   admin: router({

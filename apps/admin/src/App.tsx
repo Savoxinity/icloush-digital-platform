@@ -1196,6 +1196,14 @@ export type TechCaseStudyDraft = {
   sortOrder: string;
 };
 
+export type TechClientLogoDraft = {
+  clientName: string;
+  logoText: string;
+  tagline: string;
+  accentColor: string;
+  sortOrder: string;
+};
+
 export function createEmptyTechSolutionDraft(): TechSolutionDraft {
   return {
     title: "",
@@ -1213,6 +1221,16 @@ export function createEmptyTechCaseStudyDraft(): TechCaseStudyDraft {
     location: "",
     segment: "",
     partnerName: "",
+    sortOrder: "",
+  };
+}
+
+export function createEmptyTechClientLogoDraft(): TechClientLogoDraft {
+  return {
+    clientName: "",
+    logoText: "",
+    tagline: "",
+    accentColor: "",
     sortOrder: "",
   };
 }
@@ -1314,6 +1332,46 @@ export function buildTechCaseStudiesPayload(drafts: ReadonlyArray<TechCaseStudyD
   };
 }
 
+export function mapTechClientLogoDrafts(
+  items:
+    | Array<{
+        clientName: string;
+        logoText: string;
+        tagline?: string | null;
+        accentColor?: string | null;
+        sortOrder?: number | null;
+      }>
+    | null
+    | undefined,
+) {
+  if (!items || items.length === 0) {
+    return [createEmptyTechClientLogoDraft()];
+  }
+
+  return items.map((item, index) => ({
+    clientName: item.clientName ?? "",
+    logoText: item.logoText ?? "",
+    tagline: item.tagline ?? "",
+    accentColor: item.accentColor ?? "",
+    sortOrder: String(item.sortOrder ?? index + 1),
+  }));
+}
+
+export function buildTechClientLogosPayload(drafts: ReadonlyArray<TechClientLogoDraft>) {
+  return {
+    siteKey: "tech" as const,
+    items: drafts
+      .map((draft, index) => ({
+        clientName: draft.clientName.trim(),
+        logoText: draft.logoText.trim(),
+        tagline: draft.tagline.trim(),
+        accentColor: draft.accentColor.trim(),
+        sortOrder: Number(draft.sortOrder || index + 1),
+      }))
+      .filter((item) => item.clientName && item.logoText),
+  };
+}
+
 export function getLabContactUpdateSuccessMessage() {
   return "LAB 联系配置已更新，前台联系入口会同步展示最新内容。";
 }
@@ -1322,14 +1380,16 @@ export function getLabContactUpdateErrorMessage(error: { message?: string | null
   return error?.message || "联系配置更新失败，请稍后重试。";
 }
 
-export function getTechContentUpdateSuccessMessage(kind: "solution" | "case") {
+export function getTechContentUpdateSuccessMessage(kind: "solution" | "case" | "logo") {
   return kind === "solution"
     ? "环洗朵科技行业解决方案已更新，前台方案卡片会同步展示最新内容。"
-    : "环洗朵科技客户案例已更新，前台案例模块会同步展示最新内容。";
+    : kind === "case"
+      ? "环洗朵科技客户案例已更新，前台案例模块会同步展示最新内容。"
+      : "环洗朵科技客户 Logo 墙已更新，前台品牌背书模块会同步展示最新内容。";
 }
 
-export function getTechContentUpdateErrorMessage(error: { message?: string | null } | null | undefined, kind: "solution" | "case") {
-  return error?.message || (kind === "solution" ? "行业解决方案保存失败，请稍后重试。" : "客户案例保存失败，请稍后重试。");
+export function getTechContentUpdateErrorMessage(error: { message?: string | null } | null | undefined, kind: "solution" | "case" | "logo") {
+  return error?.message || (kind === "solution" ? "行业解决方案保存失败，请稍后重试。" : kind === "case" ? "客户案例保存失败，请稍后重试。" : "客户 Logo 墙保存失败，请稍后重试。");
 }
 
 export async function syncLabContactConfigAfterSave(refetchers: ReadonlyArray<() => Promise<unknown> | unknown>) {
@@ -1361,6 +1421,13 @@ export function submitTechCaseStudiesUpdate(
   drafts: ReadonlyArray<TechCaseStudyDraft>,
 ) {
   return mutate(buildTechCaseStudiesPayload(drafts));
+}
+
+export function submitTechClientLogosUpdate(
+  mutate: (payload: ReturnType<typeof buildTechClientLogosPayload>) => unknown,
+  drafts: ReadonlyArray<TechClientLogoDraft>,
+) {
+  return mutate(buildTechClientLogosPayload(drafts));
 }
 
 function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
@@ -1813,8 +1880,7 @@ export function PlatformHome() {
                 ))}
               </div>
             </div>
-
-            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.12)] md:p-8">
+            <div className="rounded-[2rem] border border-slate-200 bg-slate-950 px-8 py-10 text-white shadow-[0_24px_80px_rgba(15,23,42,0.18)]">
               <p className="text-sm uppercase tracking-[0.2em] text-slate-400">Entry matrix</p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">从首页可以直接进入采购、品牌认知、客户跟踪与运营动作。</h2>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -2443,6 +2509,7 @@ export function TechPage() {
   const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
   const techSolutionsQuery = trpc.site.solutionModules.useQuery({ siteKey: "tech", limit: 6 });
   const techCaseStudiesQuery = trpc.site.caseStudies.useQuery({ siteKey: "tech", limit: 6 });
+  const techClientLogosQuery = trpc.site.clientLogos.useQuery({ siteKey: "tech", limit: 8 });
   const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
   const techSnapshot = getSiteSnapshot(platformSnapshot, "tech");
   const techSnapshotState = resolveSnapshotState(techSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
@@ -2460,6 +2527,13 @@ export function TechPage() {
     segment?: string | null;
     location?: string | null;
     partnerName?: string | null;
+  }>;
+  const techClientLogoItems = (techClientLogosQuery.data?.items ?? []) as Array<{
+    id: number;
+    clientName: string;
+    logoText: string;
+    tagline?: string | null;
+    accentColor?: string | null;
   }>;
 
   return (
@@ -2565,6 +2639,10 @@ export function TechPage() {
                 <p className="text-sm text-slate-500">案例内容源</p>
                 <p className="mt-2 font-medium text-slate-950">{techCaseStudiesQuery.data?.source === "database" ? "后台已接管" : "默认内容回退中"}</p>
               </div>
+              <div className="rounded-3xl bg-slate-50 p-5 sm:col-span-2">
+                <p className="text-sm text-slate-500">客户 Logo 墙内容源</p>
+                <p className="mt-2 font-medium text-slate-950">{techClientLogosQuery.data?.source === "database" ? "后台已接管" : "默认内容回退中"}</p>
+              </div>
             </div>
           </div>
         </section>
@@ -2669,6 +2747,58 @@ export function TechPage() {
               </div>
             )}
           </div>
+        </section>
+
+        <section className="mt-10 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">合作品牌背书</p>
+              <p className="mt-2 text-sm leading-7 text-slate-600">客户 Logo 墙同样接入后台内容治理，可用于展示重点客户、合作品牌与场景覆盖面。</p>
+            </div>
+            <span className={`rounded-full px-3 py-1 text-xs ${techClientLogosQuery.data?.source === "database" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+              {techClientLogosQuery.data?.source === "database" ? "数据库内容" : "默认内容"}
+            </span>
+          </div>
+          {techClientLogosQuery.isLoading ? (
+            <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-500">
+              正在同步客户 Logo 墙内容。
+            </div>
+          ) : techClientLogosQuery.isError ? (
+            <div className="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-800">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p>客户 Logo 墙读取失败，请稍后重试。</p>
+                <button
+                  type="button"
+                  onClick={() => techClientLogosQuery.refetch()}
+                  className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                >
+                  重试读取
+                </button>
+              </div>
+            </div>
+          ) : techClientLogoItems.length > 0 ? (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {techClientLogoItems.map((item) => (
+                <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <div
+                    className="inline-flex min-h-12 items-center rounded-2xl px-4 py-3 text-base font-semibold tracking-[0.24em]"
+                    style={{
+                      backgroundColor: item.accentColor ? `${item.accentColor}18` : "#e2e8f0",
+                      color: item.accentColor || "#0f172a",
+                    }}
+                  >
+                    {item.logoText}
+                  </div>
+                  <p className="mt-4 text-sm font-medium text-slate-950">{item.clientName}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{item.tagline || "已纳入重点客户与场景合作名单。"}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-5 text-sm leading-7 text-slate-500">
+              暂无可展示的客户 Logo 墙内容，可在后台内容治理面板补充后同步到前台。
+            </div>
+          )}
         </section>
       </main>
     </div>
@@ -3781,6 +3911,10 @@ export function AdminContent() {
     { siteKey: "tech", limit: 6 },
     { enabled: isContentSection },
   );
+  const techClientLogosQuery = trpc.site.clientLogos.useQuery(
+    { siteKey: "tech", limit: 8 },
+    { enabled: isContentSection },
+  );
   const [labContactDraft, setLabContactDraft] = useState<LabContactDraft>({
     headline: "",
     description: "",
@@ -3797,6 +3931,7 @@ export function AdminContent() {
   });
   const [techSolutionDrafts, setTechSolutionDrafts] = useState<TechSolutionDraft[]>([createEmptyTechSolutionDraft()]);
   const [techCaseDrafts, setTechCaseDrafts] = useState<TechCaseStudyDraft[]>([createEmptyTechCaseStudyDraft()]);
+  const [techClientLogoDrafts, setTechClientLogoDrafts] = useState<TechClientLogoDraft[]>([createEmptyTechClientLogoDraft()]);
   const [enterpriseReviewNotes, setEnterpriseReviewNotes] = useState<Record<number, string>>({});
 
   const pendingEnterpriseApplications = useMemo(
@@ -3856,6 +3991,10 @@ export function AdminContent() {
     setTechCaseDrafts(mapTechCaseStudyDrafts(techCaseStudiesQuery.data?.items));
   }, [techCaseStudiesQuery.data]);
 
+  useEffect(() => {
+    setTechClientLogoDrafts(mapTechClientLogoDrafts(techClientLogosQuery.data?.items));
+  }, [techClientLogosQuery.data]);
+
   const updateLabContactConfigMutation = trpc.site.updateContactConfig.useMutation({
     onSuccess: async () => {
       await syncLabContactConfigAfterSave([labContactConfigQuery.refetch, adminOperationsQuery.refetch]);
@@ -3883,6 +4022,16 @@ export function AdminContent() {
     },
     onError: error => {
       sonnerToast(getTechContentUpdateErrorMessage(error, "case"));
+    },
+  });
+
+  const updateTechClientLogosMutation = trpc.site.updateClientLogos.useMutation({
+    onSuccess: async () => {
+      await syncLabContactConfigAfterSave([techClientLogosQuery.refetch, adminOperationsQuery.refetch]);
+      sonnerToast(getTechContentUpdateSuccessMessage("logo"));
+    },
+    onError: error => {
+      sonnerToast(getTechContentUpdateErrorMessage(error, "logo"));
     },
   });
 
@@ -5164,6 +5313,160 @@ export function AdminContent() {
                     <button
                       type="button"
                       onClick={() => techCaseStudiesQuery.refetch()}
+                      className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
+                    >
+                      重试读取
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">环洗朵科技客户 Logo 墙</p>
+              <div className="mt-5 space-y-4">
+                <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+                  当前维护的是环洗朵科技官网合作品牌背书模块，支持客户名称、Logo 文案、标签语、品牌色与排序等字段。
+                </div>
+                {techClientLogosQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                    正在载入环洗朵科技客户 Logo 墙。
+                  </div>
+                ) : (
+                  <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitTechClientLogosUpdate(updateTechClientLogosMutation.mutate, techClientLogoDrafts);
+                    }}
+                  >
+                    <div className="space-y-4">
+                      {techClientLogoDrafts.map((draft, index) => (
+                        <div key={`tech-logo-${index}`} className="rounded-3xl border border-slate-200 p-4">
+                          <div className="grid gap-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">客户名称</span>
+                                <input
+                                  value={draft.clientName}
+                                  onChange={(event) =>
+                                    setTechClientLogoDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, clientName: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：洲际酒店集团"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">Logo 文案</span>
+                                <input
+                                  value={draft.logoText}
+                                  onChange={(event) =>
+                                    setTechClientLogoDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, logoText: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：IHG"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm uppercase tracking-[0.24em] text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">标签语</span>
+                                <input
+                                  value={draft.tagline}
+                                  onChange={(event) =>
+                                    setTechClientLogoDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, tagline: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="例如：酒店与高端布草场景合作"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">品牌色</span>
+                                <input
+                                  value={draft.accentColor}
+                                  onChange={(event) =>
+                                    setTechClientLogoDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, accentColor: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="#0f766e"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-[120px_minmax(0,1fr)]">
+                              <label className="grid gap-2 text-sm text-slate-600">
+                                <span className="font-medium text-slate-900">排序</span>
+                                <input
+                                  value={draft.sortOrder}
+                                  onChange={(event) =>
+                                    setTechClientLogoDrafts((current) =>
+                                      current.map((item, currentIndex) =>
+                                        currentIndex === index ? { ...item, sortOrder: event.target.value } : item,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="1"
+                                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                />
+                              </label>
+                              <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-500">
+                                前台会优先展示已填写客户名称与 Logo 文案的条目；品牌色用于渲染品牌背书卡片的视觉强调。
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-xs leading-6 text-slate-500">
+                        {techClientLogosQuery.isError ? "当前读取的是默认或缓存内容，建议先重试读取后再保存。" : `当前内容源：${techClientLogosQuery.data?.source === "database" ? "数据库" : "默认内容"}`}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setTechClientLogoDrafts((current) => [...current, createEmptyTechClientLogoDraft()])}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          新增 Logo 卡片
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTechClientLogoDrafts(mapTechClientLogoDrafts(techClientLogosQuery.data?.items))}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          重置为当前内容
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={updateTechClientLogosMutation.isPending}
+                          className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {updateTechClientLogosMutation.isPending ? "保存中..." : "保存客户 Logo 墙"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+                {techClientLogosQuery.isError ? (
+                  <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p>环洗朵科技客户 Logo 墙读取失败，当前仍可编辑并重新保存。</p>
+                    <button
+                      type="button"
+                      onClick={() => techClientLogosQuery.refetch()}
                       className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
                     >
                       重试读取

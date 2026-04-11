@@ -286,6 +286,36 @@ vi.mock("./lib/trpc", () => {
                 ],
               },
         ),
+        clientLogos: createQuery((input?: { siteKey?: string }) =>
+          input?.siteKey === "tech"
+            ? {
+                source: "database",
+                items: [
+                  {
+                    id: 41,
+                    siteKey: "tech",
+                    clientName: "华东商办物业联合体",
+                    logoText: "HUADONG PM",
+                    tagline: "商办物业标准化采购客户",
+                    accentColor: "#0f766e",
+                    sortOrder: 1,
+                  },
+                  {
+                    id: 42,
+                    siteKey: "tech",
+                    clientName: "嘉衡酒店管理集团",
+                    logoText: "JIAHENG HOTEL",
+                    tagline: "酒店布草与客房清洁合作项目",
+                    accentColor: "#1d4ed8",
+                    sortOrder: 2,
+                  },
+                ],
+              }
+            : {
+                source: "fallback",
+                items: [],
+              },
+        ),
         myEnterpriseApplications: createQuery([
           {
             brandId: 1,
@@ -323,6 +353,7 @@ vi.mock("./lib/trpc", () => {
         updateContactConfig: createMutation(),
         updateSolutionModules: createMutation(),
         updateCaseStudies: createMutation(),
+        updateClientLogos: createMutation(),
       },
       admin: {
         reviewEnterpriseApplication: createMutation(),
@@ -607,6 +638,7 @@ vi.mock("./lib/trpc", () => {
         },
         site: {
           myEnterpriseApplications: { invalidate: vi.fn(async () => undefined) },
+          clientLogos: { invalidate: vi.fn(async () => undefined) },
         },
         orders: {
           list: { invalidate: vi.fn(async () => undefined) },
@@ -759,6 +791,8 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("适用对象：酒店后勤、外包洗涤团队");
     expect(html).toContain("物业项目标准化清洁剂替换方案");
     expect(html).toContain("合作对象：华东商办物业联合体");
+    expect(html).toContain("合作品牌背书");
+    expect(html).toContain("HUADONG PM");
   });
 
   it("renders care site skeleton with service package messaging", () => {
@@ -984,6 +1018,8 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("保存行业解决方案");
     expect(html).toContain("环洗朵科技客户案例");
     expect(html).toContain("保存客户案例");
+    expect(html).toContain("环洗朵科技客户 Logo 墙");
+    expect(html).toContain("保存客户 Logo 墙");
     expect(html).toContain("内容治理提醒");
   });
 

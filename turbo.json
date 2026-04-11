@@ -1,5 +1,14 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "ADMIN_JWT_SECRET",
+    "ADMIN_OAUTH_SERVER_URL",
+    "JWT_SECRET",
+    "OAUTH_SERVER_URL",
+    "VITE_APP_ID",
+    "DATABASE_URL",
+    "NODE_ENV"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

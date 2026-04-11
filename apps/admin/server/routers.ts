@@ -18,10 +18,13 @@ import {
   getPlatformSnapshot,
   getPublicCatalog,
   getSiteContactConfig,
+  listEnterpriseApplicationsByUser,
   listSiteCaseStudies,
   listSiteSolutionModules,
   replaceSiteCaseStudies,
   replaceSiteSolutionModules,
+  reviewEnterpriseApplication as reviewEnterpriseApplicationInDb,
+  submitEnterpriseApplication as submitEnterpriseApplicationToDb,
   submitSiteLead,
   upsertSiteContactConfig,
 } from "./db";
@@ -126,6 +129,33 @@ const siteLeadSubmissionSchema = z
     message: "请至少填写手机或邮箱中的一项。",
     path: ["mobile"],
   });
+
+const enterpriseApplicationQuerySchema = z.object({
+  brandId: z.number().int().positive().optional(),
+});
+
+const enterpriseApplicationSubmissionSchema = z
+  .object({
+    brandId: z.number().int().positive(),
+    sourceSite: platformSiteKeySchema.optional(),
+    sourcePage: z.string().trim().max(255).optional(),
+    enterpriseName: z.string().trim().min(2).max(255),
+    contactName: z.string().trim().min(2).max(120),
+    mobile: z.string().trim().max(32).optional(),
+    email: z.string().trim().email().max(320).optional(),
+    message: z.string().trim().max(2000).optional(),
+  })
+  .refine(input => Boolean(input.mobile || input.email), {
+    message: "请至少填写手机或邮箱中的一项。",
+    path: ["mobile"],
+  });
+
+const enterpriseApplicationReviewSchema = z.object({
+  brandId: z.number().int().positive(),
+  membershipId: z.number().int().positive(),
+  approved: z.boolean(),
+  reviewNote: z.string().trim().max(500).nullish(),
+});
 
 const siteContactUpdateSchema = z.object({
   siteKey: platformSiteKeySchema,
@@ -277,6 +307,46 @@ export const appRouter = router({
         notificationDelivered,
       };
     }),
+    myEnterpriseApplications: protectedProcedure.input(enterpriseApplicationQuerySchema).query(async ({ ctx, input }) => {
+      return listEnterpriseApplicationsByUser({
+        userId: ctx.user.id,
+        brandId: input.brandId,
+      });
+    }),
+    submitEnterpriseApplication: protectedProcedure
+      .input(enterpriseApplicationSubmissionSchema)
+      .mutation(async ({ ctx, input }) => {
+        const receipt = await submitEnterpriseApplicationToDb({
+          ...input,
+          userId: ctx.user.id,
+        });
+        let notificationDelivered = false;
+
+        try {
+          notificationDelivered = await notifyOwner({
+            title: `[${receipt.brandCode.toUpperCase()}] 新企业入驻申请`,
+            content: [
+              `申请人：${input.contactName}`,
+              `企业名称：${input.enterpriseName}`,
+              input.mobile ? `手机：${input.mobile}` : null,
+              input.email ? `邮箱：${input.email}` : null,
+              input.message ? `申请说明：${input.message}` : null,
+              `来源页面：${input.sourcePage?.trim() || "/account"}`,
+              `申请状态：${receipt.membershipStatus}`,
+              `写入结果：${receipt.source === "database" ? "已写入 membership 与 leads" : "当前为回退模式"}`,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          });
+        } catch (error) {
+          console.warn("[Notification] Failed to notify owner for enterprise application:", error);
+        }
+
+        return {
+          ...receipt,
+          notificationDelivered,
+        };
+      }),
     updateContactConfig: adminProcedure.input(siteContactUpdateSchema).mutation(async ({ input }) => {
       return upsertSiteContactConfig(input);
     }),
@@ -291,6 +361,22 @@ export const appRouter = router({
     operations: adminProcedure.input(adminOperationsSchema).query(async ({ input }) => {
       return getAdminOperationsSnapshot(input);
     }),
+    reviewEnterpriseApplication: adminProcedure
+      .input(enterpriseApplicationReviewSchema)
+      .mutation(async ({ ctx, input }) => {
+        const result = await reviewEnterpriseApplicationInDb({
+          brandId: input.brandId,
+          membershipId: input.membershipId,
+          approved: input.approved,
+          reviewedBy: ctx.user.id,
+          reviewNote: input.reviewNote ?? null,
+        });
+
+        return {
+          tenant: { brandId: input.brandId },
+          ...result,
+        };
+      }),
   }),
   orders: router({
     list: adminProcedure.input(adminOrderFilterSchema).query(async ({ input }) => {

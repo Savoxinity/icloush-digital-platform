@@ -142,6 +142,7 @@ type AdminCustomerOverviewItem = {
   contactName: string | null;
   memberType: string;
   status: string;
+  priceLevel: string | null;
   email: string | null;
   mobile: string | null;
   accountType: string;
@@ -264,6 +265,34 @@ type AdminOperationsSnapshot = {
     alerts: string[];
   };
 };
+
+type EnterpriseApplicationSummaryRecord = {
+  brandId: number;
+  brandCode: string;
+  brandName: string;
+  memberType: string;
+  enterpriseName: string | null;
+  contactName: string | null;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+type EnterpriseApplicationFormState = {
+  enterpriseName: string;
+  contactName: string;
+  mobile: string;
+  email: string;
+  message: string;
+};
+
+const emptyEnterpriseApplicationForm = (): EnterpriseApplicationFormState => ({
+  enterpriseName: "",
+  contactName: "",
+  mobile: "",
+  email: "",
+  message: "",
+});
 
 const formatDateLabel = (value: string | null | undefined) => {
   if (!value) {
@@ -918,6 +947,30 @@ function getReviewStatusLabel(status?: string | null) {
   return status ? reviewStatusLabelMap[status] ?? status : "待确认";
 }
 
+const enterpriseApplicationStatusLabelMap: Record<string, string> = {
+  pending: "待审核",
+  approved: "审核通过",
+  rejected: "已驳回",
+  active: "已激活",
+  disabled: "已停用",
+};
+
+function getEnterpriseApplicationStatusLabel(status?: string | null) {
+  return status ? enterpriseApplicationStatusLabelMap[status] ?? status : "待确认";
+}
+
+function getEnterpriseApplicationStatusClassName(status?: string | null) {
+  if (status === "approved" || status === "active") {
+    return "bg-emerald-50 text-emerald-700";
+  }
+
+  if (status === "rejected" || status === "disabled") {
+    return "bg-rose-50 text-rose-700";
+  }
+
+  return "bg-amber-50 text-amber-700";
+}
+
 function summarizeOrderItems(order: OrderSummaryRecord) {
   if (!order.itemPreview || order.itemPreview.length === 0) {
     return "订单商品明细待补充";
@@ -1281,6 +1334,12 @@ export function getTechContentUpdateErrorMessage(error: { message?: string | nul
 
 export async function syncLabContactConfigAfterSave(refetchers: ReadonlyArray<() => Promise<unknown> | unknown>) {
   await Promise.all(refetchers.map((refetch) => refetch()));
+}
+
+export async function syncEnterpriseApplicationReviewAfterSave(
+  refreshers: ReadonlyArray<() => Promise<unknown> | unknown>,
+) {
+  await Promise.all(refreshers.map((refresh) => refresh()));
 }
 
 export function submitLabContactConfigUpdate(
@@ -3060,6 +3119,10 @@ export function AccountPage() {
   const brandsQuery = trpc.brands.list.useQuery();
   const availableBrands = (brandsQuery.data ?? []) as BrandOption[];
   const [selectedBrandId, setSelectedBrandId] = useState<number | null>(null);
+  const [enterpriseApplicationForm, setEnterpriseApplicationForm] = useState<EnterpriseApplicationFormState>(
+    emptyEnterpriseApplicationForm(),
+  );
+  const utils = trpc.useUtils();
 
   useEffect(() => {
     if (!selectedBrandId && availableBrands.length > 0) {
@@ -3072,6 +3135,51 @@ export function AccountPage() {
     () => availableBrands.find(brand => brand.id === activeBrandId) ?? null,
     [activeBrandId, availableBrands],
   );
+
+  const myEnterpriseApplicationsQuery = trpc.site.myEnterpriseApplications.useQuery(
+    activeBrandId ? { brandId: activeBrandId } : {},
+    {
+      enabled: isAuthenticated && Boolean(activeBrandId),
+    },
+  );
+
+  useEffect(() => {
+    const userName = user?.name?.trim();
+
+    if (userName) {
+      setEnterpriseApplicationForm(current =>
+        current.contactName
+          ? current
+          : {
+              ...current,
+              contactName: userName,
+            },
+      );
+    }
+  }, [user?.name]);
+
+  const submitEnterpriseApplicationMutation = trpc.site.submitEnterpriseApplication.useMutation({
+    onSuccess: async receipt => {
+      await Promise.all([
+        utils.site.myEnterpriseApplications.invalidate(),
+        utils.admin.operations.invalidate(),
+      ]);
+      setEnterpriseApplicationForm(current => ({
+        ...emptyEnterpriseApplicationForm(),
+        contactName: current.contactName,
+        mobile: current.mobile,
+        email: current.email,
+      }));
+      sonnerToast(
+        receipt.membershipStatus === "approved" || receipt.membershipStatus === "active"
+          ? "企业入驻申请已接收并通过当前品牌准入校验，可继续推进采购协同。"
+          : "企业入驻申请已提交，后台客户管理队列会同步出现待审核记录。",
+      );
+    },
+    onError: error => {
+      sonnerToast(error.message || "企业入驻申请提交失败，请稍后重试。");
+    },
+  });
 
   const myOrdersQuery = trpc.orders.myList.useQuery(
     {
@@ -3127,6 +3235,10 @@ export function AccountPage() {
     return todos.length > 0 ? todos : ["当前品牌暂无待办，可继续采购或查看历史订单"];
   }, [isAuthenticated, myOrderRecords]);
 
+  const enterpriseApplicationRecords = (myEnterpriseApplicationsQuery.data ?? []) as EnterpriseApplicationSummaryRecord[];
+  const latestEnterpriseApplication = enterpriseApplicationRecords[0] ?? null;
+  const pendingEnterpriseApplicationCount = enterpriseApplicationRecords.filter(record => record.status === "pending").length;
+
   const accountSummaryCards = [
     {
       label: "我的订单",
@@ -3164,6 +3276,40 @@ export function AccountPage() {
             : featuredOrderSummary.fulfillmentStatus === "delivered"
               ? "该订单已进入签收完成阶段，可继续发起复购或售后协同。"
               : "该订单已进入履约流程，建议继续关注排期、发货与签收节点。";
+
+  const handleEnterpriseApplicationSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+
+    if (!activeBrandId) {
+      sonnerToast("请先选择需要申请入驻的品牌，再提交企业资料。");
+      return;
+    }
+
+    if (!enterpriseApplicationForm.enterpriseName.trim() || !enterpriseApplicationForm.contactName.trim()) {
+      sonnerToast("请至少填写企业名称与联系人姓名后再提交申请。");
+      return;
+    }
+
+    if (!enterpriseApplicationForm.mobile.trim() && !enterpriseApplicationForm.email.trim()) {
+      sonnerToast("请至少填写手机号或邮箱中的一项，方便后台审核后回访。");
+      return;
+    }
+
+    submitEnterpriseApplicationMutation.mutate({
+      brandId: activeBrandId,
+      sourcePage: "/account",
+      enterpriseName: enterpriseApplicationForm.enterpriseName.trim(),
+      contactName: enterpriseApplicationForm.contactName.trim(),
+      mobile: enterpriseApplicationForm.mobile.trim() || undefined,
+      email: enterpriseApplicationForm.email.trim() || undefined,
+      message: enterpriseApplicationForm.message.trim() || undefined,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -3364,6 +3510,171 @@ export function AccountPage() {
             </div>
           </div>
         </section>
+
+        <section className="mt-8 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_80px_rgba(15,23,42,0.06)]">
+            <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Enterprise onboarding</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">企业入驻申请</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              客户中心现已支持直接提交企业入驻申请。提交后会同时写入客户档案与线索闭环，后台客户管理页会同步进入待审核队列。
+            </p>
+            <form className="mt-6 space-y-4" onSubmit={handleEnterpriseApplicationSubmit}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">企业名称</span>
+                  <input
+                    value={enterpriseApplicationForm.enterpriseName}
+                    onChange={event => setEnterpriseApplicationForm(current => ({ ...current, enterpriseName: event.target.value }))}
+                    placeholder="例如：上海某酒店管理集团"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">联系人姓名</span>
+                  <input
+                    value={enterpriseApplicationForm.contactName}
+                    onChange={event => setEnterpriseApplicationForm(current => ({ ...current, contactName: event.target.value }))}
+                    placeholder="例如：王经理"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">手机号</span>
+                  <input
+                    value={enterpriseApplicationForm.mobile}
+                    onChange={event => setEnterpriseApplicationForm(current => ({ ...current, mobile: event.target.value }))}
+                    placeholder="例如：13800000000"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                  />
+                </label>
+                <label className="space-y-2 text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">邮箱</span>
+                  <input
+                    value={enterpriseApplicationForm.email}
+                    onChange={event => setEnterpriseApplicationForm(current => ({ ...current, email: event.target.value }))}
+                    placeholder="例如：procurement@example.com"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                  />
+                </label>
+              </div>
+              <label className="block space-y-2 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">合作说明</span>
+                <textarea
+                  rows={5}
+                  value={enterpriseApplicationForm.message}
+                  onChange={event => setEnterpriseApplicationForm(current => ({ ...current, message: event.target.value }))}
+                  placeholder="可补充采购场景、合作品牌、预算区间、落地时间与所需支持。"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-slate-400"
+                />
+              </label>
+              <div className="rounded-3xl bg-slate-50 p-5 text-sm leading-7 text-slate-600">
+                你当前提交的是 <span className="font-medium text-slate-950">{selectedBrand?.name || "待选择品牌"}</span> 的企业入驻申请；审核通过后，客户档案状态与线索优先级会一并更新。
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={submitEnterpriseApplicationMutation.isPending}
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {submitEnterpriseApplicationMutation.isPending ? "提交中..." : "提交企业入驻申请"}
+                </button>
+                {!isAuthenticated ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = getLoginUrl();
+                    }}
+                    className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    登录后提交
+                  </button>
+                ) : null}
+              </div>
+            </form>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_80px_rgba(15,23,42,0.06)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Application status</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">我的企业入驻状态</h2>
+              </div>
+              <span className={`rounded-full px-4 py-2 text-sm ${pendingEnterpriseApplicationCount > 0 ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {pendingEnterpriseApplicationCount > 0 ? `${pendingEnterpriseApplicationCount} 条待审核` : "无待审核申请"}
+              </span>
+            </div>
+            {!isAuthenticated ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
+                登录后即可查看当前品牌下的企业入驻审核进度、最近一次申请状态与历史提交记录。
+              </div>
+            ) : myEnterpriseApplicationsQuery.isLoading ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
+                正在同步你的企业入驻申请状态。
+              </div>
+            ) : myEnterpriseApplicationsQuery.error ? (
+              <div className="mt-6 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm leading-7 text-rose-700">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p>{myEnterpriseApplicationsQuery.error.message}</p>
+                  <button
+                    type="button"
+                    onClick={() => myEnterpriseApplicationsQuery.refetch()}
+                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/70"
+                  >
+                    重试同步
+                  </button>
+                </div>
+              </div>
+            ) : enterpriseApplicationRecords.length === 0 ? (
+              <div className="mt-6 rounded-3xl border border-dashed border-slate-200 p-6 text-sm leading-7 text-slate-600">
+                当前品牌下还没有企业入驻申请记录。你可以直接在左侧提交企业资料，后台会自动进入审核闭环。
+              </div>
+            ) : (
+              <>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-3xl bg-slate-50 p-5">
+                    <p className="text-sm text-slate-500">最近申请状态</p>
+                    <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                      {getEnterpriseApplicationStatusLabel(latestEnterpriseApplication?.status)}
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-slate-600">
+                      {latestEnterpriseApplication?.updatedAt
+                        ? `最近更新时间：${formatDateLabel(latestEnterpriseApplication.updatedAt)}`
+                        : "等待后台同步处理时间。"}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl bg-slate-50 p-5">
+                    <p className="text-sm text-slate-500">当前品牌申请记录</p>
+                    <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{enterpriseApplicationRecords.length}</p>
+                    <p className="mt-2 text-sm leading-7 text-slate-600">
+                      审核通过后，你的企业身份会在客户中心与后台客户管理中同时可见。
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 space-y-4">
+                  {enterpriseApplicationRecords.slice(0, 4).map((record) => (
+                    <div key={`${record.brandId}-${record.createdAt ?? record.updatedAt ?? record.enterpriseName ?? record.contactName}`} className="rounded-3xl border border-slate-200 p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-medium text-slate-950">{record.enterpriseName ?? record.contactName ?? "企业入驻申请"}</p>
+                          <p className="mt-2 text-sm leading-7 text-slate-600">
+                            品牌：{record.brandName}；联系人：{record.contactName ?? "待补联系人"}；类型：{record.memberType}
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-xs ${getEnterpriseApplicationStatusClassName(record.status)}`}>
+                          {getEnterpriseApplicationStatusLabel(record.status)}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">提交时间 {formatDateLabel(record.createdAt)}</span>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">最近更新 {formatDateLabel(record.updatedAt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
       </main>
     </div>
   );
@@ -3406,7 +3717,7 @@ export function AdminContent() {
         ? {
             kicker: "客户经营中台",
             title: "客户管理",
-            description: "面向 B2B 客户账户、采购主体、品牌归属与运营分层，搭建后续客户中心与销售运营联动所需的后台骨架。",
+            description: "面向 B2B 客户账户、采购主体、品牌归属与运营分层，承接企业入驻申请、审核动作与后续客户中心联动所需的后台闭环。",
           }
         : isContentSection
           ? {
@@ -3486,6 +3797,33 @@ export function AdminContent() {
   });
   const [techSolutionDrafts, setTechSolutionDrafts] = useState<TechSolutionDraft[]>([createEmptyTechSolutionDraft()]);
   const [techCaseDrafts, setTechCaseDrafts] = useState<TechCaseStudyDraft[]>([createEmptyTechCaseStudyDraft()]);
+  const [enterpriseReviewNotes, setEnterpriseReviewNotes] = useState<Record<number, string>>({});
+
+  const pendingEnterpriseApplications = useMemo(
+    () => (customerSnapshot?.customers ?? []).filter(customer => customer.status === "pending"),
+    [customerSnapshot],
+  );
+
+  const reviewEnterpriseApplicationMutation = trpc.admin.reviewEnterpriseApplication.useMutation({
+    onSuccess: async (_, variables) => {
+      await syncEnterpriseApplicationReviewAfterSave([
+        utils.admin.operations.invalidate,
+        utils.site.myEnterpriseApplications.invalidate,
+      ]);
+      setEnterpriseReviewNotes(current => ({
+        ...current,
+        [variables.membershipId]: "",
+      }));
+      sonnerToast(
+        variables.approved
+          ? "企业入驻申请已审核通过，客户档案与线索状态已完成刷新。"
+          : "企业入驻申请已驳回，客户管理与线索闭环状态已完成刷新。",
+      );
+    },
+    onError: error => {
+      sonnerToast(error.message || "企业入驻审核失败，请稍后重试。");
+    },
+  });
 
   useEffect(() => {
     const nextContact = labContactConfigQuery.data;
@@ -4142,6 +4480,106 @@ export function AdminContent() {
                     </div>
                   ))}
                 </div>
+                <div className="mt-6 rounded-[2rem] border border-slate-200 bg-slate-50 p-6">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.2em] text-slate-500">企业入驻审核</p>
+                      <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">待处理企业入驻申请</h3>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">
+                        当前品牌 {selectedBrand?.name || "待确认品牌"} 下的企业入驻申请会同步影响客户档案状态与线索意向等级，建议优先处理待审核记录。
+                      </p>
+                    </div>
+                    <div className={`rounded-full px-4 py-2 text-sm ${pendingEnterpriseApplications.length > 0 ? "bg-amber-100 text-amber-800" : "bg-white text-slate-700"}`}>
+                      {pendingEnterpriseApplications.length > 0 ? `${pendingEnterpriseApplications.length} 条待审核` : "暂无待审核申请"}
+                    </div>
+                  </div>
+                  {pendingEnterpriseApplications.length === 0 ? (
+                    <div className="mt-5 rounded-3xl border border-dashed border-slate-200 bg-white p-5 text-sm leading-7 text-slate-600">
+                      当前品牌暂无待审核企业入驻申请，可继续维护客户档案、线索分层与销售跟进动作。
+                    </div>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      {pendingEnterpriseApplications.slice(0, 5).map((customer) => {
+                        const reviewNote = enterpriseReviewNotes[customer.membershipId] ?? "";
+
+                        return (
+                          <div key={customer.membershipId} className="rounded-3xl border border-slate-200 bg-white p-5">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-medium text-slate-950">{customer.enterpriseName ?? customer.displayName}</p>
+                                  <span className={`rounded-full px-3 py-1 text-xs ${getEnterpriseApplicationStatusClassName(customer.status)}`}>
+                                    {getEnterpriseApplicationStatusLabel(customer.status)}
+                                  </span>
+                                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{customer.brandName}</span>
+                                </div>
+                                <p className="mt-3 text-sm leading-7 text-slate-600">
+                                  联系人：{customer.contactName ?? "待补联系人"}；账号：{customer.displayName}；身份：{customer.memberType}
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                                  {customer.email ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">邮箱 {customer.email}</span> : null}
+                                  {customer.mobile ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">电话 {customer.mobile}</span> : null}
+                                  <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">
+                                    价格等级 {customer.priceLevel === "tier_pending_assignment" ? "待配置阶梯价" : customer.priceLevel ?? "未配置"}
+                                  </span>
+                                  <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">最近登录 {formatDateLabel(customer.lastSignedIn)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <label className="mt-4 block space-y-2 text-sm text-slate-600">
+                              <span className="font-medium text-slate-900">审核说明</span>
+                              <textarea
+                                rows={3}
+                                value={reviewNote}
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setEnterpriseReviewNotes(current => ({
+                                    ...current,
+                                    [customer.membershipId]: nextValue,
+                                  }));
+                                }}
+                                placeholder="例如：已确认采购主体与合作范围，可进入企业客户档案。"
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-900 outline-none transition focus:border-slate-400"
+                              />
+                            </label>
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              <button
+                                type="button"
+                                disabled={reviewEnterpriseApplicationMutation.isPending}
+                                onClick={() => {
+                                  reviewEnterpriseApplicationMutation.mutate({
+                                    brandId: customer.brandId,
+                                    membershipId: customer.membershipId,
+                                    approved: true,
+                                    reviewNote: reviewNote.trim() || undefined,
+                                  });
+                                }}
+                                className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 px-5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                              >
+                                审核通过
+                              </button>
+                              <button
+                                type="button"
+                                disabled={reviewEnterpriseApplicationMutation.isPending}
+                                onClick={() => {
+                                  reviewEnterpriseApplicationMutation.mutate({
+                                    brandId: customer.brandId,
+                                    membershipId: customer.membershipId,
+                                    approved: false,
+                                    reviewNote: reviewNote.trim() || undefined,
+                                  });
+                                }}
+                                className="inline-flex h-11 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-5 text-sm font-medium text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                驳回并回写说明
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="mt-6 grid gap-4 xl:grid-cols-2">
                   <div className="space-y-4">
                     <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户档案</p>
@@ -4155,14 +4593,17 @@ export function AdminContent() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium text-slate-950">{customer.displayName}</p>
                             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{customer.brandName}</span>
-                            <span className={`rounded-full px-3 py-1 text-xs ${customer.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                              {customer.status === "active" ? "已激活" : customer.status}
+                            <span className={`rounded-full px-3 py-1 text-xs ${getEnterpriseApplicationStatusClassName(customer.status)}`}>
+                              {getEnterpriseApplicationStatusLabel(customer.status)}
                             </span>
                           </div>
                           <p className="mt-3 text-sm leading-7 text-slate-600">{customer.enterpriseName ?? customer.contactName ?? "当前仅同步到基础用户身份，可继续补充采购主体与联系人。"}</p>
                           <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
                             <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{customer.memberType}</span>
                             <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{customer.accountType}</span>
+                            <span className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">
+                              价格等级 {customer.priceLevel === "tier_pending_assignment" ? "待配置阶梯价" : customer.priceLevel ?? "未配置"}
+                            </span>
                             <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">最近登录 {formatDateLabel(customer.lastSignedIn)}</span>
                           </div>
                         </div>

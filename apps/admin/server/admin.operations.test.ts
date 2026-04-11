@@ -5,12 +5,23 @@ const getDbMock = vi.hoisted(() => vi.fn(async () => ({}) as never));
 const getPlatformSnapshotMock = vi.hoisted(() => vi.fn());
 const getAdminOperationsSnapshotMock = vi.hoisted(() => vi.fn());
 const upsertSiteContactConfigMock = vi.hoisted(() => vi.fn());
+const listEnterpriseApplicationsByUserMock = vi.hoisted(() => vi.fn());
+const submitEnterpriseApplicationMock = vi.hoisted(() => vi.fn());
+const reviewEnterpriseApplicationMock = vi.hoisted(() => vi.fn());
+const notifyOwnerMock = vi.hoisted(() => vi.fn());
 
 vi.mock("./db", () => ({
   getDb: getDbMock,
   getPlatformSnapshot: getPlatformSnapshotMock,
   getAdminOperationsSnapshot: getAdminOperationsSnapshotMock,
   upsertSiteContactConfig: upsertSiteContactConfigMock,
+  listEnterpriseApplicationsByUser: listEnterpriseApplicationsByUserMock,
+  submitEnterpriseApplication: submitEnterpriseApplicationMock,
+  reviewEnterpriseApplication: reviewEnterpriseApplicationMock,
+}));
+
+vi.mock("./_core/notification", () => ({
+  notifyOwner: notifyOwnerMock,
 }));
 
 import { appRouter } from "./routers";
@@ -55,6 +66,10 @@ describe("admin operations router", () => {
     getPlatformSnapshotMock.mockReset();
     getAdminOperationsSnapshotMock.mockReset();
     upsertSiteContactConfigMock.mockReset();
+    listEnterpriseApplicationsByUserMock.mockReset();
+    submitEnterpriseApplicationMock.mockReset();
+    reviewEnterpriseApplicationMock.mockReset();
+    notifyOwnerMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -89,7 +104,25 @@ describe("admin operations router", () => {
           leadCount: 4,
           qualifiedLeadCount: 2,
         },
-        customers: [],
+        customers: [
+          {
+            membershipId: 15,
+            brandId: 2,
+            brandName: "环洗朵科技",
+            userId: 88,
+            displayName: "示例酒店集团",
+            enterpriseName: "示例酒店集团",
+            contactName: "王经理",
+            memberType: "enterprise",
+            status: "approved",
+            priceLevel: "tier_pending_assignment",
+            email: "buyer@example.com",
+            mobile: "13800000000",
+            accountType: "enterprise",
+            globalRole: "user",
+            lastSignedIn: "2026-04-10T09:00:00.000Z",
+          },
+        ],
         leads: [],
         brandViews: [],
         alerts: ["存在待跟进线索。"],
@@ -125,6 +158,7 @@ describe("admin operations router", () => {
     expect(getAdminOperationsSnapshotMock).toHaveBeenCalledWith({ brandId: 2 });
     expect(result.scope.brandName).toBe("环洗朵科技");
     expect(result.products.totals.productCount).toBe(8);
+    expect(result.customers.customers[0]?.priceLevel).toBe("tier_pending_assignment");
     expect(result.seo.totals.missingMetaCount).toBe(1);
   });
 
@@ -135,6 +169,101 @@ describe("admin operations router", () => {
       code: "FORBIDDEN",
     });
     expect(getAdminOperationsSnapshotMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the current user's enterprise applications within the selected brand scope", async () => {
+    listEnterpriseApplicationsByUserMock.mockResolvedValue([
+      {
+        brandId: 2,
+        brandCode: "tech",
+        brandName: "环洗朵科技",
+        memberType: "enterprise",
+        enterpriseName: "示例酒店集团",
+        contactName: "王经理",
+        status: "pending",
+        createdAt: "2026-04-10T10:00:00.000Z",
+        updatedAt: "2026-04-10T10:00:00.000Z",
+      },
+    ]);
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 88, globalRole: "user" })));
+    const result = await caller.site.myEnterpriseApplications({ brandId: 2 });
+
+    expect(listEnterpriseApplicationsByUserMock).toHaveBeenCalledWith({ userId: 88, brandId: 2 });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.enterpriseName).toBe("示例酒店集团");
+    expect(result[0]?.status).toBe("pending");
+  });
+
+  it("submits enterprise application and notifies owner", async () => {
+    submitEnterpriseApplicationMock.mockResolvedValue({
+      accepted: true,
+      brandId: 2,
+      brandCode: "tech",
+      brandName: "环洗朵科技",
+      membershipStatus: "pending",
+      leadStatus: "pending",
+      source: "database",
+      receivedAt: "2026-04-10T10:00:00.000Z",
+    });
+    notifyOwnerMock.mockResolvedValue(true);
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 23, globalRole: "user" })));
+    const result = await caller.site.submitEnterpriseApplication({
+      brandId: 2,
+      sourcePage: "/account",
+      enterpriseName: "示例酒店集团",
+      contactName: "王经理",
+      mobile: "13800000000",
+      message: "希望接入企业采购与后台审核闭环。",
+    });
+
+    expect(submitEnterpriseApplicationMock).toHaveBeenCalledWith({
+      brandId: 2,
+      sourcePage: "/account",
+      enterpriseName: "示例酒店集团",
+      contactName: "王经理",
+      mobile: "13800000000",
+      message: "希望接入企业采购与后台审核闭环。",
+      userId: 23,
+    });
+    expect(notifyOwnerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "[TECH] 新企业入驻申请",
+      }),
+    );
+    expect(result.membershipStatus).toBe("pending");
+    expect(result.notificationDelivered).toBe(true);
+  });
+
+  it("allows admin users to review enterprise applications and inject reviewer identity", async () => {
+    reviewEnterpriseApplicationMock.mockResolvedValue({
+      membershipId: 15,
+      membershipStatus: "approved",
+      leadStatus: "qualified",
+      priceLevel: "tier_pending_assignment",
+      reviewedAt: "2026-04-10T12:00:00.000Z",
+      reviewNote: "已确认采购主体信息。",
+    });
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 7, globalRole: "admin" })));
+    const result = await caller.admin.reviewEnterpriseApplication({
+      brandId: 2,
+      membershipId: 15,
+      approved: true,
+      reviewNote: "已确认采购主体信息。",
+    });
+
+    expect(reviewEnterpriseApplicationMock).toHaveBeenCalledWith({
+      brandId: 2,
+      membershipId: 15,
+      approved: true,
+      reviewedBy: 7,
+      reviewNote: "已确认采购主体信息。",
+    });
+    expect(result.tenant).toEqual({ brandId: 2 });
+    expect(result.membershipStatus).toBe("approved");
+    expect(result.priceLevel).toBe("tier_pending_assignment");
   });
 
   it("allows admin users to update lab contact config", async () => {

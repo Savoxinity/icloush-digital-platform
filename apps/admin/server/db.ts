@@ -155,6 +155,7 @@ export type AdminCustomerOverviewItem = {
   contactName: string | null;
   memberType: string;
   status: string;
+  priceLevel: string | null;
   email: string | null;
   mobile: string | null;
   accountType: string;
@@ -640,8 +641,12 @@ function resolveBrandIds(
     .map((record) => record.id);
 }
 
-function toIsoString(value: Date | null | undefined) {
-  return value ? value.toISOString() : null;
+function toIsoString(value: string | Date | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return typeof value === "string" ? value : value.toISOString();
 }
 
 function hasText(value: string | null | undefined) {
@@ -772,6 +777,7 @@ function buildFallbackAdminOperationsSnapshot(brandId?: number): AdminOperations
           contactName: "王经理",
           memberType: "b2b_customer",
           status: "active",
+          priceLevel: "tier_pending_assignment",
           email: "buyer@example.com",
           mobile: "13800000000",
           accountType: "enterprise",
@@ -788,6 +794,7 @@ function buildFallbackAdminOperationsSnapshot(brandId?: number): AdminOperations
           contactName: "李女士",
           memberType: "ops",
           status: "pending",
+          priceLevel: null,
           email: null,
           mobile: "13900000000",
           accountType: "personal",
@@ -1370,6 +1377,158 @@ export type SiteLeadSubmissionResult = {
   leadId: number | null;
   receivedAt: string;
 };
+
+export type EnterpriseApplicationInput = {
+  brandId: number;
+  userId: number;
+  sourceSite?: PlatformSiteKey | null;
+  sourcePage?: string | null;
+  enterpriseName: string;
+  contactName: string;
+  mobile?: string | null;
+  email?: string | null;
+  message?: string | null;
+};
+
+export type EnterpriseApplicationReceipt = {
+  accepted: boolean;
+  source: "database" | "fallback";
+  brandId: number;
+  brandCode: string;
+  membershipId: number | null;
+  leadId: number | null;
+  membershipStatus: "pending" | "approved" | "rejected" | "active" | "disabled";
+  receivedAt: string;
+};
+
+export type EnterpriseApplicationSummary = {
+  membershipId: number;
+  brandId: number;
+  brandCode: string;
+  brandName: string;
+  memberType: string;
+  enterpriseName: string | null;
+  contactName: string | null;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type EnterpriseApplicationReviewInput = {
+  brandId: number;
+  membershipId: number;
+  approved: boolean;
+  reviewedBy: number;
+  reviewNote?: string | null;
+};
+
+export type EnterpriseApplicationReviewResult = {
+  brandId: number;
+  membershipId: number;
+  status: "approved" | "rejected";
+  leadStatus: "qualified" | "invalid" | null;
+  priceLevel: string | null;
+  reviewedAt: string;
+  reviewerId: number;
+  note: string | null;
+};
+
+export type EnterpriseApplicationListParams = {
+  userId: number;
+  brandId?: number;
+};
+
+export type EnterpriseApplicationListResult = {
+  generatedAt: string;
+  items: EnterpriseApplicationSummary[];
+};
+
+function pickSiteKeyByBrandCode(brandCode: string | null | undefined): PlatformSiteKey {
+  if (brandCode === "icloush-lab") {
+    return "lab";
+  }
+
+  if (brandCode === "huanxiduo") {
+    return "tech";
+  }
+
+  return "care";
+}
+
+function getInsertedId(result: unknown) {
+  return Array.isArray(result)
+    ? (result[0] as { insertId?: number } | undefined)?.insertId ?? null
+    : ((result as { insertId?: number } | undefined)?.insertId ?? null);
+}
+
+function normalizeMembershipStatus(status: string | null | undefined): "pending" | "approved" | "rejected" | "active" | "disabled" {
+  if (status === "approved" || status === "rejected" || status === "active" || status === "disabled") {
+    return status;
+  }
+
+  return "pending";
+}
+
+const ENTERPRISE_PENDING_PRICE_LEVEL = "tier_pending_assignment";
+
+function buildReviewMessage(existingMessage: string | null | undefined, approved: boolean, reviewNote?: string | null) {
+  const reviewLine = `审核结果：${approved ? "已通过" : "已驳回"}`;
+  const noteLine = normalizeNullableText(reviewNote) ? `审核说明：${normalizeNullableText(reviewNote)}` : null;
+  return [normalizeNullableText(existingMessage), reviewLine, noteLine].filter(Boolean).join("\n");
+}
+
+function mapEnterpriseApplicationSummary(record: {
+  id: number;
+  brandId: number;
+  brandCode: string;
+  brandName: string;
+  memberType: string;
+  enterpriseName: string | null;
+  contactName: string | null;
+  status: string;
+  createdAt: Date | string | null;
+  updatedAt: Date | string | null;
+}): EnterpriseApplicationSummary {
+  return {
+    membershipId: record.id,
+    brandId: record.brandId,
+    brandCode: record.brandCode,
+    brandName: record.brandName,
+    memberType: record.memberType,
+    enterpriseName: normalizeNullableText(record.enterpriseName),
+    contactName: normalizeNullableText(record.contactName),
+    status: record.status,
+    createdAt: toIsoString(record.createdAt),
+    updatedAt: toIsoString(record.updatedAt),
+  };
+}
+
+async function syncEnterpriseApplicantContact(input: EnterpriseApplicationInput) {
+  const db = await getDb();
+  if (!db) {
+    return;
+  }
+
+  const updateSet: Partial<typeof users.$inferInsert> = {};
+  const normalizedMobile = normalizeNullableText(input.mobile);
+  const normalizedEmail = normalizeNullableText(input.email);
+  const normalizedName = normalizeNullableText(input.contactName);
+
+  if (normalizedMobile) {
+    updateSet.mobile = normalizedMobile;
+  }
+  if (normalizedEmail) {
+    updateSet.email = normalizedEmail;
+  }
+  if (normalizedName) {
+    updateSet.name = normalizedName;
+  }
+  if (Object.keys(updateSet).length === 0) {
+    return;
+  }
+
+  await db.update(users).set(updateSet).where(eq(users.id, input.userId));
+}
 
 const DEFAULT_SITE_BRAND_CODE: Record<PlatformSiteKey, string> = {
   shop: "icloush-lab",
@@ -2133,12 +2292,268 @@ export async function submitSiteLead(input: SiteLeadSubmissionInput): Promise<Si
     source: "database",
     brandId: brandRecord.id,
     brandCode: brandRecord.code,
-    leadId: typeof candidateLeadId === "number" ? candidateLeadId : null,
+    leadId: candidateLeadId,
     receivedAt,
   };
 }
 
+export async function submitEnterpriseApplication(input: EnterpriseApplicationInput): Promise<EnterpriseApplicationReceipt> {
+  const receivedAt = new Date().toISOString();
+  const db = await getDb();
+
+  if (!db) {
+    return {
+      accepted: true,
+      source: "fallback",
+      brandId: input.brandId,
+      brandCode: "fallback",
+      membershipId: null,
+      leadId: null,
+      membershipStatus: "pending",
+      receivedAt,
+    };
+  }
+
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands)
+    .where(eq(brands.id, input.brandId))
+    .limit(1);
+
+  const brandRecord = brandRecords[0];
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 #${input.brandId}，无法提交企业入驻申请。`);
+  }
+
+  await syncEnterpriseApplicantContact(input);
+
+  const existingMemberships = await db
+    .select({
+      id: brandMemberships.id,
+      status: brandMemberships.status,
+    })
+    .from(brandMemberships)
+    .where(and(eq(brandMemberships.brandId, input.brandId), eq(brandMemberships.userId, input.userId)))
+    .limit(1);
+
+  const existingMembership = existingMemberships[0];
+  const normalizedEnterpriseName = input.enterpriseName.trim();
+  const normalizedContactName = input.contactName.trim();
+  const normalizedMessage = normalizeNullableText(input.message);
+  const normalizedMobile = normalizeNullableText(input.mobile);
+  const normalizedEmail = normalizeNullableText(input.email);
+  const sourceSite = input.sourceSite ?? pickSiteKeyByBrandCode(brandRecord.code);
+  const sourcePage = normalizeNullableText(input.sourcePage) ?? "/account";
+
+  let membershipId = existingMembership?.id ?? null;
+  let membershipStatus = normalizeMembershipStatus(existingMembership?.status);
+
+  if (!existingMembership) {
+    const insertedMembership = await db.insert(brandMemberships).values({
+      brandId: input.brandId,
+      userId: input.userId,
+      memberType: "b2b_customer",
+      enterpriseName: normalizedEnterpriseName,
+      contactName: normalizedContactName,
+      isDefaultBrand: false,
+      status: "pending",
+    });
+
+    const insertedMembershipId = getInsertedId(insertedMembership);
+    if (!insertedMembershipId) {
+      throw new Error("企业入驻申请写入成功但未返回会员记录 ID。");
+    }
+
+    membershipId = insertedMembershipId;
+    membershipStatus = "pending";
+  } else if (existingMembership.status !== "approved" && existingMembership.status !== "active") {
+    await db
+      .update(brandMemberships)
+      .set({
+        memberType: "b2b_customer",
+        enterpriseName: normalizedEnterpriseName,
+        contactName: normalizedContactName,
+        status: "pending",
+      })
+      .where(eq(brandMemberships.id, existingMembership.id));
+
+    membershipStatus = "pending";
+  } else {
+    await db
+      .update(brandMemberships)
+      .set({
+        memberType: "b2b_customer",
+        enterpriseName: normalizedEnterpriseName,
+        contactName: normalizedContactName,
+      })
+      .where(eq(brandMemberships.id, existingMembership.id));
+
+    membershipStatus = normalizeMembershipStatus(existingMembership.status);
+  }
+
+  const insertedLead = await db.insert(leads).values({
+    brandId: brandRecord.id,
+    sourceSite,
+    sourcePage,
+    companyName: normalizedEnterpriseName,
+    contactName: normalizedContactName,
+    mobile: normalizedMobile,
+    email: normalizedEmail,
+    message: normalizedMessage,
+    leadStatus: membershipStatus === "approved" || membershipStatus === "active" ? "qualified" : "new",
+  });
+
+  const leadId = getInsertedId(insertedLead);
+
+  return {
+    accepted: true,
+    source: "database",
+    brandId: brandRecord.id,
+    brandCode: brandRecord.code,
+    membershipId,
+    leadId,
+    membershipStatus,
+    receivedAt,
+  };
+}
+
+export async function listEnterpriseApplicationsByUser(
+  params: EnterpriseApplicationListParams,
+): Promise<EnterpriseApplicationListResult> {
+  const db = await getDb();
+  const generatedAt = new Date().toISOString();
+
+  if (!db) {
+    return {
+      generatedAt,
+      items: [],
+    };
+  }
+
+  const membershipRecords = await db
+    .select({
+      id: brandMemberships.id,
+      brandId: brandMemberships.brandId,
+      brandCode: brands.code,
+      brandName: brands.name,
+      memberType: brandMemberships.memberType,
+      enterpriseName: brandMemberships.enterpriseName,
+      contactName: brandMemberships.contactName,
+      status: brandMemberships.status,
+      createdAt: brandMemberships.createdAt,
+      updatedAt: brandMemberships.updatedAt,
+    })
+    .from(brandMemberships)
+    .innerJoin(brands, eq(brands.id, brandMemberships.brandId))
+    .where(eq(brandMemberships.userId, params.userId))
+    .orderBy(desc(brandMemberships.updatedAt));
+
+  const scopedItems = typeof params.brandId === "number"
+    ? membershipRecords.filter((record) => record.brandId === params.brandId)
+    : membershipRecords;
+
+  return {
+    generatedAt,
+    items: scopedItems.map(mapEnterpriseApplicationSummary),
+  };
+}
+
+export async function reviewEnterpriseApplication(
+  input: EnterpriseApplicationReviewInput,
+): Promise<EnterpriseApplicationReviewResult> {
+  const db = await getDb();
+
+  if (!db) {
+    throw new Error("数据库当前不可用，无法审核企业入驻申请。");
+  }
+
+  const membershipRecords = await db
+    .select({
+      id: brandMemberships.id,
+      brandId: brandMemberships.brandId,
+      userId: brandMemberships.userId,
+      enterpriseName: brandMemberships.enterpriseName,
+      contactName: brandMemberships.contactName,
+      status: brandMemberships.status,
+      priceLevel: brandMemberships.priceLevel,
+    })
+    .from(brandMemberships)
+    .where(and(eq(brandMemberships.id, input.membershipId), eq(brandMemberships.brandId, input.brandId)))
+    .limit(1);
+
+  const membershipRecord = membershipRecords[0];
+  if (!membershipRecord) {
+    throw new Error(`未找到品牌 #${input.brandId} 下的申请记录 #${input.membershipId}。`);
+  }
+
+  const nextMembershipStatus = input.approved ? "approved" : "rejected";
+  const nextLeadStatus = input.approved ? "qualified" : "invalid";
+  const reviewedAt = new Date().toISOString();
+  const nextPriceLevel = input.approved
+    ? normalizeNullableText(membershipRecord.priceLevel) ?? ENTERPRISE_PENDING_PRICE_LEVEL
+    : normalizeNullableText(membershipRecord.priceLevel);
+
+  await db
+    .update(brandMemberships)
+    .set({
+      status: nextMembershipStatus,
+      priceLevel: nextPriceLevel,
+    })
+    .where(eq(brandMemberships.id, membershipRecord.id));
+
+  if (input.approved) {
+    await db
+      .update(users)
+      .set({
+        accountType: "enterprise",
+      })
+      .where(eq(users.id, membershipRecord.userId));
+  }
+
+  const relatedLeads = await db
+    .select({
+      id: leads.id,
+      message: leads.message,
+    })
+    .from(leads)
+    .where(
+      and(
+        eq(leads.brandId, input.brandId),
+        eq(leads.contactName, membershipRecord.contactName ?? ""),
+        eq(leads.companyName, membershipRecord.enterpriseName ?? ""),
+      ),
+    )
+    .orderBy(desc(leads.createdAt))
+    .limit(1);
+
+  if (relatedLeads[0]) {
+    await db
+      .update(leads)
+      .set({
+        leadStatus: nextLeadStatus,
+        message: buildReviewMessage(relatedLeads[0].message, input.approved, input.reviewNote),
+      })
+      .where(eq(leads.id, relatedLeads[0].id));
+  }
+
+  return {
+    brandId: input.brandId,
+    membershipId: input.membershipId,
+    status: nextMembershipStatus,
+    leadStatus: relatedLeads[0] ? nextLeadStatus : null,
+    priceLevel: nextPriceLevel,
+    reviewedAt,
+    reviewerId: input.reviewedBy,
+    note: normalizeNullableText(input.reviewNote),
+  };
+}
+
 export async function getAdminOperationsSnapshot(params?: { brandId?: number }): Promise<AdminOperationsSnapshot> {
+
   const db = await getDb();
   if (!db) {
     return buildFallbackAdminOperationsSnapshot(params?.brandId);
@@ -2199,6 +2614,7 @@ export async function getAdminOperationsSnapshot(params?: { brandId?: number }):
           memberType: brandMemberships.memberType,
           enterpriseName: brandMemberships.enterpriseName,
           contactName: brandMemberships.contactName,
+          priceLevel: brandMemberships.priceLevel,
           isDefaultBrand: brandMemberships.isDefaultBrand,
           status: brandMemberships.status,
           createdAt: brandMemberships.createdAt,
@@ -2328,6 +2744,7 @@ export async function getAdminOperationsSnapshot(params?: { brandId?: number }):
           contactName: record.contactName,
           memberType: record.memberType,
           status: record.status,
+          priceLevel: normalizeNullableText(record.priceLevel) ?? ENTERPRISE_PENDING_PRICE_LEVEL,
           email: user?.email ?? null,
           mobile: user?.mobile ?? null,
           accountType: user?.accountType ?? "personal",

@@ -286,12 +286,46 @@ vi.mock("./lib/trpc", () => {
                 ],
               },
         ),
+        myEnterpriseApplications: createQuery([
+          {
+            brandId: 1,
+            brandName: "iCloush LAB.",
+            enterpriseName: "上海研净实验室",
+            contactName: "陈工",
+            memberType: "enterprise",
+            status: "pending",
+            createdAt: "2026-04-10T09:00:00.000Z",
+            updatedAt: "2026-04-10T09:00:00.000Z",
+          },
+          {
+            brandId: 1,
+            brandName: "iCloush LAB.",
+            enterpriseName: "苏州净研科技",
+            contactName: "王经理",
+            memberType: "enterprise",
+            status: "approved",
+            createdAt: "2026-04-08T09:00:00.000Z",
+            updatedAt: "2026-04-09T09:00:00.000Z",
+          },
+          {
+            brandId: 1,
+            brandName: "iCloush LAB.",
+            enterpriseName: "杭州净护实验室",
+            contactName: "赵主管",
+            memberType: "enterprise",
+            status: "rejected",
+            createdAt: "2026-04-06T09:00:00.000Z",
+            updatedAt: "2026-04-07T09:00:00.000Z",
+          },
+        ]),
+        submitEnterpriseApplication: createMutation(),
         submitLead: createMutation(),
         updateContactConfig: createMutation(),
         updateSolutionModules: createMutation(),
         updateCaseStudies: createMutation(),
       },
       admin: {
+        reviewEnterpriseApplication: createMutation(),
         operations: createQuery({
           generatedAt: "2026-04-10T18:05:00.000Z",
           scope: {
@@ -357,11 +391,29 @@ vi.mock("./lib/trpc", () => {
                 contactName: "陈工",
                 memberType: "enterprise",
                 status: "active",
+                priceLevel: "tier_pending_assignment",
                 email: "lab@example.com",
                 mobile: "13800000000",
                 accountType: "enterprise",
                 globalRole: "user",
                 lastSignedIn: "2026-04-09T10:00:00.000Z",
+              },
+              {
+                membershipId: 32,
+                brandId: 1,
+                brandName: "iCloush LAB.",
+                userId: 502,
+                displayName: "广州净洗科技",
+                enterpriseName: "广州净洗科技",
+                contactName: "李经理",
+                memberType: "enterprise",
+                status: "pending",
+                priceLevel: "tier_pending_assignment",
+                email: "lead@example.com",
+                mobile: "13900000000",
+                accountType: "enterprise",
+                globalRole: "user",
+                lastSignedIn: "2026-04-10T08:30:00.000Z",
               },
             ],
             leads: [
@@ -550,6 +602,12 @@ vi.mock("./lib/trpc", () => {
         },
       },
       useUtils: () => ({
+        admin: {
+          operations: { invalidate: vi.fn(async () => undefined) },
+        },
+        site: {
+          myEnterpriseApplications: { invalidate: vi.fn(async () => undefined) },
+        },
         orders: {
           list: { invalidate: vi.fn(async () => undefined) },
           reviewQueue: { invalidate: vi.fn(async () => undefined) },
@@ -579,6 +637,7 @@ import {
   resolveSeoConfig,
   resolveSnapshotState,
   submitLabContactConfigUpdate,
+  syncEnterpriseApplicationReviewAfterSave,
   syncLabContactConfigAfterSave,
 } from "./App";
 import { trpc } from "./lib/trpc";
@@ -611,6 +670,18 @@ function withCareCaseStudiesQueryOverride(useQuery: () => unknown, run: () => vo
     run();
   } finally {
     caseStudiesQuery.useQuery = originalUseQuery;
+  }
+}
+
+function withEnterpriseApplicationsQueryOverride(useQuery: () => unknown, run: () => void) {
+  const enterpriseApplicationsQuery = trpc.site.myEnterpriseApplications as { useQuery: () => unknown };
+  const originalUseQuery = enterpriseApplicationsQuery.useQuery;
+  enterpriseApplicationsQuery.useQuery = useQuery;
+
+  try {
+    run();
+  } finally {
+    enterpriseApplicationsQuery.useQuery = originalUseQuery;
   }
 }
 
@@ -789,6 +860,71 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("在后台查看审核闭环");
   });
 
+  it("renders account enterprise onboarding status card with pending approved and rejected records", () => {
+    setPathname("/account");
+    const html = renderToStaticMarkup(<AccountPage />);
+
+    expect(html).toContain("我的企业入驻状态");
+    expect(html).toContain("1 条待审核");
+    expect(html).toContain("上海研净实验室");
+    expect(html).toContain("苏州净研科技");
+    expect(html).toContain("杭州净护实验室");
+    expect(html).toContain("待审核");
+    expect(html).toContain("审核通过");
+    expect(html).toContain("已驳回");
+  });
+
+  it("renders account enterprise onboarding loading empty and error states explicitly", () => {
+    setPathname("/account");
+
+    withEnterpriseApplicationsQueryOverride(
+      () => ({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const loadingHtml = renderToStaticMarkup(<AccountPage />);
+
+        expect(loadingHtml).toContain("正在同步你的企业入驻申请状态。");
+        expect(loadingHtml).not.toContain("当前品牌下还没有企业入驻申请记录");
+      },
+    );
+
+    withEnterpriseApplicationsQueryOverride(
+      () => ({
+        data: [],
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const emptyHtml = renderToStaticMarkup(<AccountPage />);
+
+        expect(emptyHtml).toContain("当前品牌下还没有企业入驻申请记录。你可以直接在左侧提交企业资料，后台会自动进入审核闭环。");
+      },
+    );
+
+    withEnterpriseApplicationsQueryOverride(
+      () => ({
+        data: undefined,
+        isLoading: false,
+        isError: false,
+        error: new Error("企业入驻状态同步失败"),
+        refetch: vi.fn(),
+      }),
+      () => {
+        const errorHtml = renderToStaticMarkup(<AccountPage />);
+
+        expect(errorHtml).toContain("企业入驻状态同步失败");
+        expect(errorHtml).toContain("重试同步");
+      },
+    );
+  });
+
   it("renders admin overview with live module snapshots and module navigation", () => {
     setPathname("/admin");
     const html = renderToStaticMarkup(<AdminContent />);
@@ -821,6 +957,18 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("上海研净实验室");
     expect(html).toContain("最新线索");
     expect(html).toContain("品牌客户分布");
+  });
+
+  it("renders admin customer console with enterprise review actions and tier price badges", () => {
+    setPathname("/admin/customers");
+    const html = renderToStaticMarkup(<AdminContent />);
+
+    expect(html).toContain("待处理企业入驻申请");
+    expect(html).toContain("1 条待审核");
+    expect(html).toContain("广州净洗科技");
+    expect(html).toContain("价格等级 待配置阶梯价");
+    expect(html).toContain("审核通过");
+    expect(html).toContain("驳回并回写说明");
   });
 
   it("renders admin content console with tech solution and case governance cards", () => {
@@ -1285,6 +1433,74 @@ describe("lab contact config update helpers", () => {
 
     expect(refetchContactConfig).toHaveBeenCalledTimes(1);
     expect(refetchOperations).toHaveBeenCalledTimes(1);
+  });
+
+  it("cascades enterprise review refreshers and exposes updated account status after review success", async () => {
+    let applicationRecords = [
+      {
+        brandId: 1,
+        brandName: "iCloush LAB.",
+        enterpriseName: "上海研净实验室",
+        contactName: "陈工",
+        memberType: "enterprise",
+        status: "pending",
+        createdAt: "2026-04-10T09:00:00.000Z",
+        updatedAt: "2026-04-10T09:00:00.000Z",
+      },
+    ];
+    const invalidateAdminOperations = vi.fn(async () => "operations-invalidated");
+    const invalidateEnterpriseApplications = vi.fn(async () => {
+      applicationRecords = [
+        {
+          ...applicationRecords[0],
+          status: "approved",
+          updatedAt: "2026-04-11T09:00:00.000Z",
+        },
+      ];
+      return "enterprise-invalidated";
+    });
+
+    withEnterpriseApplicationsQueryOverride(
+      () => ({
+        data: applicationRecords,
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const pendingHtml = renderToStaticMarkup(<AccountPage />);
+
+        expect(pendingHtml).toContain("1 条待审核");
+        expect(pendingHtml).toContain("最近申请状态");
+        expect(pendingHtml).toContain("提交时间 04/10");
+      },
+    );
+
+    await syncEnterpriseApplicationReviewAfterSave([
+      invalidateAdminOperations,
+      invalidateEnterpriseApplications,
+    ]);
+
+    expect(invalidateAdminOperations).toHaveBeenCalledTimes(1);
+    expect(invalidateEnterpriseApplications).toHaveBeenCalledTimes(1);
+
+    withEnterpriseApplicationsQueryOverride(
+      () => ({
+        data: applicationRecords,
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const approvedHtml = renderToStaticMarkup(<AccountPage />);
+
+        expect(approvedHtml).toContain("审核通过");
+        expect(approvedHtml).toContain("无待审核申请");
+        expect(approvedHtml).toContain("最近更新 04/11");
+      },
+    );
   });
 });
 

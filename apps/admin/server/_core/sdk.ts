@@ -6,7 +6,7 @@ import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../../../packages/database/schema";
 import * as db from "../db";
-import { ENV } from "./env";
+import { ENV, type AdminEnv } from "./env";
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
@@ -14,7 +14,7 @@ import type {
   GetUserInfoWithJwtRequest,
   GetUserInfoWithJwtResponse,
 } from "./types/manusTypes";
-// Utility function
+
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
@@ -29,13 +29,11 @@ const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
 
 class OAuthService {
-  constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
-    }
+  constructor(
+    private client: ReturnType<typeof axios.create>,
+    private env: AdminEnv
+  ) {
+    console.log("[OAuth] Initialized with baseURL:", this.env.oAuthServerUrl);
   }
 
   private decodeState(state: string): string {
@@ -48,7 +46,7 @@ class OAuthService {
     state: string
   ): Promise<ExchangeTokenResponse> {
     const payload: ExchangeTokenRequest = {
-      clientId: ENV.appId,
+      clientId: this.env.appId,
       grantType: "authorization_code",
       code,
       redirectUri: this.decodeState(state),
@@ -76,19 +74,22 @@ class OAuthService {
   }
 }
 
-const createOAuthHttpClient = (): AxiosInstance =>
+export const createOAuthHttpClient = (env: AdminEnv = ENV): AxiosInstance =>
   axios.create({
-    baseURL: ENV.oAuthServerUrl,
+    baseURL: env.oAuthServerUrl,
     timeout: AXIOS_TIMEOUT_MS,
   });
 
-class SDKServer {
+export class SDKServer {
   private readonly client: AxiosInstance;
   private readonly oauthService: OAuthService;
 
-  constructor(client: AxiosInstance = createOAuthHttpClient()) {
+  constructor(
+    client: AxiosInstance = createOAuthHttpClient(),
+    private readonly env: AdminEnv = ENV
+  ) {
     this.client = client;
-    this.oauthService = new OAuthService(this.client);
+    this.oauthService = new OAuthService(this.client, this.env);
   }
 
   private deriveLoginMethod(
@@ -113,11 +114,6 @@ class SDKServer {
     return first ? first.toLowerCase() : null;
   }
 
-  /**
-   * Exchange OAuth authorization code for access token
-   * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-   */
   async exchangeCodeForToken(
     code: string,
     state: string
@@ -125,11 +121,6 @@ class SDKServer {
     return this.oauthService.getTokenByCode(code, state);
   }
 
-  /**
-   * Get user information using access token
-   * @example
-   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-   */
   async getUserInfo(accessToken: string): Promise<GetUserInfoResponse> {
     const data = await this.oauthService.getUserInfoByToken({
       accessToken,
@@ -155,15 +146,9 @@ class SDKServer {
   }
 
   private getSessionSecret() {
-    const secret = ENV.cookieSecret;
-    return new TextEncoder().encode(secret);
+    return new TextEncoder().encode(this.env.cookieSecret);
   }
 
-  /**
-   * Create a session token for a Manus user openId
-   * @example
-   * const sessionToken = await sdk.createSessionToken(userInfo.openId);
-   */
   async createSessionToken(
     openId: string,
     options: { expiresInMs?: number; name?: string } = {}
@@ -171,7 +156,7 @@ class SDKServer {
     return this.signSession(
       {
         openId,
-        appId: ENV.appId,
+        appId: this.env.appId,
         name: options.name || "",
       },
       options
@@ -237,7 +222,7 @@ class SDKServer {
   ): Promise<GetUserInfoWithJwtResponse> {
     const payload: GetUserInfoWithJwtRequest = {
       jwtToken,
-      projectId: ENV.appId,
+      projectId: this.env.appId,
     };
 
     const { data } = await this.client.post<GetUserInfoWithJwtResponse>(
@@ -257,7 +242,6 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<User> {
-    // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
@@ -270,7 +254,6 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");

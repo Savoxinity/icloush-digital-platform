@@ -898,6 +898,9 @@ describe("admin front-stage skeleton pages", () => {
     setPathname("/account");
     const html = renderToStaticMarkup(<AccountPage />);
 
+    expect(html).toContain("当前账号身份");
+    expect(html).toContain("首次登录即注册");
+    expect(html).toContain("审核后开通企业权限");
     expect(html).toContain("我的企业入驻状态");
     expect(html).toContain("1 条待审核");
     expect(html).toContain("上海研净实验室");
@@ -1533,6 +1536,7 @@ describe("lab contact config update helpers", () => {
         const approvedHtml = renderToStaticMarkup(<AccountPage />);
 
         expect(approvedHtml).toContain("审核通过");
+        expect(approvedHtml).toContain("企业账号已开通");
         expect(approvedHtml).toContain("无待审核申请");
         expect(approvedHtml).toContain("最近更新 04/11");
       },

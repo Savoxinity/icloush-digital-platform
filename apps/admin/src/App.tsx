@@ -29,6 +29,7 @@ import { useAuth } from "./_core/hooks/useAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import NotFound from "./pages/NotFound";
+import LabLandingPage from "./pages/LabLandingPage";
 import type { PublicCatalogSnapshot } from "../server/db";
 
 type SiteEntry = {
@@ -2335,211 +2336,7 @@ export function ShopPage({ initialCategory }: { initialCategory?: string } = {})
 }
 
 export function LabPage() {
-  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
-  const labContactQuery = trpc.site.contactConfig.useQuery({ siteKey: "lab", contactScene: "business" });
-  const platformSnapshot = platformSnapshotQuery.data as PlatformSnapshot | undefined;
-  const labSnapshot = getSiteSnapshot(platformSnapshot, "lab");
-  const labSnapshotState = resolveSnapshotState(labSnapshot, platformSnapshotQuery.isLoading, platformSnapshotQuery.isError);
-  const labContact = labContactQuery.data as
-    | {
-        source: "database" | "fallback";
-        headline: string;
-        description: string;
-        primaryCtaLabel: string | null;
-        primaryCtaHref: string | null;
-        secondaryCtaLabel: string | null;
-        secondaryCtaHref: string | null;
-        contactEmail: string | null;
-        contactPhone: string | null;
-        contactWechat: string | null;
-        contactAddress: string | null;
-        serviceHours: string | null;
-        responseSla: string | null;
-      }
-    | undefined;
-  const labContactCards = [
-    { label: "联系邮箱", value: labContact?.contactEmail },
-    { label: "联系电话", value: labContact?.contactPhone },
-    { label: "微信沟通", value: labContact?.contactWechat },
-    { label: "响应承诺", value: labContact?.responseSla },
-  ].filter(item => Boolean(item.value));
-
-  return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#0f172a_0%,#111827_45%,#f8fafc_45%,#f8fafc_100%)] text-white">
-      <header className="container flex h-16 items-center justify-between text-sm text-slate-300">
-        <Link href="/" className="hover:text-white">
-          ← 返回统一平台
-        </Link>
-        <SiteNav />
-      </header>
-
-      <main>
-        <section className="container py-16 md:py-24">
-          <div className="max-w-4xl">
-            <div className="inline-flex rounded-full border border-violet-400/30 bg-violet-400/10 px-4 py-1 text-xs uppercase tracking-[0.2em] text-violet-200">
-              iCloush LAB.
-            </div>
-            <h1 className="mt-6 text-4xl font-semibold leading-tight tracking-tight md:text-6xl">
-              以研发可信度构建品牌壁垒，让实验能力成为商业说服力。
-            </h1>
-            <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300 md:text-lg">
-              LAB 站点承担品牌介绍、研发能力展示、产品线认知与商务联系入口。本轮已将联系方式从静态占位改为可配置内容，方便后续在后台维护商务与研发沟通入口。
-            </p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {[
-                { label: "真实商品", value: formatMetricValue(labSnapshot?.productCount, "个", labSnapshotState, "等待商品同步") },
-                { label: "品牌订单", value: formatMetricValue(labSnapshot?.orderCount, "笔", labSnapshotState, "等待订单同步") },
-                { label: "商务线索", value: formatMetricValue(labSnapshot?.leadCount, "条", labSnapshotState, "等待线索同步") },
-              ].map(item => (
-                <div key={item.label} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.2em] text-violet-200/70">{item.label}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-100">{item.value}</p>
-                </div>
-              ))}
-            </div>
-            <div
-              className={`mt-4 rounded-[1.75rem] border px-4 py-3 text-sm leading-7 ${
-                labSnapshotState === "error"
-                  ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
-                  : labSnapshotState === "ready"
-                    ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
-                    : "border-violet-300/20 bg-violet-300/10 text-violet-100"
-              }`}
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p>
-                  {labSnapshotState === "loading"
-                    ? "LAB 摘要正在同步，研发能力与商务转化指标会在真实站点快照返回后自动更新。"
-                    : labSnapshotState === "error"
-                      ? "LAB 摘要读取失败，当前保留品牌结构说明，但不再回退为伪造统计。"
-                      : labSnapshotState === "empty"
-                        ? "LAB 站点已纳入统一入口，但当前还没有可展示的品牌级业务摘要。"
-                        : "首屏补充了来自统一平台的真实品牌摘要，可用于校验研发展示与商务转化链路。"}
-                </p>
-                {labSnapshotState === "error" ? (
-                  <button
-                    type="button"
-                    onClick={() => platformSnapshotQuery.refetch()}
-                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/10"
-                  >
-                    重试同步
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
-            {labCapabilities.map(item => (
-              <div key={item} className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
-                <Beaker className="h-6 w-6 text-violet-300" />
-                <p className="mt-4 text-sm leading-7 text-slate-200">{item}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="bg-slate-50 py-16 text-slate-900 md:py-20">
-          <div className="container grid gap-10 lg:grid-cols-2">
-            <div>
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">产品线展示</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight">从技术平台到品牌产品的统一表达</h2>
-              <div className="mt-8 space-y-4">
-                {[
-                  {
-                    title: "专业清洗剂产品线",
-                    desc: "面向酒店、物业与商业空间的标准化清洁剂矩阵。",
-                  },
-                  {
-                    title: "酒店织物护理方案",
-                    desc: "结合配方、流程与服务要求的高端布草护理产品。",
-                  },
-                  {
-                    title: "高端消费洗护延展产品线",
-                    desc: "承接未来会员复购、订阅与品牌延展的消费级产品。",
-                  },
-                ].map(line => (
-                  <div key={line.title} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="font-medium text-slate-950">{line.title}</p>
-                    <p className="mt-2 text-sm leading-7 text-slate-600">{line.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_30px_100px_rgba(15,23,42,0.08)]">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">联系入口</p>
-                  <h3 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">
-                    {labContact?.headline ?? "为合作、研发共创与技术交流提供可执行的咨询路径"}
-                  </h3>
-                </div>
-                <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
-                  {labContactQuery.isLoading ? "联系方式同步中" : labContact?.source === "database" ? "已接入配置化数据" : "使用默认联系信息"}
-                </span>
-              </div>
-              <p className="mt-4 text-sm leading-7 text-slate-600">
-                {labContact?.description ??
-                  "当前统一通过客户中心承接商务合作与研发共创需求，提交后可进入后台线索与客户档案模块继续跟进，避免官网停留在仅展示邮箱的静态阶段。"}
-              </p>
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-slate-50 p-5">
-                  <p className="text-sm text-slate-500">商务合作</p>
-                  <p className="mt-2 font-medium text-slate-950">{labContact?.primaryCtaLabel ?? "客户中心合作需求单"}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">适合经销合作、品牌联名、渠道引入与批量采购场景。</p>
-                </div>
-                <div className="rounded-3xl bg-slate-50 p-5">
-                  <p className="text-sm text-slate-500">研发沟通</p>
-                  <p className="mt-2 font-medium text-slate-950">{labContact?.secondaryCtaLabel ?? "LAB 共创需求单"}</p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">适合新品打样、配方验证、场景测试与技术资料沟通。</p>
-                </div>
-              </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {labContactCards.map(item => (
-                  <div key={item.label} className="rounded-3xl border border-slate-200 px-4 py-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-                    <p className="mt-2 text-sm font-medium text-slate-900">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-              {labContact?.contactAddress || labContact?.serviceHours ? (
-                <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-7 text-slate-600">
-                  {labContact?.contactAddress ? <p>联系地址：{labContact.contactAddress}</p> : null}
-                  {labContact?.serviceHours ? <p>服务时段：{labContact.serviceHours}</p> : null}
-                </div>
-              ) : null}
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href={labContact?.primaryCtaHref ?? "/account"}
-                  className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800"
-                >
-                  {labContact?.primaryCtaLabel ?? "提交合作需求"}
-                </a>
-                <a
-                  href={labContact?.secondaryCtaHref ?? "/shop"}
-                  className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-                >
-                  {labContact?.secondaryCtaLabel ?? "查看产品采购入口"}
-                </a>
-              </div>
-              {labContactQuery.isError ? (
-                <div className="mt-4 flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  <p>联系配置读取失败，当前仍保留默认联系入口。</p>
-                  <button
-                    type="button"
-                    onClick={() => labContactQuery.refetch()}
-                    className="inline-flex items-center justify-center rounded-full border border-current px-4 py-2 text-xs font-medium transition hover:bg-white/60"
-                  >
-                    重试读取
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
+  return <LabLandingPage />;
 }
 
 export function TechPage() {
@@ -5851,7 +5648,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <SeoController />

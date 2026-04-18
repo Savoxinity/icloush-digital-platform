@@ -6,6 +6,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
+import { registerStorageProxy } from "./storageProxy";
+
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isBundledRuntime = path.basename(currentDir) === "dist";
 const adminRootDir = isBundledRuntime ? path.resolve(currentDir, "..") : path.resolve(currentDir, "../..");
@@ -47,6 +49,7 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  registerStorageProxy(app);
   registerOAuthRoutes(app);
   app.use(
     "/api/trpc",

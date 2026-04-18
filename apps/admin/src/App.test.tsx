@@ -693,6 +693,18 @@ function withCatalogQueryOverride(useQuery: () => unknown, run: () => void) {
   }
 }
 
+function withLabContactQueryOverride(useQuery: (input?: { siteKey?: string; contactScene?: string }) => unknown, run: () => void) {
+  const contactConfigQuery = trpc.site.contactConfig as { useQuery: (input?: { siteKey?: string; contactScene?: string }) => unknown };
+  const originalUseQuery = contactConfigQuery.useQuery;
+  contactConfigQuery.useQuery = useQuery;
+
+  try {
+    run();
+  } finally {
+    contactConfigQuery.useQuery = originalUseQuery;
+  }
+}
+
 function withCareCaseStudiesQueryOverride(useQuery: () => unknown, run: () => void) {
   const caseStudiesQuery = trpc.site.caseStudies as { useQuery: () => unknown };
   const originalUseQuery = caseStudiesQuery.useQuery;
@@ -763,17 +775,105 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain('href="/admin/orders"');
   });
 
-  it("renders lab site skeleton with service-oriented messaging", () => {
+  it("renders lab site skeleton with archivist-style atmospheric messaging", () => {
     setPathname("/lab");
     const html = renderToStaticMarkup(<LabPage />);
 
     expect(html).toContain("iCloush LAB");
-    expect(html).toContain("3 个");
-    expect(html).toContain("2 笔");
-    expect(html).toContain("1 条");
+    expect(html).toContain("ATMOSPHERIC");
+    expect(html).toContain("PURIFICATION");
+    expect(html).toContain("LIVE DEPLOYMENT");
+    expect(html).toContain("PUBLIC PRODUCTS");
+    expect(html).toContain("PIPELINE ORDERS");
+    expect(html).toContain("LEAD CAPTURE");
     expect(html).toContain("为合作、研发共创与技术交流提供可执行的咨询路径");
     expect(html).toContain("LAB 共创需求单");
-    expect(html).toContain("提交合作需求");
+    expect(html).toContain("[ INITIATE PROTOCOL ]");
+    expect(html).toContain("[ REQUEST ACCESS ]");
+    expect(html).toContain('href="/account"');
+    expect(html).toContain('href="/shop"');
+    expect(html).toContain("Live business-scene contact config is active");
+  });
+
+  it("renders lab request access CTA as an OAuth login url in browser-like environments", () => {
+    setPathname("/lab");
+    const originalWindow = globalThis.window;
+    const env = { ...import.meta.env };
+
+    Object.assign(import.meta.env, {
+      VITE_OAUTH_PORTAL_URL: "https://portal.example.com",
+      VITE_APP_ID: "app_123",
+    });
+
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://lab.example.com",
+        pathname: "/lab",
+        search: "",
+        hash: "",
+      },
+    });
+
+    try {
+      const html = renderToStaticMarkup(<LabPage />);
+      const hrefMatch = html.match(/href="([^"]*portal\.example\.com[^"]+)"/);
+      expect(hrefMatch?.[1]).toBeTruthy();
+
+      const loginUrl = new URL(hrefMatch![1].replace(/&amp;/g, "&"));
+      const state = JSON.parse(Buffer.from(loginUrl.searchParams.get("state") ?? "", "base64").toString("utf8"));
+
+      expect(loginUrl.origin).toBe("https://portal.example.com");
+      expect(loginUrl.searchParams.get("redirectUri")).toBe("https://lab.example.com/api/oauth/callback");
+      expect(state).toEqual({
+        redirectUri: "https://lab.example.com/api/oauth/callback",
+        returnPath: "/account",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      Object.assign(import.meta.env, env);
+      if (originalWindow) {
+        vi.stubGlobal("window", originalWindow);
+      }
+    }
+  });
+
+  it("explains fallback contact mode while preserving usable conversion targets", () => {
+    setPathname("/lab");
+
+    withLabContactQueryOverride(
+      (input?: { siteKey?: string }) => ({
+        data: input?.siteKey === "lab"
+          ? {
+              siteKey: "lab",
+              contactScene: "business",
+              source: "fallback",
+              headline: "为合作、研发共创与技术交流提供可执行的咨询路径",
+              description: "支持经销合作、联合研发、样品打样与场景测试沟通，线索将进入统一后台进行跟进与归档。",
+              primaryCtaLabel: "联系客户经理",
+              primaryCtaHref: "/account",
+              secondaryCtaLabel: "查看产品采购入口",
+              secondaryCtaHref: "/shop",
+              contactEmail: "lab@icloush.com",
+              contactPhone: "400-880-5720",
+              contactWechat: "iCloushLAB",
+              responseSla: "24H RESPONSE",
+            }
+          : null,
+        isLoading: false,
+        isError: false,
+        error: null,
+        refetch: vi.fn(),
+      }),
+      () => {
+        const html = renderToStaticMarkup(<LabPage />);
+
+        expect(html).toContain("LOCAL FALLBACK");
+        expect(html).toContain("Fallback contact config is active");
+        expect(html).toContain("Initiate Protocol currently resolves to /account");
+        expect(html).toContain('href="/account"');
+        expect(html).toContain('href="/shop"');
+      },
+    );
   });
 
   it("renders tech site with managed solution modules and case studies", () => {

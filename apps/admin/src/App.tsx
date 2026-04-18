@@ -1938,6 +1938,7 @@ export function ShopPage({ initialCategory }: { initialCategory?: string } = {})
   const catalogProducts = useMemo<ShopProduct[]>(() => mapCatalogProducts(catalogSnapshot), [catalogSnapshot]);
   const [activeCategory, setActiveCategory] = useState<string>(initialCategory ?? catalogCategories[0]?.id ?? "");
   const [cart, setCart] = useState<Record<string, number>>({});
+  const { user, loading, isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (!catalogCategories.some((category) => category.id === activeCategory)) {
@@ -2056,7 +2057,25 @@ export function ShopPage({ initialCategory }: { initialCategory?: string } = {})
           </div>
 
           <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
-            <p className="text-sm text-slate-400">采购闭环</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-400">采购闭环</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white">商城首页与登录承接</h2>
+              </div>
+              <div className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-slate-300">
+                {loading ? "Checking" : isAuthenticated ? "Signed in" : "Guest"}
+              </div>
+            </div>
+            <div className="mt-6 rounded-[1.75rem] border border-sky-400/25 bg-sky-400/10 p-5 text-sm leading-7 text-sky-50">
+              <p className="text-xs uppercase tracking-[0.2em] text-sky-200/80">登录状态</p>
+              <p className="mt-3 text-base font-medium text-white">
+                {loading
+                  ? "正在检查当前账号登录状态。"
+                  : isAuthenticated
+                    ? `已登录为 ${user?.name ?? "当前客户账号"}，可以直接进入客户中心继续采购、查看订单与履约状态。`
+                    : "未登录访客可先浏览目录、加入购物车预览，再通过客户中心完成登录并继续采购。"}
+              </p>
+            </div>
             <div className="mt-6 space-y-4">
               {[
                 "按行业、品牌与场景浏览分类并查看阶梯定价说明。",
@@ -2070,11 +2089,29 @@ export function ShopPage({ initialCategory }: { initialCategory?: string } = {})
               ))}
             </div>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              {isAuthenticated ? (
+                <Link
+                  href="/account"
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
+                >
+                  进入客户中心
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = getLoginUrl("/account");
+                  }}
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
+                >
+                  登录后继续采购
+                </button>
+              )}
               <Link
-                href="/account"
-                className="inline-flex h-12 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-slate-950 transition hover:bg-slate-100"
+                href="/shop"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-white/20 px-6 text-sm font-medium text-white transition hover:border-white/40"
               >
-                进入客户中心
+                浏览商城目录
               </Link>
               <Link
                 href="/tech"
@@ -3411,7 +3448,7 @@ export function AccountPage() {
     event.preventDefault();
 
     if (!isAuthenticated) {
-      window.location.href = getLoginUrl();
+      window.location.href = getLoginUrl("/account");
       return;
     }
 
@@ -3509,7 +3546,7 @@ export function AccountPage() {
                   type="button"
                   className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800"
                   onClick={() => {
-                    window.location.href = getLoginUrl();
+                    window.location.href = getLoginUrl("/account");
                   }}
                 >
                   登录账户
@@ -3712,7 +3749,7 @@ export function AccountPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      window.location.href = getLoginUrl();
+                      window.location.href = getLoginUrl("/account");
                     }}
                     className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                   >

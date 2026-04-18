@@ -9,6 +9,29 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+type OAuthStatePayload = {
+  redirectUri?: string;
+  returnPath?: string;
+};
+
+export function parseOAuthState(state: string): OAuthStatePayload | null {
+  try {
+    const decoded = Buffer.from(state, "base64").toString("utf8");
+    const parsed = JSON.parse(decoded) as OAuthStatePayload;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function getSafeReturnPath(state: string): string {
+  const payload = parseOAuthState(state);
+  if (!payload?.returnPath || !payload.returnPath.startsWith("/")) {
+    return "/";
+  }
+  return payload.returnPath;
+}
+
 export function registerOAuthRoutes(app: Express) {
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
@@ -44,7 +67,7 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      res.redirect(302, "/");
+      res.redirect(302, getSafeReturnPath(state));
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });

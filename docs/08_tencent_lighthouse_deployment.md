@@ -15,7 +15,7 @@
 
 ## 生产环境变量
 
-当前管理端在生产环境至少需要以下变量才能启动。为减少耦合，建议优先写入服务器项目根目录的 `.env` 文件，并由 `docker-compose.yml` 加载。
+当前管理端在生产环境至少需要以下变量才能启动。为减少与平台内置 Secrets 机制冲突，建议在服务器项目根目录使用 `runtime.secrets` 文件，并由 `docker-compose.yml` 加载。
 
 | 变量名 | 用途 | 是否必需 |
 | --- | --- | --- |
@@ -43,7 +43,7 @@ cd /srv/icloush
 git clone https://github.com/Savox/icloush-digital-platform.git app
 cd app
 
-# 写入 .env 后
+# 写入 runtime.secrets 后
 sudo docker compose up -d --build
 ```
 

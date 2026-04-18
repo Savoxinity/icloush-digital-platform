@@ -6,7 +6,7 @@ services:
     container_name: icloush-admin
     restart: unless-stopped
     env_file:
-      - .env
+      - runtime.secrets
     environment:
       NODE_ENV: production
       PORT: 3000

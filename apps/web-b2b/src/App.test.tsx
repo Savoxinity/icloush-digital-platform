@@ -17,45 +17,49 @@ function setLocation(pathname: string) {
   });
 }
 
-describe("web storefront monolith refactor", () => {
-  it("renders the retail gallery headline, 2C route targets and monolith source marker", () => {
-    setLocation("/gallery");
+describe("web storefront sprint 3 中文化重构", () => {
+  it("渲染中文主标题、2C 路由入口与对象序列按钮", () => {
+    setLocation("/showroom");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("RETAIL MONOLITH.");
-    expect(html).toContain("FALLBACK SAFE");
+    expect(html).toContain("深空展柜");
+    expect(html).toContain("数字展柜");
     expect(html).toContain("VOID-B03");
     expect(html).toContain("FC-LE");
     expect(html).toContain("/object/void-b03");
-    expect(html).toContain("ENTER RETAIL GALLERY");
+    expect(html).toContain("进入对象序列");
     expect(html).not.toContain("B2B");
   });
 
-  it("renders the 6:3:1 monolith system with chamfered containers and divine vector markers", () => {
+  it("渲染 6:3:1 方尖碑系统与中文字体分层类名", () => {
     setLocation("/gallery");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("MONOLITHIC MASS");
-    expect(html).toContain("ASCETIC MATERIAL");
-    expect(html).toContain("DIVINE VECTOR");
+    expect(html).toContain("巨物粗野");
+    expect(html).toContain("绝对材质");
+    expect(html).toContain("神性纹章");
     expect(html).toContain("hairline-grid");
     expect(html).toContain("crosshair");
     expect(html).toContain("clip-path:polygon(");
-    expect(html).toContain("micro-copy");
+    expect(html).toContain("display-title");
+    expect(html).toContain("font-zh-sans");
+    expect(html).toContain("font-zh-serif");
     expect(html).toContain("SIGNAL");
   });
 
-  it("renders the object detail archive and strips glassmorphism-era class markers from active retail surfaces", () => {
+  it("渲染中文单品档案、实验数据面板与升级后的 fallback 通讯频道", () => {
     setLocation("/object/void-b03");
     const showroomHtml = renderToStaticMarkup(<ShowroomPage />);
     const detailHtml = renderToStaticMarkup(<ProductDetailPage id="void-b03" />);
 
-    expect(detailHtml).toContain("SPEC ARCHIVE");
-    expect(detailHtml).toContain("DATA ALTAR");
+    expect(detailHtml).toContain("实验数据面板");
+    expect(detailHtml).toContain("成分解构");
     expect(detailHtml).toContain("REQUEST ALLOCATION / 申请配额");
-    expect(detailHtml).toContain("RETURN TO GALLERY");
-    expect(detailHtml).toContain("SULFIDE COLLAPSE");
-    expect(detailHtml).toContain("ALLOCATION PENDING");
+    expect(detailHtml).toContain("返回数字展柜");
+    expect(detailHtml).toContain("硫化氢解构率");
+    expect(detailHtml).toContain("企业微信顾问");
+    expect(detailHtml).toContain("小程序节点预留");
+    expect(detailHtml).toContain("channel-frame");
     expect(detailHtml).toContain("clip-path:polygon(");
     expect(showroomHtml).not.toContain("rounded-full");
     expect(showroomHtml).not.toContain("backdrop-blur");
@@ -65,8 +69,8 @@ describe("web storefront monolith refactor", () => {
     expect(detailHtml).not.toContain("shadow-");
   });
 
-  it("exposes compliance fallback copy and product lookup helper", () => {
-    expect(COMPLIANCE_MESSAGE).toContain("ICP备案审核中");
+  it("暴露新的合规提示与对象查询 helper", () => {
+    expect(COMPLIANCE_MESSAGE).toContain("交易通道（WeChat / Alipay）合规接入中");
     expect(getShowroomProductById("fc-le")?.code).toBe("FC-LE");
     expect(SHOWROOM_PRODUCTS).toHaveLength(4);
   });

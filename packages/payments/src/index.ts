@@ -7,6 +7,8 @@ import { bankTransferReceipts, orders, payments } from "../../database/schema";
 export type DatabaseClient = ReturnType<typeof drizzle>;
 export type PaymentProvider = "wechat_jsapi" | "offline_bank_transfer" | "alipay";
 export type PaymentScenario = "full_payment" | "installment" | "credit_card" | "deposit" | "offline_review";
+export type PaymentGateway = "wechat_pay_v3" | "alipay_openapi";
+export type PaymentGatewayStage = "pending_configuration" | "ready_for_sdk" | "processing" | "verified" | "ignored";
 
 export type PaymentApiInventoryItem = {
   provider: "wechat_pay" | "alipay";
@@ -17,6 +19,59 @@ export type PaymentApiInventoryItem = {
   required: boolean;
   purpose: string;
   notes: string;
+};
+
+export type PaymentGatewayCreateOrderInput = {
+  gateway: PaymentGateway;
+  brandId: number;
+  orderId: number;
+  orderNo: string;
+  amount: number;
+  currency: string;
+  description: string;
+  payer?: {
+    openId?: string | null;
+    buyerId?: string | null;
+  };
+  notifyUrl: string;
+  returnUrl?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type PaymentGatewayCreateOrderResult = {
+  gateway: PaymentGateway;
+  stage: PaymentGatewayStage;
+  providerOrderId: string | null;
+  clientPayload: Record<string, unknown> | null;
+  requiredConfigs: string[];
+  requestSnapshot: Record<string, unknown>;
+  notes: string[];
+};
+
+export type PaymentWebhookCallbackInput = {
+  gateway: PaymentGateway;
+  headers: Record<string, string | string[] | undefined>;
+  rawBody: string;
+  query?: Record<string, string | string[] | undefined>;
+};
+
+export type PaymentWebhookCallbackResult = {
+  gateway: PaymentGateway;
+  stage: PaymentGatewayStage;
+  verified: boolean;
+  eventType: string | null;
+  providerOrderId: string | null;
+  orderNo: string | null;
+  amount: number | null;
+  responseStatus: number;
+  responseBody: string;
+  notes: string[];
+};
+
+export type PaymentGatewayInterface = {
+  gateway: PaymentGateway;
+  createPaymentOrder: (input: PaymentGatewayCreateOrderInput) => Promise<PaymentGatewayCreateOrderResult>;
+  paymentWebhookCallback: (input: PaymentWebhookCallbackInput) => Promise<PaymentWebhookCallbackResult>;
 };
 
 const buildPaymentNo = (brandId: number) =>
@@ -151,8 +206,115 @@ export const PAYMENT_API_INVENTORY: PaymentApiInventoryItem[] = [
   },
 ];
 
+const PAYMENT_GATEWAY_CONFIG_REQUIREMENTS: Record<PaymentGateway, string[]> = {
+  wechat_pay_v3: [
+    "WECHAT_PAY_MCHID",
+    "WECHAT_PAY_APPID",
+    "WECHAT_PAY_SERIAL_NO",
+    "WECHAT_PAY_PRIVATE_KEY",
+    "WECHAT_PAY_API_V3_KEY",
+    "WECHAT_PAY_PLATFORM_CERT_PATH_OR_PUBLIC_KEY",
+  ],
+  alipay_openapi: [
+    "ALIPAY_APP_ID",
+    "ALIPAY_PRIVATE_KEY",
+    "ALIPAY_PUBLIC_KEY",
+    "ALIPAY_NOTIFY_URL",
+    "ALIPAY_SIGN_TYPE",
+  ],
+};
+
+function buildPendingGatewayOrderResult(input: PaymentGatewayCreateOrderInput): PaymentGatewayCreateOrderResult {
+  return {
+    gateway: input.gateway,
+    stage: "pending_configuration",
+    providerOrderId: null,
+    clientPayload: null,
+    requiredConfigs: PAYMENT_GATEWAY_CONFIG_REQUIREMENTS[input.gateway],
+    requestSnapshot: {
+      brandId: input.brandId,
+      orderId: input.orderId,
+      orderNo: input.orderNo,
+      amount: input.amount,
+      currency: input.currency,
+      description: input.description,
+      notifyUrl: input.notifyUrl,
+      returnUrl: input.returnUrl ?? null,
+      payer: input.payer ?? null,
+      metadata: input.metadata ?? null,
+    },
+    notes:
+      input.gateway === "wechat_pay_v3"
+        ? [
+            "当前仅完成微信支付 V3 的接口抽象与入参快照，尚未注入商户证书、APIv3 Key 与平台证书。",
+            "正式接入时应在服务端根据 openId 选择 JSAPI 或小程序链路，并使用 SDK 生成 prepay_id 与前端调起参数。",
+          ]
+        : [
+            "当前仅完成支付宝开放平台网关抽象，尚未注入应用私钥、支付宝公钥与签名方式。",
+            "正式接入时应基于场景选择 trade.create、trade.page.pay 或 trade.wap.pay，并把 buyer 标识与 notify_url 纳入统一回调链路。",
+          ],
+  };
+}
+
+function buildPendingGatewayCallbackResult(input: PaymentWebhookCallbackInput): PaymentWebhookCallbackResult {
+  return {
+    gateway: input.gateway,
+    stage: "pending_configuration",
+    verified: false,
+    eventType: null,
+    providerOrderId: null,
+    orderNo: null,
+    amount: null,
+    responseStatus: 202,
+    responseBody: "gateway_not_configured",
+    notes:
+      input.gateway === "wechat_pay_v3"
+        ? [
+            "当前未注入微信支付平台证书或支付公钥，因此不能对回调头中的签名进行正式验证。",
+            "正式实现时需先基于 Wechatpay-Timestamp、Wechatpay-Nonce、Wechatpay-Signature、Wechatpay-Serial 进行验签，再解密 resource 字段并更新订单状态。",
+          ]
+        : [
+            "当前未注入支付宝公钥与签名方式，因此不能对 notify_url 回调执行正式验签。",
+            "正式实现时需保留原始表单或 JSON 字段顺序，去除 sign 与 sign_type 后再按支付宝规则验签。",
+          ],
+  };
+}
+
+const paymentGateways: Record<PaymentGateway, PaymentGatewayInterface> = {
+  wechat_pay_v3: {
+    gateway: "wechat_pay_v3",
+    async createPaymentOrder(input) {
+      return buildPendingGatewayOrderResult(input);
+    },
+    async paymentWebhookCallback(input) {
+      return buildPendingGatewayCallbackResult(input);
+    },
+  },
+  alipay_openapi: {
+    gateway: "alipay_openapi",
+    async createPaymentOrder(input) {
+      return buildPendingGatewayOrderResult(input);
+    },
+    async paymentWebhookCallback(input) {
+      return buildPendingGatewayCallbackResult(input);
+    },
+  },
+};
+
 export function getPaymentApiInventory() {
   return PAYMENT_API_INVENTORY;
+}
+
+export function getPaymentGatewayInterface(gateway: PaymentGateway): PaymentGatewayInterface {
+  return paymentGateways[gateway];
+}
+
+export async function createPaymentOrder(input: PaymentGatewayCreateOrderInput) {
+  return getPaymentGatewayInterface(input.gateway).createPaymentOrder(input);
+}
+
+export async function paymentWebhookCallback(input: PaymentWebhookCallbackInput) {
+  return getPaymentGatewayInterface(input.gateway).paymentWebhookCallback(input);
 }
 
 export function buildWechatPaymentDraft(args: {

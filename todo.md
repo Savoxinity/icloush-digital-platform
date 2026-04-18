@@ -171,3 +171,11 @@
 - [x] Sprint 3 重构补证：对活跃零售路由主实现 `App.tsx` 与 `index.css` 执行代码级检索或测试，明确不再残留 rounded-*、shadow-*、backdrop-blur、半透明玻璃与多巴胺渐变相关样式
 - [x] Sprint 3 重构补证：为 showroom 与 PDP 增加可验证断言，覆盖直角/倒角容器、hairline 边框、等宽微型参数、巨幅标题与关键纹章装饰元素的存在
 - [x] Sprint 3 重构补证：补充角落准星、坐标线、稀疏点阵与高光色压缩策略在活跃零售路由中的代码证据或测试说明，证明实现不止停留在文案层
+- [x] Sprint 3 中文化：将活跃零售路由 `/showroom`、`/gallery` 与 `/object/:id` 的公开展示文案调整为中文为主，仅在必要术语处保留英文辅标
+- [x] Sprint 3 中文化：在前台引入思源黑体与思源宋体，建立标题/正文/参数的字体分层，并通过更大的标题字间距强化科幻、宏大、漂浮感
+- [x] Sprint 3 深化：为 Showroom 增加更强的错落式瀑布流与轻微深渊拖拽感视差背景，继续强化巨物悬浮与负空间陈列
+- [x] Sprint 3 深化：为 PDP 增加实验数据面板，明确展示赢创 RL 100、中广测 93.8% 硫化氢解构率等硬核参数，并保持微型等宽排版
+- [x] Sprint 3 深化：升级 `REQUEST ALLOCATION / 申请配额` 的 fallback 弹窗文案与结构，加入“空间节点交易通道合规接入中”提示及企业微信/小程序二维码占位的备用通讯频道
+- [x] Sprint 3 基建：补齐并验证 admin 商品池 CRUD、主图上传与 specs 动态录入的端到端联通，确保后台录入后前台展柜可拉取渲染
+- [x] Sprint 3 支付预研：在支付核心目录设计 Payment Gateway Interface，预留 `createPaymentOrder` 与 `paymentWebhookCallback` 的类型定义与空壳实现
+- [x] Sprint 3 支付预研：补充一份微信支付 V3 在当前 Node/tRPC 架构下的接入与 Webhook 验签 Markdown 说明，便于 ICP 下发后快速接入真实密钥

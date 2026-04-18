@@ -15,10 +15,12 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_
 import {
   getAdminOperationsSnapshot,
   getDb,
+  getManagedProductDetail,
   getPlatformSnapshot,
   getPublicCatalog,
   getSiteContactConfig,
   listEnterpriseApplicationsByUser,
+  listManagedProducts,
   listSiteCaseStudies,
   listSiteClientLogos,
   listSiteSolutionModules,
@@ -28,8 +30,10 @@ import {
   reviewEnterpriseApplication as reviewEnterpriseApplicationInDb,
   submitEnterpriseApplication as submitEnterpriseApplicationToDb,
   submitSiteLead,
+  upsertManagedProduct,
   upsertSiteContactConfig,
 } from "./db";
+import { storagePut } from "./storage";
 
 const orderStatusSchema = z.enum([
   "pending_payment",
@@ -97,6 +101,50 @@ const reviewPaymentSchema = z.object({
 
 const adminOperationsSchema = z.object({
   brandId: z.number().int().positive().optional(),
+});
+
+const managedProductSeriesSchema = z.enum(["AP", "FC"]);
+const managedProductStatusSchema = z.enum(["draft", "active", "archived"]);
+const managedProductSpecSchema = z.object({
+  key: z.string().trim().min(1).max(80),
+  value: z.string().trim().min(1).max(240),
+});
+const managedProductListSchema = z.object({
+  brandId: z.number().int().positive().optional(),
+  series: z.union([managedProductSeriesSchema, z.literal("all")]).optional(),
+  status: z.union([managedProductStatusSchema, z.literal("all")]).optional(),
+});
+const managedProductDetailSchema = z
+  .object({
+    id: z.number().int().positive().optional(),
+    code: z.string().trim().min(1).max(64).optional(),
+    slug: z.string().trim().min(1).max(255).optional(),
+    brandId: z.number().int().positive().optional(),
+  })
+  .refine((input) => Boolean(input.id || input.code || input.slug), {
+    message: "查询商品详情时必须提供 id、code 或 slug。",
+    path: ["id"],
+  });
+const managedProductUpsertSchema = z.object({
+  id: z.number().int().positive().optional(),
+  brandId: z.number().int().positive(),
+  code: z.string().trim().min(2).max(64),
+  name: z.string().trim().min(2).max(255),
+  slug: z.string().trim().max(255).nullish(),
+  series: managedProductSeriesSchema.nullish(),
+  price: z.number().int().min(0).max(100000000).nullish(),
+  status: managedProductStatusSchema.nullish(),
+  imageUrl: z.string().trim().max(4000).nullish(),
+  subtitle: z.string().trim().max(255).nullish(),
+  description: z.string().trim().max(4000).nullish(),
+  unit: z.string().trim().max(64).nullish(),
+  specs: z.array(managedProductSpecSchema).max(20).nullish(),
+});
+const managedProductImageUploadSchema = z.object({
+  brandId: z.number().int().positive(),
+  fileName: z.string().trim().min(1).max(180),
+  contentType: z.string().trim().min(1).max(120),
+  base64Data: z.string().trim().min(16),
 });
 
 const platformSiteKeySchema = z.enum(["shop", "lab", "tech", "care"]);
@@ -287,6 +335,16 @@ export const appRouter = router({
     catalog: publicProcedure.query(async () => {
       return getPublicCatalog();
     }),
+    showroomProducts: publicProcedure.input(managedProductListSchema).query(async ({ input }) => {
+      return listManagedProducts(input);
+    }),
+    productDetail: publicProcedure.input(managedProductDetailSchema).query(async ({ input }) => {
+      const product = await getManagedProductDetail(input);
+      if (!product) {
+        throw new Error("未找到对应商品。");
+      }
+      return product;
+    }),
   }),
   site: router({
     contactConfig: publicProcedure.input(siteContactQuerySchema).query(async ({ input }) => {
@@ -387,6 +445,29 @@ export const appRouter = router({
   admin: router({
     operations: adminProcedure.input(adminOperationsSchema).query(async ({ input }) => {
       return getAdminOperationsSnapshot(input);
+    }),
+    managedProducts: adminProcedure.input(managedProductListSchema).query(async ({ input }) => {
+      return listManagedProducts(input);
+    }),
+    productDetail: adminProcedure.input(managedProductDetailSchema).query(async ({ input }) => {
+      const product = await getManagedProductDetail(input);
+      if (!product) {
+        throw new Error("未找到对应商品。");
+      }
+      return product;
+    }),
+    upsertProduct: adminProcedure.input(managedProductUpsertSchema).mutation(async ({ input }) => {
+      return upsertManagedProduct(input);
+    }),
+    uploadProductImage: adminProcedure.input(managedProductImageUploadSchema).mutation(async ({ input }) => {
+      const safeFileName = input.fileName.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+      const storageKey = `icloush/products/${input.brandId}/${Date.now()}-${safeFileName}`;
+      const buffer = Buffer.from(input.base64Data, "base64");
+      const uploaded = await storagePut(storageKey, buffer, input.contentType);
+      return {
+        tenant: { brandId: input.brandId },
+        ...uploaded,
+      };
     }),
     reviewEnterpriseApplication: adminProcedure
       .input(enterpriseApplicationReviewSchema)

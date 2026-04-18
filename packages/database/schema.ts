@@ -88,11 +88,16 @@ export const products = mysqlTable(
     brandId: int("brandId").notNull(),
     categoryId: int("categoryId"),
     productType: mysqlEnum("productType", ["physical", "service", "rental", "subscription"]).notNull().default("physical"),
+    code: varchar("code", { length: 64 }),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
+    series: mysqlEnum("series", ["AP", "FC"]),
     subtitle: varchar("subtitle", { length: 255 }),
     description: text("description"),
     unit: varchar("unit", { length: 64 }),
+    price: bigint("price", { mode: "number", unsigned: true }),
+    imageUrl: text("image_url"),
+    specs: json("specs"),
     status: mysqlEnum("status", ["draft", "active", "inactive", "archived"]).notNull().default("draft"),
     seoTitle: varchar("seoTitle", { length: 255 }),
     seoDescription: text("seoDescription"),
@@ -101,6 +106,7 @@ export const products = mysqlTable(
   },
   (table) => ({
     brandSlugUnique: uniqueIndex("products_brand_slug_unique").on(table.brandId, table.slug),
+    brandCodeUnique: uniqueIndex("products_brand_code_unique").on(table.brandId, table.code),
   }),
 );
 

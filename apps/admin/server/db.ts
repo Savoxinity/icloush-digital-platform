@@ -3109,3 +3109,434 @@ export async function getAdminOperationsSnapshot(params?: { brandId?: number }):
     return buildFallbackAdminOperationsSnapshot(params?.brandId);
   }
 }
+
+export type ManagedProductSeries = "AP" | "FC";
+export type ManagedProductStatus = "draft" | "active" | "archived";
+
+export type ManagedProductSpec = {
+  key: string;
+  value: string;
+};
+
+export type ManagedProductRecord = {
+  id: number;
+  brandId: number;
+  brandCode: string;
+  brandName: string;
+  code: string;
+  name: string;
+  slug: string;
+  series: ManagedProductSeries | null;
+  price: number | null;
+  status: string;
+  imageUrl: string | null;
+  subtitle: string | null;
+  description: string | null;
+  specs: ManagedProductSpec[];
+  updatedAt: string | null;
+};
+
+export type ManagedProductListSnapshot = {
+  generatedAt: string;
+  source: "database" | "fallback";
+  brandId: number | null;
+  brandCode: string | null;
+  brandName: string;
+  filters: {
+    series: ManagedProductSeries | "all";
+    status: ManagedProductStatus | "all";
+  };
+  products: ManagedProductRecord[];
+};
+
+export type ManagedProductUpsertInput = {
+  id?: number;
+  brandId: number;
+  code: string;
+  name: string;
+  slug?: string | null;
+  series?: ManagedProductSeries | null;
+  price?: number | null;
+  status?: ManagedProductStatus | null;
+  imageUrl?: string | null;
+  subtitle?: string | null;
+  description?: string | null;
+  unit?: string | null;
+  specs?: ManagedProductSpec[] | null;
+};
+
+export type ManagedProductUpsertReceipt = {
+  mode: "created" | "updated";
+  source: "database";
+  tenant: {
+    brandId: number;
+    brandCode: string;
+    brandName: string;
+  };
+  product: ManagedProductRecord;
+};
+
+const SPRINT3_FALLBACK_MANAGED_PRODUCTS: ManagedProductRecord[] = [
+  {
+    id: 9001,
+    brandId: 2,
+    brandCode: "icloush-lab",
+    brandName: "iCloush LAB.",
+    code: "VOID-B03",
+    name: "大气重组基质",
+    slug: "void-b03",
+    series: "AP",
+    price: 1280,
+    status: "active",
+    imageUrl: "/manus-storage/icloush/void-b03.png",
+    subtitle: "Atmospheric Purification / Brutal showroom hero asset",
+    description: "以高张力叙事承接除味、重组与空间净化场景，适合作为 AP 系列主展品。",
+    specs: [
+      { key: "除味率", value: "99.2%" },
+      { key: "核心成分", value: "冷凝植物复合因子" },
+      { key: "适用场景", value: "高端酒店客房与封闭织物空间" },
+    ],
+    updatedAt: new Date("2026-04-18T18:00:00.000Z").toISOString(),
+  },
+  {
+    id: 9002,
+    brandId: 2,
+    brandCode: "icloush-lab",
+    brandName: "iCloush LAB.",
+    code: "FC-A11",
+    name: "纤维折光单元",
+    slug: "fc-a11",
+    series: "FC",
+    price: 980,
+    status: "draft",
+    imageUrl: "/manus-storage/icloush/fc-a11.png",
+    subtitle: "Fabric Codex / Jewel-grade finishing protocol",
+    description: "面向织物光泽、触感与纤维秩序重建的实验型护理单元。",
+    specs: [
+      { key: "柔顺提升", value: "+31%" },
+      { key: "核心成分", value: "纤维微胶囊" },
+      { key: "适用场景", value: "高端布草与奢护织物" },
+    ],
+    updatedAt: new Date("2026-04-18T18:05:00.000Z").toISOString(),
+  },
+];
+
+function normalizeManagedProductSpecs(input: unknown): ManagedProductSpec[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const candidate = entry as Record<string, unknown>;
+      const key = typeof candidate.key === "string" ? candidate.key.trim() : "";
+      const value = typeof candidate.value === "string" ? candidate.value.trim() : "";
+      if (!key || !value) {
+        return null;
+      }
+
+      return { key, value };
+    })
+    .filter((entry): entry is ManagedProductSpec => Boolean(entry));
+}
+
+function normalizeManagedProductSeries(input?: string | null): ManagedProductSeries | null {
+  if (!input) {
+    return null;
+  }
+
+  return input === "AP" || input === "FC" ? input : null;
+}
+
+function normalizeManagedProductStatus(input?: string | null): ManagedProductStatus {
+  if (input === "active" || input === "archived") {
+    return input;
+  }
+
+  return "draft";
+}
+
+function slugifyManagedProduct(input: string): string {
+  const normalized = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+  return normalized || `product-${Date.now()}`;
+}
+
+function toManagedProductRecord(params: {
+  id: number;
+  brandId: number;
+  brandCode: string;
+  brandName: string;
+  code: string | null;
+  name: string;
+  slug: string;
+  series: string | null;
+  price: number | null;
+  status: string;
+  imageUrl: string | null;
+  subtitle: string | null;
+  description: string | null;
+  specs: unknown;
+  updatedAt: Date | string | null;
+}): ManagedProductRecord {
+  const fallbackCode = params.code?.trim() || params.slug.toUpperCase().replace(/-/g, "-");
+  return {
+    id: params.id,
+    brandId: params.brandId,
+    brandCode: params.brandCode,
+    brandName: params.brandName,
+    code: fallbackCode,
+    name: params.name,
+    slug: params.slug,
+    series: normalizeManagedProductSeries(params.series),
+    price: typeof params.price === "number" && Number.isFinite(params.price) ? params.price : null,
+    status: params.status,
+    imageUrl: normalizeNullableText(params.imageUrl),
+    subtitle: normalizeNullableText(params.subtitle),
+    description: normalizeNullableText(params.description),
+    specs: normalizeManagedProductSpecs(params.specs),
+    updatedAt: params.updatedAt ? new Date(params.updatedAt).toISOString() : null,
+  };
+}
+
+function applyManagedProductFilters(
+  records: ManagedProductRecord[],
+  filters: { series?: ManagedProductSeries | "all"; status?: ManagedProductStatus | "all" },
+) {
+  return records.filter((record) => {
+    const seriesMatched = !filters.series || filters.series === "all" ? true : record.series === filters.series;
+    const statusMatched = !filters.status || filters.status === "all" ? true : record.status === filters.status;
+    return seriesMatched && statusMatched;
+  });
+}
+
+async function resolveManagedProductBrand(brandId: number) {
+  const db = await getDb();
+  if (!db) {
+    return null;
+  }
+
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands)
+    .where(eq(brands.id, brandId))
+    .limit(1);
+
+  return brandRecords[0] ?? null;
+}
+
+export async function listManagedProducts(params?: {
+  brandId?: number;
+  series?: ManagedProductSeries | "all";
+  status?: ManagedProductStatus | "all";
+}): Promise<ManagedProductListSnapshot> {
+  const filters = {
+    series: params?.series ?? "all",
+    status: params?.status ?? "all",
+  } as const;
+  const db = await getDb();
+
+  if (!db) {
+    const scopedFallback = params?.brandId
+      ? SPRINT3_FALLBACK_MANAGED_PRODUCTS.filter((record) => record.brandId === params.brandId)
+      : SPRINT3_FALLBACK_MANAGED_PRODUCTS;
+    const filteredFallback = applyManagedProductFilters([...scopedFallback], filters).sort(
+      (left, right) => (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""),
+    );
+    const activeBrand = filteredFallback[0] ?? scopedFallback[0] ?? SPRINT3_FALLBACK_MANAGED_PRODUCTS[0];
+
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "fallback",
+      brandId: activeBrand?.brandId ?? params?.brandId ?? null,
+      brandCode: activeBrand?.brandCode ?? "icloush-lab",
+      brandName: activeBrand?.brandName ?? "iCloush LAB.",
+      filters: {
+        series: filters.series,
+        status: filters.status,
+      },
+      products: filteredFallback,
+    };
+  }
+
+  const brandRecords = await db
+    .select({
+      id: brands.id,
+      code: brands.code,
+      name: brands.name,
+    })
+    .from(brands);
+  const brandMap = new Map(brandRecords.map((record) => [record.id, record]));
+
+  const productRecords = await db
+    .select({
+      id: products.id,
+      brandId: products.brandId,
+      code: products.code,
+      name: products.name,
+      slug: products.slug,
+      series: products.series,
+      price: products.price,
+      status: products.status,
+      imageUrl: products.imageUrl,
+      subtitle: products.subtitle,
+      description: products.description,
+      specs: products.specs,
+      updatedAt: products.updatedAt,
+    })
+    .from(products)
+    .orderBy(desc(products.updatedAt))
+    .limit(240);
+
+  const scopedRecords = productRecords
+    .filter((record) => (params?.brandId ? record.brandId === params.brandId : true))
+    .map((record) => {
+      const brand = brandMap.get(record.brandId);
+      return toManagedProductRecord({
+        id: record.id,
+        brandId: record.brandId,
+        brandCode: brand?.code ?? "unknown",
+        brandName: brand?.name ?? "未命名品牌",
+        code: record.code,
+        name: record.name,
+        slug: record.slug,
+        series: record.series,
+        price: record.price,
+        status: record.status,
+        imageUrl: record.imageUrl,
+        subtitle: record.subtitle,
+        description: record.description,
+        specs: record.specs,
+        updatedAt: record.updatedAt,
+      });
+    });
+
+  const filteredRecords = applyManagedProductFilters(scopedRecords, filters);
+  const activeBrand = filteredRecords[0] ?? scopedRecords[0] ?? null;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    source: "database",
+    brandId: activeBrand?.brandId ?? params?.brandId ?? null,
+    brandCode: activeBrand?.brandCode ?? null,
+    brandName: activeBrand?.brandName ?? (params?.brandId ? `品牌 #${params.brandId}` : "全部品牌"),
+    filters: {
+      series: filters.series,
+      status: filters.status,
+    },
+    products: filteredRecords,
+  };
+}
+
+export async function getManagedProductDetail(params: {
+  id?: number;
+  code?: string;
+  slug?: string;
+  brandId?: number;
+}): Promise<ManagedProductRecord | null> {
+  const snapshot = await listManagedProducts({
+    brandId: params.brandId,
+    series: "all",
+    status: "all",
+  });
+
+  return (
+    snapshot.products.find((record) =>
+      typeof params.id === "number"
+        ? record.id === params.id
+        : params.code
+          ? record.code === params.code.trim().toUpperCase()
+          : params.slug
+            ? record.slug === params.slug.trim().toLowerCase()
+            : false,
+    ) ?? null
+  );
+}
+
+export async function upsertManagedProduct(input: ManagedProductUpsertInput): Promise<ManagedProductUpsertReceipt> {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("数据库当前不可用，无法保存商品。请稍后重试。");
+  }
+
+  const brandRecord = await resolveManagedProductBrand(input.brandId);
+  if (!brandRecord) {
+    throw new Error(`未找到品牌 #${input.brandId}，无法保存商品。`);
+  }
+
+  const normalizedCode = input.code.trim().toUpperCase();
+  if (!normalizedCode) {
+    throw new Error("商品代号不能为空。");
+  }
+
+  const normalizedName = input.name.trim();
+  if (!normalizedName) {
+    throw new Error("商品名称不能为空。");
+  }
+
+  const normalizedSlug = slugifyManagedProduct(input.slug?.trim() || normalizedCode || normalizedName);
+  const normalizedSpecs = normalizeManagedProductSpecs(input.specs);
+  const productValues = {
+    brandId: brandRecord.id,
+    code: normalizedCode,
+    name: normalizedName,
+    slug: normalizedSlug,
+    series: normalizeManagedProductSeries(input.series),
+    price: typeof input.price === "number" && Number.isFinite(input.price) ? Math.max(Math.round(input.price), 0) : null,
+    status: normalizeManagedProductStatus(input.status),
+    imageUrl: normalizeNullableText(input.imageUrl),
+    subtitle: normalizeNullableText(input.subtitle),
+    description: normalizeNullableText(input.description),
+    unit: normalizeNullableText(input.unit) ?? "件",
+    specs: normalizedSpecs.length > 0 ? normalizedSpecs : null,
+    productType: "physical" as const,
+    updatedAt: new Date(),
+  };
+
+  let targetId = input.id;
+  if (typeof input.id === "number") {
+    const existing = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(and(eq(products.id, input.id), eq(products.brandId, brandRecord.id)))
+      .limit(1);
+
+    if (!existing[0]) {
+      throw new Error(`未找到品牌 ${brandRecord.name} 下的商品 #${input.id}。`);
+    }
+
+    await db.update(products).set(productValues).where(eq(products.id, input.id));
+  } else {
+    const insertResult = await db.insert(products).values(productValues);
+    targetId = Number((insertResult as { insertId?: number }).insertId ?? 0) || undefined;
+  }
+
+  const product = await getManagedProductDetail({ id: targetId, brandId: brandRecord.id, code: normalizedCode, slug: normalizedSlug });
+  if (!product) {
+    throw new Error("商品保存成功，但未能重新读取最新记录。请刷新后确认结果。");
+  }
+
+  return {
+    mode: typeof input.id === "number" ? "updated" : "created",
+    source: "database",
+    tenant: {
+      brandId: brandRecord.id,
+      brandCode: brandRecord.code,
+      brandName: brandRecord.name,
+    },
+    product,
+  };
+}

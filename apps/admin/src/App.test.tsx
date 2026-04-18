@@ -357,6 +357,41 @@ vi.mock("./lib/trpc", () => {
       },
       admin: {
         reviewEnterpriseApplication: createMutation(),
+        managedProducts: createQuery({
+          generatedAt: "2026-04-18T18:05:00.000Z",
+          source: "database",
+          brandId: 1,
+          brandCode: "icloush-lab",
+          brandName: "iCloush LAB.",
+          filters: {
+            series: "all",
+            status: "all",
+          },
+          products: [
+            {
+              id: 9101,
+              brandId: 1,
+              brandCode: "icloush-lab",
+              brandName: "iCloush LAB.",
+              code: "VOID-B03",
+              name: "大气重组基质",
+              slug: "void-b03",
+              series: "AP",
+              price: 1280,
+              status: "active",
+              imageUrl: "/manus-storage/icloush/void-b03.png",
+              subtitle: "Atmospheric Purification / Brutal showroom hero asset",
+              description: "以高张力叙事承接除味、重组与空间净化场景。",
+              specs: [
+                { key: "除味率", value: "99.2%" },
+                { key: "核心成分", value: "冷凝植物复合因子" },
+              ],
+              updatedAt: "2026-04-18T18:00:00.000Z",
+            },
+          ],
+        }),
+        upsertProduct: createMutation(),
+        uploadProductImage: createMutation(),
         operations: createQuery({
           generatedAt: "2026-04-10T18:05:00.000Z",
           scope: {
@@ -635,6 +670,10 @@ vi.mock("./lib/trpc", () => {
       useUtils: () => ({
         admin: {
           operations: { invalidate: vi.fn(async () => undefined) },
+          managedProducts: { invalidate: vi.fn(async () => undefined) },
+        },
+        platform: {
+          showroomProducts: { invalidate: vi.fn(async () => undefined) },
         },
         site: {
           myEnterpriseApplications: { invalidate: vi.fn(async () => undefined) },
@@ -1075,11 +1114,17 @@ describe("admin front-stage skeleton pages", () => {
     setPathname("/admin/products");
     const html = renderToStaticMarkup(<AdminContent />);
 
-    expect(html).toContain("商品治理工位");
-    expect(html).toContain("真实商品、分类与内容就绪度");
-    expect(html).toContain("实验室净洗方案");
-    expect(html).toContain("品牌商品分布");
-    expect(html).toContain("治理提醒");
+    expect(html).toContain("Showroom 商品池与可筛选数据表");
+    expect(html).toContain("全部系列");
+    expect(html).toContain("ACTIVE");
+    expect(html).toContain("Product Form");
+    expect(html).toContain("上传主图");
+    expect(html).toContain("选择图片");
+    expect(html).toContain("Specs Builder");
+    expect(html).toContain("添加参数");
+    expect(html).toContain("大气重组基质");
+    expect(html).toContain("VOID-B03");
+    expect(html).toContain("实验室参数键值对");
   });
 
   it("renders admin customer console with real customers and leads", () => {

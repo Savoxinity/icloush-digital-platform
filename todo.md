@@ -148,3 +148,16 @@
 - [x] 补充针对 /lab 首屏 CTA 的可验证测试或文档证据：至少覆盖 REQUEST ACCESS 与 INITIATE PROTOCOL 的目标地址/登录跳转行为，并说明 fallback 联系配置是否符合预期
 - [x] 补充 /lab 首屏 CTA 的行为级验证：至少新增对 REQUEST ACCESS 在浏览器环境下生成 OAuth 登录 URL 的测试，覆盖 redirectUri、state 与 returnPath
 - [x] 确认并修复 /lab 联系配置在真实预览中落到 fallback 的原因；若 fallback 属于预期，则补充可见说明与测试，明确该状态下转化入口仍可正常工作
+- [x] Sprint 3：梳理现有 Monorepo 中 web-b2b / admin / 数据层的复用边界，明确 showroom、PDP 与商品 CRUD 的落地路径
+- [x] Sprint 3：实现 web-b2b 的 /showroom 首版，采用错落式 showroom 布局、负空间陈列、轻微视差与触控/悬停聚光效果
+- [x] Sprint 3：为 /showroom 构建 AP / FC 两大系列的商品展示结构，并接入可切换的 mock / 真实数据来源标识
+- [x] Sprint 3：实现 web-b2b 的 /product/[id] 单品详情页，包含超大 Hero、成分/功效数据面板与产品代号视觉系统
+- [x] Sprint 3：实现 PDP 底部合规 CTA 弹窗，使用暗黑科技感 Dialog/Drawer 承接 REQUEST ALLOCATION / 申请配额 按钮
+- [x] Sprint 3：对齐 products 数据模型，确保包含 code、name、series、price、status、image_url、specs 等核心字段并完成迁移方案
+- [x] Sprint 3：在 admin /admin/products 搭建暗色商品列表与筛选表格，支持按 Series 与 Status 过滤
+- [x] Sprint 3：在 admin 商品管理中实现商品录入/编辑表单，支持主图上传与 specs 键值对动态录入
+- [x] Sprint 3：打通 admin 商品数据到 web-b2b showroom / PDP 的读取链路，确保新增商品可被前台查询与渲染
+- [x] Sprint 3：补充并运行测试，至少验证 admin 新建测试商品后可在 showroom 页面通过 API 或 tRPC 成功拉取与展示
+- [x] Sprint 3 补证：补充可核验的 admin 商品中台代码与测试证据，明确 /admin/products 的 Series 与 Status 筛选实现并运行对应 Vitest
+- [x] Sprint 3 补证：补充可核验的 admin 商品录入/编辑表单证据，覆盖主图上传流程、specs 动态键值对录入以及保存成功/失败测试
+- [x] Sprint 3 补证：新增并运行一条联通验证，证明通过 admin 创建测试商品后，web-b2b showroom 或 PDP 能通过 tRPC/API 拉取并渲染该新商品

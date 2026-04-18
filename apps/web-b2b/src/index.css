@@ -3,13 +3,13 @@
 
 :root {
   color-scheme: dark;
-  --background: #05070d;
-  --foreground: #f8f2ea;
-  --panel: rgba(10, 14, 27, 0.84);
-  --panel-border: rgba(255, 255, 255, 0.1);
-  --muted: #8f99b7;
-  --accent: #9ab9ff;
-  --accent-soft: rgba(154, 185, 255, 0.12);
+  --background: #000000;
+  --foreground: #f3efe6;
+  --panel: #020202;
+  --line: #1b1b1b;
+  --line-strong: #303030;
+  --muted: #7f7f7f;
+  --signal: #9c7a31;
 }
 
 html {
@@ -19,10 +19,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background:
-    radial-gradient(circle at top left, rgba(67, 89, 214, 0.18), transparent 28%),
-    radial-gradient(circle at 80% 0%, rgba(124, 207, 255, 0.08), transparent 22%),
-    linear-gradient(180deg, #05070d 0%, #060913 36%, #05070d 100%);
+  background: #000000;
   color: var(--foreground);
   font-family: "Inter", sans-serif;
   text-rendering: optimizeLegibility;
@@ -50,39 +47,99 @@ button {
 @layer utilities {
   .noise-layer {
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-      radial-gradient(circle at center, rgba(255, 255, 255, 0.06), transparent 58%);
-    background-size: 26px 26px, 26px 26px, 100% 100%;
-    mix-blend-mode: screen;
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.025), transparent 34%);
+    background-size: 28px 28px, 28px 28px, 100% 100%;
+    mix-blend-mode: normal;
     pointer-events: none;
   }
 
-  .ghost-button {
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01)),
-      rgba(255, 255, 255, 0.02);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 20px 60px rgba(0, 0, 0, 0.28);
-    transition: transform 220ms ease, border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+  .hairline-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
   }
 
-  .ghost-button:hover {
-    transform: translateY(-1px);
-    border-color: rgba(186, 204, 255, 0.34);
-    background:
-      linear-gradient(180deg, rgba(154, 185, 255, 0.14), rgba(255, 255, 255, 0.02)),
-      rgba(255, 255, 255, 0.04);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 30px 80px rgba(0, 0, 0, 0.42),
-      0 0 0 1px rgba(154, 185, 255, 0.08);
+  .micro-copy {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
   }
 
-  .ghost-button:focus-visible {
-    outline: 2px solid rgba(154, 185, 255, 0.8);
-    outline-offset: 3px;
+  .monolith-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    clip-path: polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 1.5rem 100%, 0 calc(100% - 1.5rem));
+  }
+
+  .monolith-button {
+    border: 1px solid var(--foreground);
+    background: transparent;
+    color: var(--foreground);
+    clip-path: polygon(0 0, calc(100% - 1rem) 0, 100% 1rem, 100% 100%, 1rem 100%, 0 calc(100% - 1rem));
+  }
+
+  .monolith-button:hover,
+  .monolith-button:focus-visible {
+    background: var(--foreground);
+    color: #000000;
+    outline: none;
+  }
+
+  .monolith-badge {
+    border: 1px solid var(--line-strong);
+    background: #050505;
+    clip-path: polygon(16% 0, 84% 0, 100% 16%, 100% 84%, 84% 100%, 16% 100%, 0 84%, 0 16%);
+  }
+
+  .micro-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+    padding: 0.55rem 0.9rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #d6d0c6;
+    background: #050505;
+  }
+
+  .crosshair {
+    position: relative;
+    width: 24px;
+    height: 24px;
+  }
+
+  .crosshair::before,
+  .crosshair::after {
+    content: "";
+    position: absolute;
+    background: #4a4a4a;
+  }
+
+  .crosshair::before {
+    left: 50%;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    transform: translateX(-50%);
+  }
+
+  .crosshair::after {
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 1px;
+    transform: translateY(-50%);
   }
 }

@@ -17,24 +17,52 @@ function setLocation(pathname: string) {
   });
 }
 
-describe("web-b2b showroom sprint 3", () => {
-  it("renders the staggered showroom headline and source marker", () => {
-    setLocation("/showroom");
+describe("web storefront monolith refactor", () => {
+  it("renders the retail gallery headline, 2C route targets and monolith source marker", () => {
+    setLocation("/gallery");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("DIGITAL SHOWROOM");
-    expect(html).toContain("DATA SOURCE // MOCK-LAB");
+    expect(html).toContain("RETAIL MONOLITH.");
+    expect(html).toContain("FALLBACK SAFE");
     expect(html).toContain("VOID-B03");
     expect(html).toContain("FC-LE");
+    expect(html).toContain("/object/void-b03");
+    expect(html).toContain("ENTER RETAIL GALLERY");
+    expect(html).not.toContain("B2B");
   });
 
-  it("renders the product detail data panel and allocation CTA", () => {
-    setLocation("/product/void-b03");
-    const html = renderToStaticMarkup(<ProductDetailPage id="void-b03" />);
+  it("renders the 6:3:1 monolith system with chamfered containers and divine vector markers", () => {
+    setLocation("/gallery");
+    const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("成分解构面板");
-    expect(html).toContain("REQUEST ALLOCATION / 申请配额");
-    expect(html).toContain("硫化氢解构率");
+    expect(html).toContain("MONOLITHIC MASS");
+    expect(html).toContain("ASCETIC MATERIAL");
+    expect(html).toContain("DIVINE VECTOR");
+    expect(html).toContain("hairline-grid");
+    expect(html).toContain("crosshair");
+    expect(html).toContain("clip-path:polygon(");
+    expect(html).toContain("micro-copy");
+    expect(html).toContain("SIGNAL");
+  });
+
+  it("renders the object detail archive and strips glassmorphism-era class markers from active retail surfaces", () => {
+    setLocation("/object/void-b03");
+    const showroomHtml = renderToStaticMarkup(<ShowroomPage />);
+    const detailHtml = renderToStaticMarkup(<ProductDetailPage id="void-b03" />);
+
+    expect(detailHtml).toContain("SPEC ARCHIVE");
+    expect(detailHtml).toContain("DATA ALTAR");
+    expect(detailHtml).toContain("REQUEST ALLOCATION / 申请配额");
+    expect(detailHtml).toContain("RETURN TO GALLERY");
+    expect(detailHtml).toContain("SULFIDE COLLAPSE");
+    expect(detailHtml).toContain("ALLOCATION PENDING");
+    expect(detailHtml).toContain("clip-path:polygon(");
+    expect(showroomHtml).not.toContain("rounded-full");
+    expect(showroomHtml).not.toContain("backdrop-blur");
+    expect(showroomHtml).not.toContain("shadow-");
+    expect(detailHtml).not.toContain("rounded-full");
+    expect(detailHtml).not.toContain("backdrop-blur");
+    expect(detailHtml).not.toContain("shadow-");
   });
 
   it("exposes compliance fallback copy and product lookup helper", () => {

@@ -126,7 +126,7 @@ function SectionEyebrow({ children }: { children: string }) {
 }
 
 export default function LabLandingPage() {
-  const platformSnapshotQuery = trpc.platform.snapshot.useQuery();
+  const platformSnapshotQuery = trpc.retail.retailSnapshot.useQuery();
   const labContactQuery = trpc.site.contactConfig.useQuery({ siteKey: "lab", contactScene: "business" });
 
   const platformSnapshot = (platformSnapshotQuery.data ?? null) as PlatformSnapshot | null;

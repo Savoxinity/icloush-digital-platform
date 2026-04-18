@@ -167,7 +167,7 @@ function toShowroomProduct(record: (typeof sharedProducts)[number]): ShowroomPro
     size: "SHOWROOM ASSET",
     layout: "full",
     source: "database",
-    heroLine: record.description ?? `${record.name} 已通过后台录入并同步到 showroom。`,
+    heroLine: record.description ?? `${record.name} 已通过后台录入并同步到零售展陈前台。`,
     formulation: record.specs.map((item) => `${item.key} // ${item.value}`).join(" // "),
     discipline: record.series === "FC" ? "Fabric Care Deluxe" : "Atmospheric Purification",
     overview: record.description ?? "后台录入完成后，前台应立即可见。",
@@ -220,7 +220,7 @@ describe("Sprint 3 product create-then-render flow", () => {
     expect(receipt.mode).toBe("created");
     expect(receipt.product.code).toBe("TEST-X01");
 
-    const showroomSnapshot = await webCaller.platform.showroomProducts({
+    const showroomSnapshot = await webCaller.retail.galleryObjects({
       brandId: 2,
       series: "all",
       status: "all",
@@ -228,11 +228,11 @@ describe("Sprint 3 product create-then-render flow", () => {
     expect(showroomSnapshot.source).toBe("database");
     expect(showroomSnapshot.products.some((product) => product.code === "TEST-X01")).toBe(true);
 
-    const detail = await webCaller.platform.productDetail({ slug: "test-x01" });
+    const detail = await webCaller.retail.objectDetail({ slug: "test-x01" });
     expect(detail.name).toBe("联通验证样品");
     expect(detail.specs[0]?.value).toBe("99.8%");
 
-    setLocation("/showroom");
+    setLocation("/gallery");
     const html = renderToStaticMarkup(
       React.createElement(ShowroomPage, {
         products: [toShowroomProduct(detail)],
@@ -241,6 +241,7 @@ describe("Sprint 3 product create-then-render flow", () => {
     );
     expect(html).toContain("联通验证样品");
     expect(html).toContain("TEST-X01");
-    expect(html).toContain("DATA SOURCE // DATABASE");
+    expect(html).toContain("DATABASE");
+    expect(html).toContain("/object/test-x01");
   });
 });

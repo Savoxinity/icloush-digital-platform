@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Route, Switch } from "wouter";
-import { ArrowLeft, ArrowRight, LoaderCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, LoaderCircle } from "lucide-react";
 import { trpc } from "./lib/trpc";
 
 export type ProductSeries = "AP" | "FC";
@@ -27,7 +27,8 @@ export type ShowroomProduct = {
   overview: string;
   notes: string[];
   stats: ProductSpec[];
-  accent: {
+  imageUrl?: string | null;
+  accent?: {
     glow: string;
     metal: string;
     liquid: string;
@@ -37,38 +38,9 @@ export type ShowroomProduct = {
 export const COMPLIANCE_MESSAGE =
   "// SYSTEM NOTIFICATION：当前空间节点合规接入中（ICP备案审核中）。预计将于本月下旬开放全域配额申请，请保留此通讯频段。";
 
-const ACCENT_BY_SERIES: Record<
-  ProductSeries,
-  Array<{
-    glow: string;
-    metal: string;
-    liquid: string;
-  }>
-> = {
-  AP: [
-    {
-      glow: "rgba(111, 142, 255, 0.34)",
-      metal: "linear-gradient(145deg, rgba(246,242,235,0.22), rgba(59,66,89,0.04) 42%, rgba(9,11,22,0.92) 78%)",
-      liquid: "linear-gradient(180deg, rgba(36,45,89,0.85), rgba(10,12,22,0.2))",
-    },
-    {
-      glow: "rgba(120, 164, 255, 0.28)",
-      metal: "linear-gradient(145deg, rgba(238,240,246,0.18), rgba(31,39,66,0.14) 46%, rgba(4,6,15,0.96) 82%)",
-      liquid: "linear-gradient(180deg, rgba(58,76,136,0.7), rgba(8,10,20,0.14))",
-    },
-  ],
-  FC: [
-    {
-      glow: "rgba(136, 204, 255, 0.34)",
-      metal: "linear-gradient(145deg, rgba(248,250,255,0.52), rgba(188,223,255,0.2) 42%, rgba(33,41,79,0.34) 82%)",
-      liquid: "linear-gradient(180deg, rgba(156,212,255,0.88), rgba(226,237,255,0.24))",
-    },
-    {
-      glow: "rgba(176, 222, 255, 0.3)",
-      metal: "linear-gradient(145deg, rgba(253,253,255,0.48), rgba(205,220,244,0.26) 46%, rgba(40,49,88,0.26) 82%)",
-      liquid: "linear-gradient(180deg, rgba(208,229,255,0.8), rgba(233,242,255,0.18))",
-    },
-  ],
+const OBELISK_ACCENT: Record<ProductSeries, string> = {
+  AP: "#8d6b24",
+  FC: "#6c0f14",
 };
 
 export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
@@ -76,93 +48,109 @@ export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
     id: "void-b03",
     code: "VOID-B03",
     name: "大气重组基质",
-    subtitle: "Atmospheric Purification / metal-shadow deodorization core",
+    subtitle: "Atmospheric Purification / retail ritual object",
     series: "AP",
     price: 298,
-    size: "500ml",
+    size: "500ML",
     layout: "full",
     source: "mock",
-    heroLine: "以冷黑金属、矿石折光与除味基质叙事，构造一件不像家清、更像机甲模块的净味器官。",
-    formulation: "Odor Matrix // sulfur-chain collapse // carbon lattice adsorption",
-    discipline: "Atmospheric Purification",
-    overview: "针对烟味、潮闷织物残留与密闭空间异味而设计，强调冷酷、克制、具实验室感的数据表达。",
-    notes: ["适合高端衣橱、车内皮饰、封闭空间场景", "以重金属阴影与暗色高光表达“重力感”", "强调中广测除味报告与工业基质可信度"],
+    heroLine: "像黑色方尖碑一样立于真空，而不是像消费品一样等待被挑选。它先制造敬畏，再触发购买。",
+    formulation: "ODOR COLLAPSE // CARBON LATTICE // SULFUR CHANNEL SHUTDOWN",
+    discipline: "ATMOSPHERIC PURIFICATION",
+    overview: "针对烟味、潮闷织物残留与密闭空间异味链路，以冷黑实验档案和极小参数文本建立可信度，让用户感到自己正在读取一件高维护理器物。",
+    notes: ["适用于衣橱、皮具、车内皮饰与密闭空间", "以低饱和黑金高光强调神圣与不可侵犯", "主视觉秩序遵循 6:3:1：巨物粗野 / 绝对材质 / 神性纹章"],
     stats: [
-      { label: "硫化氢解构率", value: "93.8%", emphasis: "primary" },
-      { label: "氨气异味削减", value: "89.4%" },
-      { label: "烟焦油残留压制", value: "91.2%" },
-      { label: "建议作用时长", value: "15 MIN" },
+      { label: "SULFIDE COLLAPSE", value: "93.8%", emphasis: "primary" },
+      { label: "AMMONIA REDUCTION", value: "89.4%" },
+      { label: "TAR RESIDUE SUPPRESS", value: "91.2%" },
+      { label: "EXPOSURE WINDOW", value: "15 MIN" },
     ],
-    accent: ACCENT_BY_SERIES.AP[0],
+    accent: {
+      glow: "rgba(141,107,36,0.28)",
+      metal: "#0a0a0a",
+      liquid: "#050505",
+    },
   },
   {
     id: "void-d05",
     code: "VOID-D05",
     name: "暗域除味母体",
-    subtitle: "Atmospheric Purification / deep-space absorbent protocol",
+    subtitle: "Atmospheric Purification / monolith absorption engine",
     series: "AP",
     price: 328,
-    size: "500ml",
+    size: "500ML",
     layout: "stacked",
     source: "mock",
-    heroLine: "让产品像高定珠宝展中的黑曜石主石，在巨大负空间里释放冷光，而非做成常规货架式电商卡片。",
-    formulation: "Void Capture // tar reduction // layered neutralization",
-    discipline: "Atmospheric Purification",
-    overview: "偏向重污染场景与深色空间布置，适用于宠物、烟草与潮湿复合型异味链路。",
-    notes: ["更适合重污染试香区和高端商业空间入口", "通过更高对比度的蓝银高光表达空气切割感", "强化系列内部的“暗域 / 深空”命名秩序"],
+    heroLine: "以更沉重、更迟缓的构图来表达污染压制，不做动感潮玩，而做深空吸积。",
+    formulation: "VOID CAPTURE // TAR REDUCTION // ABSORBENT MASS",
+    discipline: "ATMOSPHERIC PURIFICATION",
+    overview: "面向重污染空间与深色场景陈列，通过更大的负空间和更冷的物理边界传递价值密度。",
+    notes: ["适用于重污染试香区与高端商业空间入口", "以几乎不可见的金属反射替代夸张渐变", "强化“暗域 / 深空 / 吸积”命名秩序"],
     stats: [
-      { label: "异戊酸抑制", value: "90.6%", emphasis: "primary" },
-      { label: "甲硫醇削减", value: "88.1%" },
-      { label: "重污染复配响应", value: "T+8 MIN" },
-      { label: "推荐配额", value: "24 LOTS" },
+      { label: "ISOVALERIC ACID", value: "90.6%", emphasis: "primary" },
+      { label: "METHYL MERCAPTAN", value: "88.1%" },
+      { label: "RESPONSE WINDOW", value: "T+8 MIN" },
+      { label: "ALLOCATION LOTS", value: "24" },
     ],
-    accent: ACCENT_BY_SERIES.AP[1],
+    accent: {
+      glow: "rgba(141,107,36,0.22)",
+      metal: "#090909",
+      liquid: "#040404",
+    },
   },
   {
     id: "fc-le",
     code: "FC-LE",
     name: "织物精华乳",
-    subtitle: "Fabric Care Deluxe / liquid silver textile milk",
+    subtitle: "Fabric Care Deluxe / silent textile core",
     series: "FC",
     price: 268,
-    size: "500ml",
+    size: "500ML",
     layout: "wide",
     source: "mock",
-    heroLine: "把丝滑、丁达尔蓝与液态流银做成近乎珠宝釉面的展陈，而不是日化货架上的常规功能图。",
-    formulation: "Fabric Care Deluxe // liquid silver suspension // tactile bloom",
-    discipline: "Fabric Care Deluxe",
-    overview: "面向高价值织物与精细纤维护理场景，强调柔顺触感、抗静电秩序与纤维表面光泽。",
-    notes: ["面向高端衣橱、贴身纺织与礼服级织物护理", "视觉上应体现流银、丝滑与冷光蓝丁达尔感", "强调不使用微胶囊的克制技术路线"],
+    heroLine: "不把柔顺做成讨好性的闪亮，而把它变成一种冷静、禁欲、近乎宗教器物的织物秩序。",
+    formulation: "TEXTILE DISCIPLINE // RL100 VECTOR // CAPSULE-FREE CARE",
+    discipline: "FABRIC CARE DELUXE",
+    overview: "面向高价值织物和礼服级护理场景，以极简矢量秩序、冷白参数与沉默的材质切面建立高奢可信度。",
+    notes: ["强调无微胶囊的克制路线", "适配高端衣橱与贴身纤维护理场景", "不靠玻璃光效，而靠材质本体与边界张力发光"],
     stats: [
-      { label: "赢创 RL 100 靶向剥离", value: "ENABLED", emphasis: "primary" },
-      { label: "微胶囊含量", value: "0" },
-      { label: "抗熵增冷冻术", value: "PHASE IV" },
-      { label: "纤维抚触增益", value: "+27%" },
+      { label: "RL100 VECTOR", value: "ENABLED", emphasis: "primary" },
+      { label: "CAPSULE CONTENT", value: "0" },
+      { label: "STATIC BALANCE", value: "PHASE IV" },
+      { label: "TACTILE GAIN", value: "+27%" },
     ],
-    accent: ACCENT_BY_SERIES.FC[0],
+    accent: {
+      glow: "rgba(108,15,20,0.24)",
+      metal: "#090909",
+      liquid: "#040404",
+    },
   },
   {
     id: "fc-ic",
     code: "FC-IC",
     name: "内衣安净乳",
-    subtitle: "Fabric Care Deluxe / intimate-clean system milk",
+    subtitle: "Fabric Care Deluxe / intimate silent wash object",
     series: "FC",
     price: 238,
-    size: "500ml",
+    size: "500ML",
     layout: "stacked",
     source: "mock",
-    heroLine: "以接近医疗器械与高奢美容精华之间的灰阶语言，表达“干净、冷静、柔和但锋利”的护理能量。",
-    formulation: "Delicate Surface Care // capsule-free clarity // cold-white balance",
-    discipline: "Fabric Care Deluxe",
-    overview: "针对贴身织物与敏感纤维建立更安静、更洁净的护理感受，避免夸张香精式表达。",
-    notes: ["适合内衣、睡衣、贴身织物与婴敏织物辅助护理", "用更轻的高光与冷白银强调安静科技感", "与 FC-LE 形成同系列、不同触感密度的双生组合"],
+    heroLine: "将“洁净”表达成一块无机黑碑上的极细坐标，而不是任何温吞、圆润、带生活方式滤镜的表情。",
+    formulation: "DELICATE SURFACE CARE // COLD WHITE INDEX // QUIET HYGIENE",
+    discipline: "FABRIC CARE DELUXE",
+    overview: "面向贴身织物与敏感纤维护理场景，强调洁净秩序、冷白参数和安静却锋利的高级感。",
+    notes: ["适用于贴身衣物与敏感纤维护理", "通过极小字号和直角分区建立医疗器械级冷静感", "与 FC-LE 形成同系统下的不同触感密度"],
     stats: [
-      { label: "微胶囊含量", value: "0", emphasis: "primary" },
-      { label: "冷白净化阈值", value: "98.2" },
-      { label: "纤维残留负担", value: "LOW" },
-      { label: "建议配额", value: "18 LOTS" },
+      { label: "CAPSULE CONTENT", value: "0", emphasis: "primary" },
+      { label: "PURITY THRESHOLD", value: "98.2" },
+      { label: "FIBER BURDEN", value: "LOW" },
+      { label: "ALLOCATION LOTS", value: "18" },
     ],
-    accent: ACCENT_BY_SERIES.FC[1],
+    accent: {
+      glow: "rgba(108,15,20,0.18)",
+      metal: "#090909",
+      liquid: "#040404",
+    },
   },
 ];
 
@@ -189,7 +177,7 @@ function formatCurrency(value: number) {
 }
 
 function getSeriesLabel(series: ProductSeries) {
-  return series === "AP" ? "Atmospheric Purification" : "Fabric Care Deluxe";
+  return series === "AP" ? "ATMOSPHERIC PURIFICATION" : "FABRIC CARE DELUXE";
 }
 
 function getLayoutByIndex(index: number): ShowroomProduct["layout"] {
@@ -199,69 +187,133 @@ function getLayoutByIndex(index: number): ShowroomProduct["layout"] {
 
 function mapManagedProductToShowroom(product: ManagedProductQueryRecord, index: number, source: "database" | "fallback"): ShowroomProduct {
   const series = product.series ?? (product.code.startsWith("FC") ? "FC" : "AP");
-  const accentPalette = ACCENT_BY_SERIES[series][index % ACCENT_BY_SERIES[series].length];
-  const stats = (product.specs?.length ? product.specs : [{ key: "Status", value: product.status.toUpperCase() }]).slice(0, 4).map((item, itemIndex) => ({
-    label: item.key,
-    value: item.value,
-    emphasis: itemIndex === 0 ? "primary" : "secondary",
-  })) as ProductSpec[];
+  const stats = (product.specs?.length ? product.specs : [{ key: "STATUS", value: product.status.toUpperCase() }])
+    .slice(0, 4)
+    .map((item, itemIndex) => ({
+      label: item.key.toUpperCase(),
+      value: item.value,
+      emphasis: itemIndex === 0 ? "primary" : "secondary",
+    })) as ProductSpec[];
 
   return {
     id: product.slug || product.code.toLowerCase(),
     code: product.code,
     name: product.name,
-    subtitle: product.subtitle || `${getSeriesLabel(series)} / Product protocol`,
+    subtitle: product.subtitle || `${getSeriesLabel(series)} / RETAIL RITUAL OBJECT`,
     series,
     price: typeof product.price === "number" ? product.price : 0,
-    size: product.imageUrl ? "SHOWROOM ASSET" : "500ml",
+    size: product.imageUrl ? "ARCHIVE ASSET" : "500ML",
     layout: getLayoutByIndex(index),
     source,
-    heroLine: product.description || `${product.name} 被陈列为一件具备实验室张力的展柜对象，而非普通货架 SKU。`,
+    heroLine: product.description || `${product.name} 被陈列为面向高端零售的黑色器物，而不是普通货架 SKU。`,
     formulation:
       product.specs && product.specs.length > 0
-        ? product.specs.slice(0, 3).map((item) => `${item.key} // ${item.value}`).join(" // ")
+        ? product.specs
+            .slice(0, 3)
+            .map((item) => `${item.key.toUpperCase()} // ${item.value}`)
+            .join(" // ")
         : `${getSeriesLabel(series)} // ${product.code} // ${product.status.toUpperCase()}`,
     discipline: getSeriesLabel(series),
-    overview: product.description || product.subtitle || "当前条目已接入真实商品池，可继续补充更具转化力的实验室说明。",
+    overview: product.description || product.subtitle || "当前条目已接入真实商品池，可继续补充更具零售转化力的器物档案说明。",
     notes:
       product.specs && product.specs.length > 0
-        ? product.specs.slice(0, 3).map((item) => `${item.key}：${item.value}`)
-        : ["当前商品已从后台同步", "可继续补充 specs 参数", "PDP 将自动复用这些参数构建数据面板"],
+        ? product.specs.slice(0, 3).map((item) => `${item.key.toUpperCase()}：${item.value}`)
+        : ["当前商品已从后台同步", "可继续补充 specs 参数", "PDP 会自动复用这些参数构建设备式数据面板"],
     stats,
-    accent: accentPalette,
+    imageUrl: product.imageUrl,
+    accent: {
+      glow: `${OBELISK_ACCENT[series]}22`,
+      metal: "#090909",
+      liquid: "#040404",
+    },
   };
+}
+
+function getProductSignalColor(product: ShowroomProduct) {
+  return OBELISK_ACCENT[product.series];
 }
 
 export function getShowroomProductById(id: string, products: ShowroomProduct[] = SHOWROOM_PRODUCTS) {
   return products.find((product) => product.id === id || product.code.toLowerCase() === id.toLowerCase()) ?? null;
 }
 
+function BrandMark() {
+  return (
+    <div className="flex items-center gap-4">
+      <div className="monolith-badge flex h-12 w-12 items-center justify-center font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-[#f3efe6]">IC</div>
+      <div>
+        <p className="font-[Syncopate] text-sm uppercase tracking-[0.3em] text-[#f3efe6]">iCloush LAB.</p>
+        <p className="micro-copy mt-1 text-[#7f7f7f]">MONOLITH RETAIL SYSTEM / 06 : 03 : 01</p>
+      </div>
+    </div>
+  );
+}
+
+function Crosshair({ className = "" }: { className?: string }) {
+  return <div aria-hidden="true" className={`crosshair ${className}`.trim()} />;
+}
+
 function ProductArtifact({ product, index, mode = "card" }: { product: ShowroomProduct; index: number; mode?: "card" | "hero" }) {
-  const scaleClassName = mode === "hero" ? "h-[28rem] md:h-[42rem]" : "h-72 md:h-80";
+  const isHero = mode === "hero";
+  const signal = getProductSignalColor(product);
 
   return (
-    <div className={`relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#070912] ${scaleClassName}`}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(255,255,255,0.08),transparent_32%),radial-gradient(circle_at_82%_78%,rgba(147,197,253,0.08),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.24))]" />
-      <div
-        className="absolute inset-x-[10%] top-[11%] h-[72%] rounded-[2.25rem] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_40px_120px_rgba(0,0,0,0.55)]"
-        style={{ background: product.accent.metal, boxShadow: `0 0 90px ${product.accent.glow}, inset 0 1px 0 rgba(255,255,255,0.18)` }}
-      >
-        <div className="absolute inset-x-[11%] top-[12%] h-[58%] rounded-[1.5rem] border border-white/10" style={{ background: product.accent.liquid }} />
-        <div className="absolute inset-x-[22%] top-[-2.5rem] h-20 rounded-[1.5rem] border border-white/12 bg-[linear-gradient(180deg,rgba(12,15,29,0.96),rgba(50,56,76,0.76))]" />
-        <div className="absolute left-[50%] top-[-3.4rem] h-8 w-16 -translate-x-1/2 rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(196,204,222,0.3),rgba(18,21,34,0.94))]" />
-        <div className="absolute inset-x-[18%] top-[22%] h-px bg-white/14" />
-        <div className="absolute inset-x-[18%] top-[28%] h-px bg-white/10" />
-        <div className="absolute inset-x-[18%] top-[34%] h-px bg-white/10" />
-        <div className="absolute bottom-[18%] left-[18%] h-14 w-14 rounded-full border border-white/10 bg-white/5" />
+    <div className={`relative overflow-hidden border border-[#1e1e1e] bg-black ${isHero ? "h-[32rem] md:h-[42rem]" : "h-[24rem] md:h-[30rem]"}`} style={{ clipPath: "polygon(0 0, calc(100% - 2rem) 0, 100% 2rem, 100% 100%, 2rem 100%, 0 calc(100% - 2rem))" }}>
+      <div className="hairline-grid absolute inset-0 opacity-60" />
+      <div className="absolute inset-x-6 top-6 flex items-start justify-between">
+        <div className="micro-copy text-[#737373]">ARTIFACT // {String(index + 1).padStart(2, "0")}</div>
+        <div className="micro-copy text-[#737373]">{product.code}</div>
       </div>
-      <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(2,6,23,0.06),rgba(2,6,23,0.54))]" style={{ transform: `translateY(${index * 8}px)` }} />
+      <Crosshair className="left-6 top-14" />
+      <Crosshair className="bottom-10 right-8" />
+      <div className="absolute inset-x-[12%] bottom-[12%] top-[12%] border border-[#232323]" style={{ clipPath: "polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 1.5rem 100%, 0 calc(100% - 1.5rem))" }} />
+      <div className="absolute bottom-[9%] left-[14%] right-[14%] h-px bg-[#242424]" />
+      <div className="absolute left-[12%] top-[14%] bottom-[14%] w-px bg-[#191919]" />
+      <div className="absolute right-[12%] top-[14%] bottom-[14%] w-px bg-[#191919]" />
+
+      {product.imageUrl ? (
+        <div className="absolute inset-x-[18%] bottom-[10%] top-[18%] flex items-center justify-center">
+          <img src={product.imageUrl} alt={product.name} className="max-h-full max-w-full object-contain grayscale contrast-125" />
+        </div>
+      ) : (
+        <>
+          <div
+            className="absolute left-1/2 top-[16%] h-[64%] w-[24%] -translate-x-1/2 border border-[#303030] bg-[#050505]"
+            style={{ clipPath: "polygon(16% 0, 84% 0, 100% 12%, 100% 100%, 0 100%, 0 12%)" }}
+          />
+          <div className="absolute left-1/2 top-[13%] h-[7%] w-[10%] -translate-x-1/2 border border-[#303030] bg-[#040404]" />
+          <div className="absolute left-1/2 top-[24%] h-px w-[24%] -translate-x-1/2 bg-[#2f2f2f]" />
+          <div className="absolute left-1/2 top-[31%] h-px w-[24%] -translate-x-1/2 bg-[#262626]" />
+          <div className="absolute left-1/2 top-[38%] h-px w-[24%] -translate-x-1/2 bg-[#262626]" />
+          <div className="absolute left-1/2 top-[45%] h-px w-[24%] -translate-x-1/2 bg-[#262626]" />
+        </>
+      )}
+
+      <div className="absolute left-[8%] top-[8%] h-[68%] w-px bg-[#101010]" style={{ transform: `translateY(${Math.min(index * 6, 18)}px)` }} />
+      <div className="absolute right-[10%] top-[22%] bottom-[12%] w-px" style={{ backgroundColor: `${signal}55` }} />
+      <div className="absolute bottom-[10%] right-[12%] flex items-center gap-3">
+        <span className="h-px w-12" style={{ backgroundColor: signal }} />
+        <span className="micro-copy" style={{ color: signal }}>
+          SIGNAL
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ProductMetaBand({ product }: { product: ShowroomProduct }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="micro-pill">{product.code}</span>
+      <span className="micro-pill">{getSeriesLabel(product.series)}</span>
+      <span className="micro-pill">{product.size}</span>
     </div>
   );
 }
 
 export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel?: string; isSyncing?: boolean }) {
   const products = props?.products ?? SHOWROOM_PRODUCTS;
-  const sourceLabel = props?.sourceLabel ?? (products.every((product) => product.source === "database") ? "DATABASE" : "MOCK-LAB");
+  const sourceLabel = props?.sourceLabel ?? (products.every((product) => product.source === "database") ? "DATABASE" : "ARCHIVE");
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -275,126 +327,149 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const featured = products[0] ?? SHOWROOM_PRODUCTS[0];
+
   return (
-    <main className="min-h-screen bg-[#05070d] text-[#f5efe6]">
-      <section className="relative overflow-hidden border-b border-white/10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(76,101,255,0.18),transparent_30%),radial-gradient(circle_at_80%_18%,rgba(111,223,255,0.12),transparent_26%),linear-gradient(180deg,#05070d_0%,#060913_42%,#05070d_100%)]" />
-        <div className="noise-layer absolute inset-0 opacity-40" />
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-16 px-6 py-8 md:px-10 lg:px-14 xl:px-16">
-          <header className="flex items-center justify-between gap-6 border-b border-white/10 pb-6">
-            <Link href="/showroom" className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/12 bg-white/6 text-sm font-semibold uppercase tracking-[0.28em] text-[#f5efe6]">IC</div>
-              <div>
-                <p className="font-[Syncopate] text-sm uppercase tracking-[0.24em] text-[#f5efe6]">iCloush LAB.</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[#8f99b7]">Brutalist Ornament Space Jeweler</p>
-              </div>
+    <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
+      <section className="relative overflow-hidden border-b border-[#151515]">
+        <div className="noise-layer absolute inset-0 opacity-35" />
+        <div className="mx-auto max-w-[1520px] px-6 py-8 md:px-10 lg:px-14 xl:px-16">
+          <header className="flex items-start justify-between gap-8 border-b border-[#151515] pb-6">
+            <Link href="/gallery">
+              <BrandMark />
             </Link>
-            <nav className="hidden items-center gap-8 text-sm uppercase tracking-[0.2em] text-[#a4acc6] md:flex">
-              <Link href="/showroom" className="transition hover:text-white">Showroom</Link>
-              <a href="#series" className="transition hover:text-white">Series Matrix</a>
-              <a href="#allocation" className="transition hover:text-white">Allocation</a>
+            <nav className="hidden items-center gap-8 md:flex">
+              <Link href="/gallery" className="micro-copy text-[#8a8a8a] hover:text-[#f3efe6]">
+                RETAIL GALLERY
+              </Link>
+              <a href="#sequence" className="micro-copy text-[#8a8a8a] hover:text-[#f3efe6]">
+                OBJECT SEQUENCE
+              </a>
+              <a href="#allocation" className="micro-copy text-[#8a8a8a] hover:text-[#f3efe6]">
+                PRIVATE ALLOCATION
+              </a>
             </nav>
           </header>
 
-          <div className="grid gap-10 xl:grid-cols-[1.08fr_0.92fr] xl:items-end">
+          <div className="grid gap-12 py-10 xl:grid-cols-[1.08fr_0.92fr] xl:items-end">
             <div>
-              <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-[#cfd6ee]">
-                <span className="h-2 w-2 rounded-full bg-[#a9c5ff] shadow-[0_0_18px_rgba(169,197,255,0.8)]" />
-                DIGITAL SHOWROOM // 60 / 30 / 10 DISCIPLINE
-              </div>
-              <h1 className="mt-8 max-w-5xl font-[Syncopate] text-[2.8rem] uppercase leading-[0.92] tracking-[0.08em] text-[#f8f2ea] md:text-[4.8rem] xl:text-[6.1rem]">
-                We do not build shelves. We build ritualized product orbitals.
+              <p className="micro-copy text-[#7f7f7f]">PARACAUSAL DISPLAY SYSTEM / LUXURY RETAIL / MONOLITHIC DISCIPLINE</p>
+              <h1 className="mt-6 max-w-[8ch] font-[Syncopate] text-[3.5rem] uppercase leading-[0.82] tracking-[0.08em] text-[#f3efe6] md:text-[5.8rem] xl:text-[8.6rem]">
+                RETAIL MONOLITH.
               </h1>
-              <p className="mt-8 max-w-3xl text-base leading-8 text-[#c5cbe0] md:text-lg">
-                Sprint 3 的前台展示逻辑不再是传统货架，而是以高定珠宝展的负空间、冷光金属与流银材质来陈列 AP 与 FC 双系列。核心单品被当作空间装置，而不是普通 SKU 卡片。
+              <p className="mt-8 max-w-2xl text-sm leading-8 text-[#b1aaa0] md:text-base">
+                我们不做圆润、亲和、日常消费式的商品陈列。这里是面向高端零售与众奢/高奢线下顾问式转化的黑色祭坛：巨物压迫、材质赤裸、纹章稀薄、说明极小，令产品首先被仰望，然后才被询问。
               </p>
+              <div className="mt-8 grid max-w-3xl gap-3 md:grid-cols-3">
+                {[
+                  ["60", "MONOLITHIC MASS"],
+                  ["30", "ASCETIC MATERIAL"],
+                  ["10", "DIVINE VECTOR"],
+                ].map(([value, label]) => (
+                  <div key={label} className="monolith-panel px-4 py-5">
+                    <p className="font-[Syncopate] text-3xl uppercase leading-none text-[#f3efe6]">{value}</p>
+                    <p className="micro-copy mt-3 text-[#7f7f7f]">{label}</p>
+                  </div>
+                ))}
+              </div>
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                <a href="#series" className="ghost-button inline-flex h-14 items-center justify-center rounded-full px-7 text-sm font-medium uppercase tracking-[0.24em] text-[#f8f2ea]">
-                  Enter Showroom
+                <a href="#sequence" className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium uppercase tracking-[0.28em]">
+                  ENTER RETAIL GALLERY
                 </a>
-                <Link href={`/product/${products[0]?.id ?? "void-b03"}`} className="inline-flex h-14 items-center justify-center rounded-full border border-[#8aa8ff]/30 bg-[#88b8ff]/12 px-7 text-sm font-medium uppercase tracking-[0.24em] text-[#dfe9ff] transition hover:border-[#b7ccff]/48 hover:bg-[#88b8ff]/18">
-                  View Signature Object
+                <Link href={`/object/${featured.id}`} className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium uppercase tracking-[0.28em]">
+                  INSPECT SIGNATURE OBJECT
                 </Link>
               </div>
             </div>
 
-            <aside className="rounded-[2.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(8,11,22,0.94),rgba(5,7,13,0.92))] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.45)] md:p-8">
-              <div className="flex items-center justify-between gap-4">
+            <aside className="monolith-panel p-6 md:p-8">
+              <div className="flex items-start justify-between gap-6 border-b border-[#191919] pb-5">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">Current source</p>
-                  <p className="mt-3 font-[Syncopate] text-2xl uppercase tracking-[0.14em] text-[#f8f2ea]">DATA SOURCE // {sourceLabel}</p>
+                  <p className="micro-copy text-[#7f7f7f]">SOURCE CHANNEL</p>
+                  <p className="mt-4 font-[Syncopate] text-[1.8rem] uppercase leading-none tracking-[0.12em] text-[#f3efe6] md:text-[2.4rem]">
+                    {sourceLabel}
+                  </p>
                 </div>
-                <div className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#9ab9ff]">Fallback safe</div>
+                <div className="micro-pill" style={{ borderColor: "#3a2d10", color: "#9c7a31" }}>
+                  FALLBACK SAFE
+                </div>
               </div>
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {[
-                  { label: "Series", value: "AP / FC" },
-                  { label: "Display logic", value: "Staggered" },
-                  { label: "Gravity", value: "Parallax" },
-                  { label: "Conversion", value: "Compliance CTA" },
+                  { label: "DISPLAY FIELD", value: "PRIVATE RETAIL" },
+                  { label: "OBJECT COUNT", value: String(products.length).padStart(2, "0") },
+                  { label: "CAMERA ANGLE", value: "ANT VIEW" },
+                  { label: "MOTION RULE", value: "DRAGGED MASS" },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-[1.6rem] border border-white/8 bg-white/4 p-5">
-                    <p className="text-xs uppercase tracking-[0.22em] text-[#8f99b7]">{item.label}</p>
-                    <p className="mt-3 text-xl font-semibold tracking-[0.04em] text-[#f8f2ea]">{item.value}</p>
+                  <div key={item.label} className="monolith-panel px-4 py-5">
+                    <p className="micro-copy text-[#6f6f6f]">{item.label}</p>
+                    <p className="mt-3 text-lg font-semibold tracking-[0.06em] text-[#f3efe6]">{item.value}</p>
                   </div>
                 ))}
               </div>
-              <p className="mt-6 text-sm leading-7 text-[#bfc6dc]">
+              <p className="mt-6 text-sm leading-8 text-[#a89f94]">
                 {props?.isSyncing
-                  ? "当前正在同步真实商品池；若查询延迟，界面会保留 fallback 展柜，避免预览链路中断。"
-                  : "当前版本已优先接入真实商品池，同时保留 fallback 合规状态标识，确保 showroom 与 PDP 在预览期稳定可见。"}
+                  ? "真实商品池正在同步。若数据稍后返回，前台会维持当前黑色祭坛结构，而不是闪回普通列表。"
+                  : "当前版本优先读取真实商品池，并保留 fallback 状态说明，以在合规过渡阶段持续承接高净值零售转化。"}
               </p>
             </aside>
           </div>
         </div>
       </section>
 
-      <section id="series" className="mx-auto max-w-[1440px] px-6 py-16 md:px-10 lg:px-14 xl:px-16">
-        <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <section id="sequence" className="mx-auto max-w-[1520px] px-6 py-16 md:px-10 lg:px-14 xl:px-16">
+        <div className="mb-12 grid gap-6 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">Series matrix</p>
-            <h2 className="mt-4 font-[Syncopate] text-3xl uppercase tracking-[0.1em] text-[#f8f2ea] md:text-4xl">AP // FC display sequence</h2>
+            <p className="micro-copy text-[#7f7f7f]">OBJECT SEQUENCE</p>
+            <h2 className="mt-4 font-[Syncopate] text-[2.2rem] uppercase leading-[0.9] tracking-[0.1em] text-[#f3efe6] md:text-[3.6rem]">
+              AP // FC RITUAL ARRAY
+            </h2>
           </div>
-          <p className="max-w-2xl text-sm leading-7 text-[#bfc6dc]">
-            一行不超过两件产品，核心单品可独占整行；产品移动速度略慢于背景，以形成“更重、更值钱”的引力感。
+          <p className="max-w-3xl text-sm leading-8 text-[#a89f94]">
+            一行不超过两件对象。核心单品独占整行，其余对象以不对称体块穿插。背景不发光，产品不讨好，只有极细边界、巨大标题与拖拽般的重力位移。
           </p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-12 xl:gap-8">
           {products.map((product, index) => {
             const columnClassName = product.layout === "full" ? "lg:col-span-12" : product.layout === "wide" ? "lg:col-span-7" : "lg:col-span-5";
-            const parallaxStyle = { transform: `translateY(${Math.min(scrollY * (0.018 + index * 0.004), 28)}px)` };
+            const parallaxStyle = { transform: `translateY(${Math.min(scrollY * (0.012 + index * 0.003), 22)}px)` };
+            const signal = getProductSignalColor(product);
 
             return (
-              <article key={product.id} style={parallaxStyle} className={`${columnClassName} group relative overflow-hidden rounded-[2.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(9,12,24,0.92),rgba(5,7,13,0.94))] p-5 transition duration-500 hover:border-white/18 hover:shadow-[0_34px_120px_rgba(0,0,0,0.45)] md:p-7`}>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.05),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_24%,rgba(0,0,0,0.22))]" />
-                <div className="absolute inset-0 bg-black/26 transition duration-500 group-hover:bg-black/8" />
-                <div className="relative grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+              <article key={product.id} style={parallaxStyle} className={`${columnClassName} group relative border border-[#181818] bg-black p-5 md:p-7`}>
+                <div className="absolute inset-0 opacity-100" style={{ clipPath: "polygon(0 0, calc(100% - 1.75rem) 0, 100% 1.75rem, 100% 100%, 1.75rem 100%, 0 calc(100% - 1.75rem))", border: "1px solid #181818" }} />
+                <div className="absolute inset-0 hairline-grid opacity-50" />
+                <div className="relative grid gap-8 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
                   <ProductArtifact product={product} index={index} />
                   <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#d7def2]">{product.code}</span>
-                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#93a3cd]">{getSeriesLabel(product.series)}</span>
-                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.22em] text-[#93a3cd]">{product.size}</span>
-                    </div>
-                    <h3 className="mt-5 text-3xl font-semibold tracking-[0.02em] text-[#f8f2ea] md:text-4xl">{product.name}</h3>
-                    <p className="mt-3 text-sm uppercase tracking-[0.22em] text-[#9ab9ff]">{product.subtitle}</p>
-                    <p className="mt-6 max-w-2xl text-sm leading-8 text-[#c2c9df] md:text-base">{product.overview}</p>
-                    <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                    <ProductMetaBand product={product} />
+                    <h3 className="mt-5 max-w-[9ch] font-[Syncopate] text-[2.3rem] uppercase leading-[0.88] tracking-[0.06em] text-[#f3efe6] md:text-[3.6rem]">
+                      {product.name}
+                    </h3>
+                    <p className="micro-copy mt-4" style={{ color: signal }}>
+                      {product.subtitle}
+                    </p>
+                    <p className="mt-6 max-w-2xl text-sm leading-8 text-[#a89f94] md:text-base">{product.overview}</p>
+                    <div className="mt-7 grid gap-3 md:grid-cols-2">
                       {product.stats.slice(0, 2).map((item) => (
-                        <div key={item.label} className="rounded-[1.4rem] border border-white/8 bg-white/4 p-4">
-                          <p className="text-xs uppercase tracking-[0.22em] text-[#8f99b7]">{item.label}</p>
-                          <p className={`mt-3 text-2xl font-semibold ${item.emphasis === "primary" ? "text-[#e8f0ff]" : "text-[#f8f2ea]"}`}>{item.value}</p>
+                        <div key={item.label} className="monolith-panel px-4 py-5">
+                          <p className="micro-copy text-[#6f6f6f]">{item.label}</p>
+                          <p className={`mt-4 font-[Syncopate] text-[1.7rem] uppercase leading-none tracking-[0.08em] ${item.emphasis === "primary" ? "text-[#f3efe6]" : "text-[#c2b6a0]"}`}>
+                            {item.value}
+                          </p>
                         </div>
                       ))}
                     </div>
-                    <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.22em] text-[#8f99b7]">Request allocation</p>
-                        <p className="mt-2 text-2xl font-semibold text-[#f8f2ea]">{formatCurrency(product.price)} / {product.size}</p>
+                        <p className="micro-copy text-[#7f7f7f]">PRIVATE ALLOCATION INDICATION</p>
+                        <p className="mt-3 font-[Syncopate] text-[1.9rem] uppercase leading-none tracking-[0.08em] text-[#f3efe6]">
+                          {formatCurrency(product.price)}
+                        </p>
                       </div>
-                      <Link href={`/product/${product.id}`} className="inline-flex h-12 items-center justify-center rounded-full border border-[#9bb7ff]/24 bg-[#9bb7ff]/10 px-6 text-xs font-medium uppercase tracking-[0.24em] text-[#e3edff] transition hover:border-[#c5d6ff]/40 hover:bg-[#9bb7ff]/16">
-                        Inspect Object
+                      <Link href={`/object/${product.id}`} className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium uppercase tracking-[0.28em]">
+                        INSPECT OBJECT
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Link>
                     </div>
@@ -406,19 +481,23 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
         </div>
       </section>
 
-      <section id="allocation" className="border-t border-white/10 bg-[linear-gradient(180deg,#05070d,#05070d_45%,#060913)]">
-        <div className="mx-auto grid max-w-[1440px] gap-6 px-6 py-16 md:px-10 lg:grid-cols-[0.9fr_1.1fr] lg:px-14 xl:px-16">
+      <section id="allocation" className="border-t border-[#151515] bg-black">
+        <div className="mx-auto grid max-w-[1520px] gap-6 px-6 py-16 md:px-10 lg:grid-cols-[0.75fr_1.25fr] lg:px-14 xl:px-16">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">Allocation protocol</p>
-            <h2 className="mt-4 font-[Syncopate] text-3xl uppercase tracking-[0.1em] text-[#f8f2ea] md:text-4xl">Compliance-first conversion hook</h2>
+            <p className="micro-copy text-[#7f7f7f]">CONVERSION DISCIPLINE</p>
+            <h2 className="mt-4 font-[Syncopate] text-[2.2rem] uppercase leading-[0.9] tracking-[0.1em] text-[#f3efe6] md:text-[3.4rem]">
+              PRIVATE ALLOCATION GATE.
+            </h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              "Showroom 先承接高净值品牌感与技术可信度，而不是立刻把用户拖进常规货架式购买流程。",
-              "PDP 底部使用 REQUEST ALLOCATION 幽灵按钮，维持高冷、克制、半透明的系统界面感。",
-              "当前节点处于合规接入期，因此 CTA 会弹出系统通知，而非跳转微信授权或真实支付链路。",
+              "前台承担的是高端零售展示与顾问式转化，不再使用企业采购或团体申请的语义。",
+              "按钮保持透明边框与硬切反白反馈，不使用阴影、玻璃、液态过渡或亲和性填充块。",
+              "在合规完成前，所有主转化动作由系统提示层承接，避免过早暴露交易节点。",
             ].map((item) => (
-              <div key={item} className="rounded-[1.8rem] border border-white/10 bg-white/4 p-5 text-sm leading-7 text-[#c2c9df]">{item}</div>
+              <div key={item} className="monolith-panel p-5 text-sm leading-8 text-[#a89f94]">
+                {item}
+              </div>
             ))}
           </div>
         </div>
@@ -435,29 +514,34 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
     return <NotFoundPage />;
   }
 
+  const signal = getProductSignalColor(product);
+
   return (
-    <main className="min-h-screen bg-[#05070d] text-[#f5efe6]">
-      <section className="relative overflow-hidden border-b border-white/10 pb-20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(86,114,255,0.2),transparent_32%),radial-gradient(circle_at_82%_18%,rgba(145,212,255,0.16),transparent_24%),linear-gradient(180deg,#05070d_0%,#08111b_42%,#05070d_100%)]" />
-        <div className="noise-layer absolute inset-0 opacity-40" />
-        <div className="mx-auto max-w-[1480px] px-6 py-8 md:px-10 lg:px-14 xl:px-16">
-          <div className="flex items-center justify-between gap-5 border-b border-white/10 pb-6">
-            <Link href="/showroom" className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-[#cfd6ee] transition hover:text-white">
+    <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
+      <section className="relative overflow-hidden border-b border-[#151515] pb-20">
+        <div className="noise-layer absolute inset-0 opacity-35" />
+        <div className="mx-auto max-w-[1520px] px-6 py-8 md:px-10 lg:px-14 xl:px-16">
+          <div className="flex items-center justify-between gap-5 border-b border-[#151515] pb-6">
+            <Link href="/gallery" className="micro-copy inline-flex items-center gap-2 text-[#8a8a8a] hover:text-[#f3efe6]">
               <ArrowLeft className="h-4 w-4" />
-              Back to showroom
+              RETURN TO RETAIL GALLERY
             </Link>
-            <div className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-[#93a3cd]">{getSeriesLabel(product.series)}</div>
+            <div className="micro-pill">{getSeriesLabel(product.series)}</div>
           </div>
 
-          <div className="grid gap-10 pt-10 xl:grid-cols-[1.08fr_0.92fr] xl:items-end">
+          <div className="grid gap-10 pt-10 xl:grid-cols-[1.04fr_0.96fr] xl:items-end">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">{product.discipline}</p>
-              <h1 className="mt-4 font-[Syncopate] text-[3.2rem] uppercase leading-[0.9] tracking-[0.12em] text-[#f8f2ea] md:text-[5.4rem] xl:text-[7rem]">{product.code}</h1>
-              <p className="mt-6 max-w-3xl text-base leading-8 text-[#cad0e2] md:text-lg">{product.heroLine}</p>
+              <p className="micro-copy" style={{ color: signal }}>
+                {product.discipline}
+              </p>
+              <h1 className="mt-4 max-w-[7ch] font-[Syncopate] text-[3.2rem] uppercase leading-[0.8] tracking-[0.1em] text-[#f3efe6] md:text-[5.6rem] xl:text-[8.2rem]">
+                {product.code}
+              </h1>
+              <p className="mt-6 max-w-3xl text-base leading-8 text-[#a89f94] md:text-lg">{product.heroLine}</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.24em] text-[#dfe8ff]">{product.name}</span>
-                <span className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-[#9ab9ff]">{formatCurrency(product.price)} / {product.size}</span>
-                <span className="rounded-full border border-white/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-[#9ab9ff]">SOURCE // {(props.sourceLabel ?? product.source).toUpperCase()}</span>
+                <span className="micro-pill">{product.name}</span>
+                <span className="micro-pill">{formatCurrency(product.price)} / {product.size}</span>
+                <span className="micro-pill">SOURCE // {(props.sourceLabel ?? product.source).toUpperCase()}</span>
               </div>
             </div>
             <ProductArtifact product={product} index={2} mode="hero" />
@@ -465,20 +549,31 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-[1480px] gap-8 px-6 py-16 md:px-10 lg:grid-cols-[0.95fr_1.05fr] lg:px-14 xl:px-16">
-        <aside className="rounded-[2.1rem] border border-white/10 bg-[linear-gradient(180deg,rgba(8,11,22,0.94),rgba(5,7,13,0.96))] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.42)] md:p-8">
-          <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">Data panel // chassis map</p>
-          <h2 className="mt-4 text-2xl font-semibold tracking-[0.04em] text-[#f8f2ea]">成分解构面板</h2>
-          <p className="mt-4 text-sm leading-7 text-[#c2c9df]">像机甲图纸、芯片参数或实验底稿那样读懂产品，而不是使用传统快消品式卖点堆叠。</p>
+      <section className="mx-auto grid max-w-[1520px] gap-8 px-6 py-16 md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:px-14 xl:px-16">
+        <aside className="monolith-panel p-6 md:p-8">
+          <div className="flex items-center justify-between gap-4 border-b border-[#181818] pb-5">
+            <div>
+              <p className="micro-copy text-[#7f7f7f]">DATA ALTAR</p>
+              <h2 className="mt-4 font-[Syncopate] text-[1.9rem] uppercase leading-none tracking-[0.08em] text-[#f3efe6]">
+                SPEC ARCHIVE
+              </h2>
+            </div>
+            <Crosshair />
+          </div>
+          <p className="mt-5 text-sm leading-8 text-[#a89f94]">像读取高维器物的工程铭文一样去读取参数，而不是使用传统电商卖点堆叠。</p>
           <div className="mt-6 space-y-4">
             {product.stats.map((item) => (
-              <div key={item.label} className="rounded-[1.5rem] border border-white/8 bg-white/4 p-5">
+              <div key={item.label} className="monolith-panel px-4 py-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-[#8f99b7]">{item.label}</p>
-                    <p className={`mt-3 text-3xl font-semibold ${item.emphasis === "primary" ? "text-[#e6efff]" : "text-[#f8f2ea]"}`}>{item.value}</p>
+                    <p className="micro-copy text-[#6f6f6f]">{item.label}</p>
+                    <p className={`mt-4 font-[Syncopate] text-[2rem] uppercase leading-none tracking-[0.08em] ${item.emphasis === "primary" ? "text-[#f3efe6]" : "text-[#c2b6a0]"}`}>
+                      {item.value}
+                    </p>
                   </div>
-                  <Sparkles className="mt-1 h-5 w-5 text-[#89b3ff]" />
+                  <div className="micro-copy mt-1" style={{ color: signal }}>
+                    +
+                  </div>
                 </div>
               </div>
             ))}
@@ -486,45 +581,52 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
         </aside>
 
         <div className="space-y-6">
-          <div className="rounded-[2.1rem] border border-white/10 bg-white/4 p-6 md:p-8">
-            <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">Protocol note</p>
-            <p className="mt-4 text-lg leading-8 text-[#f2ece3]">{product.formulation}</p>
-            <p className="mt-4 text-sm leading-8 text-[#c2c9df]">{product.overview}</p>
+          <div className="monolith-panel p-6 md:p-8">
+            <p className="micro-copy text-[#7f7f7f]">PROTOCOL NOTE</p>
+            <p className="mt-4 text-lg leading-8 text-[#f3efe6]">{product.formulation}</p>
+            <p className="mt-5 text-sm leading-8 text-[#a89f94]">{product.overview}</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {product.notes.map((item) => (
-              <div key={item} className="rounded-[1.7rem] border border-white/10 bg-white/4 p-5 text-sm leading-7 text-[#c2c9df]">{item}</div>
+              <div key={item} className="monolith-panel p-5 text-sm leading-8 text-[#a89f94]">
+                {item}
+              </div>
             ))}
           </div>
-          <div className="rounded-[2.1rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,10,20,0.95),rgba(5,7,13,0.96))] p-6 md:p-8">
+          <div className="monolith-panel p-6 md:p-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">Allocation fallback</p>
-                <h3 className="mt-3 text-2xl font-semibold tracking-[0.03em] text-[#f8f2ea]">REQUEST ALLOCATION / 申请配额</h3>
+                <p className="micro-copy text-[#7f7f7f]">PRIVATE ALLOCATION</p>
+                <h3 className="mt-3 font-[Syncopate] text-[1.9rem] uppercase leading-none tracking-[0.08em] text-[#f3efe6]">
+                  REQUEST ALLOCATION / 申请配额
+                </h3>
               </div>
-              <p className="text-xl font-semibold text-[#dfe8ff]">{formatCurrency(product.price)} / {product.size}</p>
+              <p className="font-[Syncopate] text-[1.7rem] uppercase leading-none tracking-[0.08em] text-[#f3efe6]">{formatCurrency(product.price)}</p>
             </div>
-            <p className="mt-4 text-sm leading-7 text-[#c2c9df]">当前先以合规暗黑弹窗承接转化意图，既保留高张力视觉，又不提前暴露未完全开放的交易节点。</p>
-            <button type="button" onClick={() => setDialogOpen(true)} className="ghost-button mt-6 inline-flex h-14 items-center justify-center rounded-full px-7 text-sm font-medium uppercase tracking-[0.24em] text-[#f8f2ea]">
+            <p className="mt-5 text-sm leading-8 text-[#a89f94]">当前以前台系统提示层承接高净值零售转化意图，维持高冷、神圣、不可侵犯的黑色祭坛感。</p>
+            <button type="button" onClick={() => setDialogOpen(true)} className="monolith-button mt-6 inline-flex h-14 items-center justify-center px-7 text-xs font-medium uppercase tracking-[0.28em]">
               REQUEST ALLOCATION / 申请配额
             </button>
           </div>
         </div>
       </section>
 
-      <div className={`fixed inset-0 z-50 transition ${dialogOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
-        <button type="button" aria-label="关闭提示" onClick={() => setDialogOpen(false)} className="absolute inset-0 bg-black/72 backdrop-blur-sm" />
-        <div className="absolute inset-x-4 bottom-4 mx-auto max-w-2xl rounded-[2rem] border border-white/12 bg-[linear-gradient(180deg,rgba(8,11,22,0.98),rgba(5,7,13,0.98))] p-6 shadow-[0_40px_120px_rgba(0,0,0,0.6)] md:bottom-8 md:p-8">
-          <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">System drawer</p>
-          <h3 className="mt-4 font-[Syncopate] text-2xl uppercase tracking-[0.1em] text-[#f8f2ea]">Allocation pending</h3>
-          <p className="mt-5 text-sm leading-8 text-[#c2c9df]">{COMPLIANCE_MESSAGE}</p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <button type="button" onClick={() => setDialogOpen(false)} className="ghost-button inline-flex h-12 items-center justify-center rounded-full px-6 text-xs font-medium uppercase tracking-[0.24em] text-[#f8f2ea]">
-              Keep channel open
-            </button>
-            <Link href="/showroom" className="inline-flex h-12 items-center justify-center rounded-full border border-[#9bb7ff]/24 bg-[#9bb7ff]/10 px-6 text-xs font-medium uppercase tracking-[0.24em] text-[#e3edff] transition hover:border-[#c5d6ff]/40 hover:bg-[#9bb7ff]/16">
-              Return to showroom
-            </Link>
+      <div className={`fixed inset-0 z-50 ${dialogOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+        <button type="button" aria-label="关闭提示" onClick={() => setDialogOpen(false)} className="absolute inset-0 bg-black/92" />
+        <div className="absolute inset-x-4 bottom-4 mx-auto max-w-2xl border border-[#1f1f1f] bg-[#020202] p-6 md:bottom-8 md:p-8" style={{ clipPath: "polygon(0 0, calc(100% - 2rem) 0, 100% 2rem, 100% 100%, 2rem 100%, 0 calc(100% - 2rem))" }}>
+          <div className="hairline-grid absolute inset-0 opacity-45" />
+          <div className="relative">
+            <p className="micro-copy text-[#7f7f7f]">SYSTEM GATE</p>
+            <h3 className="mt-4 font-[Syncopate] text-[2rem] uppercase leading-none tracking-[0.08em] text-[#f3efe6]">ALLOCATION PENDING</h3>
+            <p className="mt-5 text-sm leading-8 text-[#a89f94]">{COMPLIANCE_MESSAGE}</p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <button type="button" onClick={() => setDialogOpen(false)} className="monolith-button inline-flex h-12 items-center justify-center px-6 text-[11px] font-medium uppercase tracking-[0.28em]">
+                KEEP CHANNEL OPEN
+              </button>
+              <Link href="/gallery" className="monolith-button inline-flex h-12 items-center justify-center px-6 text-[11px] font-medium uppercase tracking-[0.28em]">
+                RETURN TO GALLERY
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -533,7 +635,7 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
 }
 
 function ConnectedShowroomPage() {
-  const showroomQuery = trpc.platform.showroomProducts.useQuery({});
+  const showroomQuery = trpc.retail.galleryObjects.useQuery({});
   const products = useMemo(() => {
     const queryProducts = showroomQuery.data?.products ?? [];
     if (queryProducts.length === 0) {
@@ -542,14 +644,14 @@ function ConnectedShowroomPage() {
     return queryProducts.map((product, index) => mapManagedProductToShowroom(product, index, showroomQuery.data?.source ?? "fallback"));
   }, [showroomQuery.data]);
 
-  const sourceLabel = showroomQuery.data?.source === "database" ? "DATABASE" : showroomQuery.data?.source === "fallback" ? "FALLBACK" : "MOCK-LAB";
+  const sourceLabel = showroomQuery.data?.source === "database" ? "DATABASE" : showroomQuery.data?.source === "fallback" ? "FALLBACK" : "ARCHIVE";
 
   if (showroomQuery.isLoading && !showroomQuery.data) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#05070d] px-6 text-[#f5efe6]">
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm uppercase tracking-[0.2em] text-[#cfd6ee]">
+      <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6 text-[#f3efe6]">
+        <div className="monolith-panel flex items-center gap-3 px-5 py-4 text-sm uppercase tracking-[0.22em] text-[#c7c0b5]">
           <LoaderCircle className="h-4 w-4 animate-spin" />
-          Syncing showroom matrix
+          SYNCING RETAIL ARCHIVE
         </div>
       </main>
     );
@@ -559,7 +661,7 @@ function ConnectedShowroomPage() {
 }
 
 function ConnectedProductDetailPage({ id }: { id: string }) {
-  const detailQuery = trpc.platform.productDetail.useQuery(
+  const detailQuery = trpc.retail.objectDetail.useQuery(
     { slug: id },
     {
       retry: false,
@@ -567,14 +669,14 @@ function ConnectedProductDetailPage({ id }: { id: string }) {
   );
   const fallbackProduct = getShowroomProductById(id);
   const mappedProduct = detailQuery.data ? mapManagedProductToShowroom(detailQuery.data, 0, "database") : fallbackProduct;
-  const sourceLabel = detailQuery.data ? "DATABASE" : fallbackProduct?.source ?? "MOCK-LAB";
+  const sourceLabel = detailQuery.data ? "DATABASE" : fallbackProduct?.source ?? "ARCHIVE";
 
   if (detailQuery.isLoading && !mappedProduct) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#05070d] px-6 text-[#f5efe6]">
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm uppercase tracking-[0.2em] text-[#cfd6ee]">
+      <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6 text-[#f3efe6]">
+        <div className="monolith-panel flex items-center gap-3 px-5 py-4 text-sm uppercase tracking-[0.22em] text-[#c7c0b5]">
           <LoaderCircle className="h-4 w-4 animate-spin" />
-          Syncing product chassis
+          SYNCING OBJECT DOSSIER
         </div>
       </main>
     );
@@ -585,12 +687,14 @@ function ConnectedProductDetailPage({ id }: { id: string }) {
 
 export function NotFoundPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#05070d] px-6 text-[#f5efe6]">
-      <div className="max-w-xl rounded-[2rem] border border-white/10 bg-white/4 p-8 text-center">
-        <p className="text-xs uppercase tracking-[0.24em] text-[#8f99b7]">404</p>
-        <h1 className="mt-4 font-[Syncopate] text-3xl uppercase tracking-[0.1em] text-[#f8f2ea]">Unknown object</h1>
-        <p className="mt-4 text-sm leading-7 text-[#c2c9df]">该产品对象未在当前展柜矩阵中登记。你可以返回 showroom 继续检索 AP / FC 已展出的单品。</p>
-        <Link href="/showroom" className="ghost-button mt-6 inline-flex h-12 items-center justify-center rounded-full px-6 text-xs font-medium uppercase tracking-[0.24em] text-[#f8f2ea]">Return</Link>
+    <main className="flex min-h-screen items-center justify-center bg-[#000000] px-6 text-[#f3efe6]">
+      <div className="monolith-panel max-w-xl p-8 text-center">
+        <p className="micro-copy text-[#7f7f7f]">404</p>
+        <h1 className="mt-4 font-[Syncopate] text-3xl uppercase tracking-[0.1em] text-[#f3efe6]">UNKNOWN OBJECT</h1>
+        <p className="mt-4 text-sm leading-8 text-[#a89f94]">该对象未在当前零售祭坛中登记。你可以返回主展陈继续检索 AP / FC 单品。</p>
+        <Link href="/gallery" className="monolith-button mt-6 inline-flex h-12 items-center justify-center px-6 text-[11px] font-medium uppercase tracking-[0.28em]">
+          RETURN TO GALLERY
+        </Link>
       </div>
     </main>
   );
@@ -600,7 +704,9 @@ export default function App() {
   return (
     <Switch>
       <Route path="/" component={ConnectedShowroomPage} />
+      <Route path="/gallery" component={ConnectedShowroomPage} />
       <Route path="/showroom" component={ConnectedShowroomPage} />
+      <Route path="/object/:id">{(params) => <ConnectedProductDetailPage id={params.id} />}</Route>
       <Route path="/product/:id">{(params) => <ConnectedProductDetailPage id={params.id} />}</Route>
       <Route component={NotFoundPage} />
     </Switch>

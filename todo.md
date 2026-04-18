@@ -161,3 +161,13 @@
 - [x] Sprint 3 补证：补充可核验的 admin 商品中台代码与测试证据，明确 /admin/products 的 Series 与 Status 筛选实现并运行对应 Vitest
 - [x] Sprint 3 补证：补充可核验的 admin 商品录入/编辑表单证据，覆盖主图上传流程、specs 动态键值对录入以及保存成功/失败测试
 - [x] Sprint 3 补证：新增并运行一条联通验证，证明通过 admin 创建测试商品后，web-b2b showroom 或 PDP 能通过 tRPC/API 拉取并渲染该新商品
+- [x] Sprint 3 重构：在活跃零售路由 `/gallery` 与 `/object/:id` 的主实现中移除 Apple / iOS 风格倾向，包括 rounded-*、shadow-*、backdrop-blur、半透明玻璃与多巴胺渐变式视觉语言
+- [x] Sprint 3 重构：建立 iCloush LAB. 6:3:1 方尖碑审美体系，将 60% 巨物粗野、30% 绝对材质、10% 神性纹章映射到 showroom 与 PDP 的版式、边框、字体、色彩和装饰细节
+- [x] Sprint 3 重构：将 showroom 与 PDP 改造成“超因果切割术”风格，使用直角、45° 倒角、hairline 边框、极黑背景、巨幅标题与微型等宽参数替代圆角卡片和液体玻璃
+- [x] Sprint 3 重构：在关键角落加入 Destiny 2 风格的极简纹章矢量装饰、十字准星、坐标线与稀疏点阵，并将高光色严格压缩到 1 成以内
+- [x] Sprint 3 命名修正：将 web-b2b 前台中的面对企业团体用户语义改为 2C 高端零售展示语义，调整路由文案、页面说明、接口命名与数据 source label
+- [x] Sprint 3 验证：补充测试，确保活跃零售路由主实现已不再包含圆角/毛玻璃类视觉约束，并验证新的 2C 路由/API 命名与主转化入口行为
+- [x] Sprint 3 重构补证：补充一份可核验的方尖碑 6:3:1 设计映射文档，逐项说明 showroom 与 PDP 如何落实巨物粗野、绝对材质与神性纹章，并标注对应组件/样式位置
+- [x] Sprint 3 重构补证：对活跃零售路由主实现 `App.tsx` 与 `index.css` 执行代码级检索或测试，明确不再残留 rounded-*、shadow-*、backdrop-blur、半透明玻璃与多巴胺渐变相关样式
+- [x] Sprint 3 重构补证：为 showroom 与 PDP 增加可验证断言，覆盖直角/倒角容器、hairline 边框、等宽微型参数、巨幅标题与关键纹章装饰元素的存在
+- [x] Sprint 3 重构补证：补充角落准星、坐标线、稀疏点阵与高光色压缩策略在活跃零售路由中的代码证据或测试说明，证明实现不止停留在文案层

@@ -267,6 +267,25 @@ function isAdminRole(role: string | undefined) {
   return role === "admin" || role === "super_admin";
 }
 
+const retailRouter = router({
+  retailSnapshot: publicProcedure.query(async () => {
+    return getPlatformSnapshot();
+  }),
+  retailCatalog: publicProcedure.query(async () => {
+    return getPublicCatalog();
+  }),
+  galleryObjects: publicProcedure.input(managedProductListSchema).query(async ({ input }) => {
+    return listManagedProducts(input);
+  }),
+  objectDetail: publicProcedure.input(managedProductDetailSchema).query(async ({ input }) => {
+    const product = await getManagedProductDetail(input);
+    if (!product) {
+      throw new Error("未找到对应商品。");
+    }
+    return product;
+  }),
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -301,24 +320,8 @@ export const appRouter = router({
       return records.length > 0 ? records : fallbackBrands;
     }),
   }),
-  platform: router({
-    snapshot: publicProcedure.query(async () => {
-      return getPlatformSnapshot();
-    }),
-    catalog: publicProcedure.query(async () => {
-      return getPublicCatalog();
-    }),
-    showroomProducts: publicProcedure.input(managedProductListSchema).query(async ({ input }) => {
-      return listManagedProducts(input);
-    }),
-    productDetail: publicProcedure.input(managedProductDetailSchema).query(async ({ input }) => {
-      const product = await getManagedProductDetail(input);
-      if (!product) {
-        throw new Error("未找到对应商品。");
-      }
-      return product;
-    }),
-  }),
+  retail: retailRouter,
+  platform: retailRouter,
   site: router({
     contactConfig: publicProcedure.input(siteContactQuerySchema).query(async ({ input }) => {
       return getSiteContactConfig(input);

@@ -50,10 +50,37 @@ sudo docker compose up -d --build
 后续常规迭代建议保持为同一条链路：
 
 ```bash
+# 在 Manus 沙箱本地
+cd /home/ubuntu/icloush-digital-platform
+git push lighthouse-temp main
+
+# 在腾讯云服务器
 cd /srv/icloush/app
-git pull
-sudo docker compose up -d --build
+git pull --ff-only origin main
+docker compose up -d --build
 ```
+
+为了便于运维排障，服务器侧还应保留以下常用命令：
+
+```bash
+# 查看容器状态
+cd /srv/icloush/app
+docker compose ps
+
+# 查看最近日志
+docker logs --tail 100 icloush-admin
+
+# 重启当前服务
+docker compose restart
+
+# 如需回滚到上一提交
+cd /srv/icloush/app
+git log --oneline -5
+git reset --hard <上一稳定提交>
+docker compose up -d --build
+```
+
+> 若后续需要进一步自动化，可以把以上命令封装成服务器侧脚本，或继续由 Manus 通过 SSH 执行，不必每天登录腾讯云控制台。
 
 ## 已补充的运行时修复
 

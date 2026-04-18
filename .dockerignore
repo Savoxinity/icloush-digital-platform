@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.turbo
+.git
+.gitignore
+.manus-logs
+.webdev
+apps/*/dist
+packages/*/dist
+coverage
+.vite
+.env
+.env.*
+*.log

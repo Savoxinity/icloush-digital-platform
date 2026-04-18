@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const adminRootDir = path.resolve(currentDir, "../..");
+const isBundledRuntime = path.basename(currentDir) === "dist";
+const adminRootDir = isBundledRuntime ? path.resolve(currentDir, "..") : path.resolve(currentDir, "../..");
 const workspaceRootDir = path.resolve(adminRootDir, "../..");
 
 dotenv.config({ path: path.join(workspaceRootDir, ".env") });

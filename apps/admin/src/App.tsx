@@ -3368,26 +3368,6 @@ export function AccountPage() {
   const enterpriseApplicationRecords = (myEnterpriseApplicationsQuery.data ?? []) as EnterpriseApplicationSummaryRecord[];
   const latestEnterpriseApplication = enterpriseApplicationRecords[0] ?? null;
   const pendingEnterpriseApplicationCount = enterpriseApplicationRecords.filter(record => record.status === "pending").length;
-  const latestEnterpriseStatus = latestEnterpriseApplication?.status ?? null;
-  const isEnterpriseActivated = latestEnterpriseStatus === "approved" || latestEnterpriseStatus === "active";
-  const enterpriseIdentityLabel = !isAuthenticated
-    ? "访客 / 未建档"
-    : isEnterpriseActivated
-      ? "企业账号已开通"
-      : latestEnterpriseStatus === "pending"
-        ? "基础账号（企业审核中）"
-        : latestEnterpriseStatus === "rejected"
-          ? "基础账号（待补充资料）"
-          : "基础账号（可提交企业入驻）";
-  const enterpriseIdentityDetail = !isAuthenticated
-    ? "首次登录会自动创建基础账号；提交企业资料后将进入后台审核与品牌准入流程。"
-    : isEnterpriseActivated
-      ? "当前品牌下的企业身份已生效，可继续查看订单、等待阶梯价配置并推进采购协同。"
-      : latestEnterpriseStatus === "pending"
-        ? "企业资料已提交，当前仍可登录查看订单；企业价格与采购权限将在审核通过后同步开通。"
-        : latestEnterpriseStatus === "rejected"
-          ? "最近一次企业入驻申请已被驳回，请补充资料后重新提交，后台会再次进入审核闭环。"
-          : "当前账号已完成基础登录，可继续补充企业资料并发起入驻申请。";
 
   const accountSummaryCards = [
     {
@@ -3478,7 +3458,7 @@ export function AccountPage() {
             <p className="text-sm uppercase tracking-[0.2em] text-slate-500">B2B Customer Center</p>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight">客户账户与采购协同入口</h1>
             <p className="mt-4 text-sm leading-7 text-slate-600">
-              当前页面已将首次登录、企业入驻申请、后台审核与订单协同串成同一条 B2B 闭环路径。登录后会自动创建基础账号，你可以继续补充企业资料并在当前品牌下跟踪审核、订单与履约状态。
+              当前页面已切换为真实订单查询驱动，可按品牌查看我的订单、付款审核状态与最近一笔订单的履约摘要；企业资料与地址簿仍保留为下一步补充项。
             </p>
             <div className="mt-8 rounded-3xl bg-slate-50 p-5 text-sm text-slate-600">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3506,45 +3486,6 @@ export function AccountPage() {
               <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-400">当前品牌视图</p>
               <p className="mt-2 text-sm font-medium text-slate-950">{selectedBrand?.name || "等待品牌数据"}</p>
             </div>
-            <div className="mt-6 rounded-3xl border border-slate-200 p-5">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">当前账号身份</p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{enterpriseIdentityLabel}</p>
-                </div>
-                <span
-                  className={`rounded-full px-4 py-2 text-sm ${
-                    isEnterpriseActivated
-                      ? "bg-emerald-50 text-emerald-700"
-                      : latestEnterpriseStatus === "rejected"
-                        ? "bg-rose-50 text-rose-700"
-                        : latestEnterpriseStatus === "pending"
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {isAuthenticated ? getEnterpriseApplicationStatusLabel(latestEnterpriseStatus) : "首次登录即注册"}
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{enterpriseIdentityDetail}</p>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Step 1</p>
-                  <p className="mt-2 font-medium text-slate-950">首次登录即注册</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">使用统一登录入口后会自动创建基础账号，无需单独填写注册表。</p>
-                </div>
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Step 2</p>
-                  <p className="mt-2 font-medium text-slate-950">提交企业资料</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">选择品牌并提交企业名称、联系人与合作说明，系统会同步写入客户与线索闭环。</p>
-                </div>
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Step 3</p>
-                  <p className="mt-2 font-medium text-slate-950">审核后开通企业权限</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">后台审核通过后，企业身份、品牌归属与后续阶梯价配置会在客户中心与后台同步生效。</p>
-                </div>
-              </div>
-            </div>
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {accountSummaryCards.map((card) => (
                 <div key={card.label} className="rounded-3xl border border-slate-200 p-5">
@@ -3571,7 +3512,7 @@ export function AccountPage() {
                     window.location.href = getLoginUrl();
                   }}
                 >
-                  登录 / 创建账号
+                  登录账户
                 </button>
               ) : (
                 <button
@@ -3707,20 +3648,6 @@ export function AccountPage() {
             <p className="mt-4 text-sm leading-7 text-slate-600">
               客户中心现已支持直接提交企业入驻申请。提交后会同时写入客户档案与线索闭环，后台客户管理页会同步进入待审核队列。
             </p>
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
-              <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                <p className="font-medium text-slate-950">登录 / 创建基础账号</p>
-                <p className="mt-2">首次登录后自动创建基础账号，再继续补充企业资料，无需重复注册。</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                <p className="font-medium text-slate-950">选择品牌并提交申请</p>
-                <p className="mt-2">申请与品牌维度绑定，便于环洗朵科技、LAB. 与 Care 分别审核客户准入。</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-                <p className="font-medium text-slate-950">审核结果同步回写</p>
-                <p className="mt-2">审核通过后，客户中心会同步显示企业状态变化，并为后续采购协同提供统一入口。</p>
-              </div>
-            </div>
             <form className="mt-6 space-y-4" onSubmit={handleEnterpriseApplicationSubmit}>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-2 text-sm text-slate-600">
@@ -3789,7 +3716,7 @@ export function AccountPage() {
                     }}
                     className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                   >
-先登录 / 创建账号
+                    登录后提交
                   </button>
                 ) : null}
               </div>
@@ -3852,35 +3779,6 @@ export function AccountPage() {
                       审核通过后，你的企业身份会在客户中心与后台客户管理中同时可见。
                     </p>
                   </div>
-                </div>
-                <div
-                  className={`mt-6 rounded-3xl border p-5 ${
-                    isEnterpriseActivated
-                      ? "border-emerald-200 bg-emerald-50"
-                      : latestEnterpriseStatus === "rejected"
-                        ? "border-rose-200 bg-rose-50"
-                        : "border-slate-200 bg-slate-50"
-                  }`}
-                >
-                  <p className="text-sm text-slate-500">下一步动作</p>
-                  <p className="mt-2 font-medium text-slate-950">
-                    {isEnterpriseActivated
-                      ? "你的企业身份已开通，可继续推进采购与订单协同。"
-                      : latestEnterpriseStatus === "pending"
-                        ? "后台正在审核企业资料，建议先保持联系人与合作信息可回访。"
-                        : latestEnterpriseStatus === "rejected"
-                          ? "请补充企业资料后重新提交，以便再次进入品牌准入审核。"
-                          : "当前品牌下尚未形成可识别的申请状态。"}
-                  </p>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    {isEnterpriseActivated
-                      ? "客户中心会继续显示真实订单与履约进度，后台客户管理也会同步识别你的企业账户与品牌归属。"
-                      : latestEnterpriseStatus === "pending"
-                        ? "审核期间仍可登录查看订单与申请状态；待审核通过后，再统一开通企业价格与后续采购协同配置。"
-                        : latestEnterpriseStatus === "rejected"
-                          ? "如果企业名称、联系人或合作说明有变化，可直接在左侧更新并再次提交，新的记录会覆盖最近审核轨迹。"
-                          : "如需推进 B2B 采购，请在左侧继续提交企业资料，系统会同步写入客户档案与线索闭环。"}
-                  </p>
                 </div>
                 <div className="mt-6 space-y-4">
                   {enterpriseApplicationRecords.slice(0, 4).map((record) => (

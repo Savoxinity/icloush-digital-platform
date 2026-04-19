@@ -1118,6 +1118,11 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("全部系列");
     expect(html).toContain("ACTIVE");
     expect(html).toContain("Product Form");
+    expect(html).toContain("Retail Bridge / 外部入口与二维码");
+    expect(html).toContain("淘宝短链");
+    expect(html).toContain("小程序路径");
+    expect(html).toContain("微信小程序二维码 URL");
+    expect(html).toContain("支付宝小程序二维码 URL");
     expect(html).toContain("上传主图");
     expect(html).toContain("选择图片");
     expect(html).toContain("Specs Builder");

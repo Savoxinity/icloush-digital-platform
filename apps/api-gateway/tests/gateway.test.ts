@@ -59,11 +59,11 @@ describe("api-gateway helper integration", () => {
           receipts: [],
         },
       ],
-    } as Awaited<ReturnType<typeof omsModule.listOrders>>);
+    } as unknown as Awaited<ReturnType<typeof omsModule.listOrders>>);
 
     const caller = appRouter.createCaller({
       db: {} as never,
-      tenant: { brandId: 9, tenantKey: "lab", displayName: "iCloush LAB." },
+      tenant: { brandId: 9, source: "header" },
       req: {} as never,
       res: {} as never,
     });
@@ -96,20 +96,30 @@ describe("api-gateway helper integration", () => {
         paymentStatus: "offline_review",
         fulfillmentStatus: "unfulfilled",
         currency: "CNY",
+        subtotalAmount: 6800,
+        discountAmount: 0,
+        shippingAmount: 0,
         payableAmount: 6800,
-        totalAmount: 6800,
-        items: [],
-        payments: [],
-        receipts: [],
+        totalQuantity: 5,
+        itemCount: 1,
+        itemPreview: [],
+        latestPayment: null,
+        latestReceipt: null,
+        customerType: "b2b",
+        membershipId: null,
+        userId: 7,
+        note: null,
+        createdAt: new Date("2026-04-10T10:00:00Z"),
+        updatedAt: new Date("2026-04-10T10:00:00Z"),
       },
       items: [],
       payments: [],
       receipts: [],
-    } as Awaited<ReturnType<typeof omsModule.getOrderDetail>>);
+    } as unknown as Awaited<ReturnType<typeof omsModule.getOrderDetail>>);
 
     const caller = appRouter.createCaller({
       db: {} as never,
-      tenant: { brandId: 9, tenantKey: "lab", displayName: "iCloush LAB." },
+      tenant: { brandId: 9, source: "header" },
       req: {} as never,
       res: {} as never,
     });
@@ -166,11 +176,11 @@ describe("api-gateway helper integration", () => {
           reviewStage: "awaiting_finance_review",
         },
       ],
-    } as Awaited<ReturnType<typeof omsModule.listOrderReviewQueue>>);
+    } as unknown as Awaited<ReturnType<typeof omsModule.listOrderReviewQueue>>);
 
     const caller = appRouter.createCaller({
       db: {} as never,
-      tenant: { brandId: 9, tenantKey: "lab", displayName: "iCloush LAB." },
+      tenant: { brandId: 9, source: "header" },
       req: {} as never,
       res: {} as never,
     });

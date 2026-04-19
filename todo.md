@@ -179,3 +179,13 @@
 - [x] Sprint 3 基建：补齐并验证 admin 商品池 CRUD、主图上传与 specs 动态录入的端到端联通，确保后台录入后前台展柜可拉取渲染
 - [x] Sprint 3 支付预研：在支付核心目录设计 Payment Gateway Interface，预留 `createPaymentOrder` 与 `paymentWebhookCallback` 的类型定义与空壳实现
 - [x] Sprint 3 支付预研：补充一份微信支付 V3 在当前 Node/tRPC 架构下的接入与 Webhook 验签 Markdown 说明，便于 ICP 下发后快速接入真实密钥
+
+- [x] 零售堡垒冲刺：冻结后续 B2B 企业入驻与 Stripe 开发，后续交付以 iCloush LAB. 零售矩阵为唯一优先级
+- [x] 零售堡垒冲刺：重构首页 Hero，采用超大字重品牌标识、`// 3026 ORBITAL JEWELER //` 微缩副标题与仅指向 `/showroom` 的切割线箭头入口
+- [x] 零售堡垒冲刺：为首页背景接入“巨物悬浮”预览层，实现随鼠标或设备姿态产生细微 3D 平移的沉浸动效
+- [x] 零售堡垒冲刺：实现极简购物袋 Cart 流程，支持官网直接选择 SKU、加入购物袋与进入零售下单链路
+- [x] 零售堡垒冲刺：在 PDP 增加 `EXTERNAL ACCESS / 外部入口` 悬浮层，承接淘宝/天猫链接、小程序商城二维码与外跳桥接
+- [x] 零售堡垒冲刺：在后端预埋 `POST /api/orders/retail` 与支付 JSON API 返回结构，统一输出 WeChat Pay / Alipay 支付参数占位
+- [x] 零售堡垒冲刺：在前端实现支付状态实时轮询与 `TRANSACTION SUCCESSFUL` 科幻反馈，打通网页扫码支付后的状态刷新体验
+- [x] 零售堡垒冲刺：增强 Admin 商品管理，支持维护淘宝短链接、微信小程序路径与前台自动生成转化二维码所需字段
+- [x] 零售堡垒冲刺：补充并运行前台、后端与后台的 Vitest 覆盖，验证 Hero、Cart、零售下单、支付轮询与二维码配置链路

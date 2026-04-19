@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Route, Switch } from "wouter";
-import { ArrowLeft, ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, LoaderCircle, Minus, Plus, QrCode, ShoppingBag, X } from "lucide-react";
 import { trpc } from "./lib/trpc";
 
 export type ProductSeries = "AP" | "FC";
@@ -27,7 +27,52 @@ export type ShowroomProduct = {
   overview: string;
   notes: string[];
   stats: ProductSpec[];
+  externalAccess?: {
+    taobaoUrl?: string;
+    tmallUrl?: string;
+    miniProgramPath?: string;
+    wechatQrUrl?: string;
+    alipayQrUrl?: string;
+  };
+  managedProductId?: number;
+  defaultSkuId?: number | null;
+  defaultSkuCode?: string | null;
+  defaultSkuLabel?: string | null;
+  minOrderQty?: number | null;
   imageUrl?: string | null;
+};
+
+export type RetailSkuOption = {
+  id: string;
+  label: string;
+  price: number;
+  note: string;
+  backendProductId?: number;
+  backendSkuId?: number | null;
+  minOrderQty?: number | null;
+};
+
+type ExternalAccessChannel = {
+  key: "taobao" | "tmall" | "mini_program";
+  label: string;
+  href?: string;
+  qrLabel: string;
+  qrUrl?: string;
+  description: string;
+  state: "active" | "reserved";
+};
+
+type RetailCartItem = {
+  productId: string;
+  productCode: string;
+  productName: string;
+  skuId: string;
+  skuLabel: string;
+  price: number;
+  quantity: number;
+  backendProductId?: number;
+  backendSkuId?: number | null;
+  minOrderQty?: number | null;
 };
 
 const SOURCE_LABELS: Record<ShowroomProduct["source"], string> = {
@@ -171,6 +216,10 @@ type ManagedProductQueryRecord = {
   subtitle: string | null;
   description: string | null;
   specs: Array<{ key: string; value: string }>;
+  defaultSkuId?: number | null;
+  defaultSkuCode?: string | null;
+  defaultSkuLabel?: string | null;
+  minOrderQty?: number | null;
 };
 
 function formatCurrency(value: number) {
@@ -190,13 +239,59 @@ function getLayoutByIndex(index: number): ShowroomProduct["layout"] {
   return index % 3 === 0 ? "wide" : "stacked";
 }
 
+const RETAIL_META_SPEC_KEYS = {
+  taobaoUrl: "__retail_taobao_url",
+  tmallUrl: "__retail_tmall_url",
+  miniProgramPath: "__retail_mini_program_path",
+  wechatQrUrl: "__retail_wechat_qr_url",
+  alipayQrUrl: "__retail_alipay_qr_url",
+} as const;
+
 function normalizeStatLabel(label: string) {
   return label.replace(/_/g, " ");
 }
 
+function extractRetailAccessFromSpecs(specs: Array<{ key: string; value: string }>) {
+  const externalAccess: NonNullable<ShowroomProduct["externalAccess"]> = {};
+  const cleanSpecs = specs.filter((item) => {
+    if (item.key === RETAIL_META_SPEC_KEYS.taobaoUrl) {
+      externalAccess.taobaoUrl = item.value;
+      return false;
+    }
+    if (item.key === RETAIL_META_SPEC_KEYS.tmallUrl) {
+      externalAccess.tmallUrl = item.value;
+      return false;
+    }
+    if (item.key === RETAIL_META_SPEC_KEYS.miniProgramPath) {
+      externalAccess.miniProgramPath = item.value;
+      return false;
+    }
+    if (item.key === RETAIL_META_SPEC_KEYS.wechatQrUrl) {
+      externalAccess.wechatQrUrl = item.value;
+      return false;
+    }
+    if (item.key === RETAIL_META_SPEC_KEYS.alipayQrUrl) {
+      externalAccess.alipayQrUrl = item.value;
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    cleanSpecs,
+    externalAccess,
+  };
+}
+
+function buildQrUrl(payload: string) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(payload)}`;
+}
+
 function mapManagedProductToShowroom(product: ManagedProductQueryRecord, index: number, source: "database" | "fallback"): ShowroomProduct {
   const series = product.series ?? (product.code.startsWith("FC") ? "FC" : "AP");
-  const specs = (product.specs?.length ? product.specs : [{ key: "状态", value: product.status.toUpperCase() }]).slice(0, 4);
+  const extracted = extractRetailAccessFromSpecs(product.specs ?? []);
+  const effectiveSpecs = extracted.cleanSpecs.length > 0 ? extracted.cleanSpecs : [{ key: "状态", value: product.status.toUpperCase() }];
+  const specs = effectiveSpecs.slice(0, 4);
 
   return {
     id: product.slug || product.code.toLowerCase(),
@@ -205,13 +300,13 @@ function mapManagedProductToShowroom(product: ManagedProductQueryRecord, index: 
     subtitle: product.subtitle || `${getSeriesLabel(series)} / 零售展陈对象`,
     series,
     price: typeof product.price === "number" ? product.price : 0,
-    size: product.imageUrl ? "ARCHIVE ASSET" : "500ML",
+    size: product.defaultSkuLabel || (product.imageUrl ? "ARCHIVE ASSET" : "500ML"),
     layout: getLayoutByIndex(index),
     source,
     heroLine: product.description || `${product.name} 已接入真实商品池，并以零售展陈对象而非普通货架 SKU 的方式被陈列。`,
     formulation:
-      product.specs && product.specs.length > 0
-        ? product.specs
+      effectiveSpecs.length > 0
+        ? effectiveSpecs
             .slice(0, 3)
             .map((item) => `${normalizeStatLabel(item.key).toUpperCase()} // ${item.value}`)
             .join(" // ")
@@ -219,14 +314,20 @@ function mapManagedProductToShowroom(product: ManagedProductQueryRecord, index: 
     discipline: series === "AP" ? "空气净域 · 零售展陈" : "织物护理 · 零售展陈",
     overview: product.description || product.subtitle || "当前条目已进入真实商品池，可继续补充更具零售转化力的实验档案与顾问式陈列文案。",
     notes:
-      product.specs && product.specs.length > 0
-        ? product.specs.slice(0, 3).map((item) => `${normalizeStatLabel(item.key)}：${item.value}`)
+      effectiveSpecs.length > 0
+        ? effectiveSpecs.slice(0, 3).map((item) => `${normalizeStatLabel(item.key)}：${item.value}`)
         : ["当前商品已从后台同步", "可继续补充 specs 参数", "PDP 会自动复用这些参数构建设备式数据面板"],
     stats: specs.map((item, itemIndex) => ({
       label: normalizeStatLabel(item.key),
       value: item.value,
       emphasis: itemIndex === 0 ? "primary" : "secondary",
     })),
+    externalAccess: extracted.externalAccess,
+    managedProductId: product.id,
+    defaultSkuId: product.defaultSkuId ?? null,
+    defaultSkuCode: product.defaultSkuCode ?? null,
+    defaultSkuLabel: product.defaultSkuLabel ?? null,
+    minOrderQty: product.minOrderQty ?? 1,
     imageUrl: product.imageUrl,
   };
 }
@@ -237,6 +338,218 @@ function getProductSignalColor(product: ShowroomProduct) {
 
 export function getShowroomProductById(id: string, products: ShowroomProduct[] = SHOWROOM_PRODUCTS) {
   return products.find((product) => product.id === id || product.code.toLowerCase() === id.toLowerCase()) ?? null;
+}
+
+const RETAIL_CART_STORAGE_KEY = "icloush-retail-cart";
+
+const SHOWROOM_SKU_LOOKUP: Record<string, RetailSkuOption[]> = {
+  "void-b03": [
+    { id: "void-b03-core", label: "500ML CORE BOTTLE", price: 298, note: "零售标准装 / 顾问式主推" },
+    { id: "void-b03-dual", label: "2 x 500ML PRIVATE SET", price: 568, note: "双瓶组合 / 私域推荐" },
+  ],
+  "void-d05": [
+    { id: "void-d05-core", label: "500ML MASS UNIT", price: 328, note: "深污染空间 / 主推标准装" },
+    { id: "void-d05-dual", label: "2 x 500ML GALLERY SET", price: 628, note: "门店陈列 / 组合补给" },
+  ],
+  "fc-le": [
+    { id: "fc-le-core", label: "500ML TEXTILE CORE", price: 268, note: "高值织物 / 单瓶方案" },
+    { id: "fc-le-ritual", label: "500ML + REFILL RITUAL", price: 498, note: "高定衣橱 / 礼盒组合" },
+  ],
+  "fc-ic": [
+    { id: "fc-ic-core", label: "500ML DELICATE CORE", price: 238, note: "贴身场景 / 标准装" },
+    { id: "fc-ic-dual", label: "2 x 500ML PRIVATE SET", price: 458, note: "家庭轮换 / 私域导购" },
+  ],
+};
+
+const SHOWROOM_EXTERNAL_ACCESS_LOOKUP: Record<string, ExternalAccessChannel[]> = {
+  "void-b03": [
+    {
+      key: "taobao",
+      label: "淘宝短链",
+      href: "https://www.taobao.com",
+      qrLabel: "TAOBAO / QR READY",
+      description: "适合投放导流与公域流量承接，后续将替换为商品级短链。",
+      state: "active",
+    },
+    {
+      key: "tmall",
+      label: "天猫旗舰入口",
+      href: "https://www.tmall.com",
+      qrLabel: "TMALL / QR READY",
+      description: "适合旗舰店高信任成交，当前以前台桥接位先行承接。",
+      state: "active",
+    },
+    {
+      key: "mini_program",
+      label: "微信 / 支付宝小程序",
+      qrLabel: "MINI PROGRAM / RESERVED",
+      description: "小程序商城二维码与支付调起参数将在支付 JSON API 生效后替换进来。",
+      state: "reserved",
+    },
+  ],
+};
+
+function getRetailSkuOptions(product: ShowroomProduct): RetailSkuOption[] {
+  if (typeof product.managedProductId === "number" && typeof product.defaultSkuId === "number") {
+    return [
+      {
+        id: `sku-${product.defaultSkuId}`,
+        label: product.defaultSkuLabel || product.size || "标准规格",
+        price: product.price,
+        note: product.defaultSkuCode ? `已映射后台 SKU / ${product.defaultSkuCode}` : "已映射后台 SKU，可直接进入零售下单链路。",
+        backendProductId: product.managedProductId,
+        backendSkuId: product.defaultSkuId,
+        minOrderQty: product.minOrderQty ?? 1,
+      },
+    ];
+  }
+
+  return (
+    SHOWROOM_SKU_LOOKUP[product.id] ?? [
+      {
+        id: `${product.id}-standard`,
+        label: `${product.size} STANDARD`,
+        price: product.price,
+        note: "标准零售装 / 待后台进一步细分 SKU",
+      },
+    ]
+  );
+}
+
+function getExternalAccessChannels(product: ShowroomProduct): ExternalAccessChannel[] {
+  const configured: ExternalAccessChannel[] = [];
+  if (product.externalAccess?.taobaoUrl) {
+    configured.push({
+      key: "taobao",
+      label: "淘宝短链",
+      href: product.externalAccess.taobaoUrl,
+      qrLabel: "TAOBAO / QR READY",
+      qrUrl: buildQrUrl(product.externalAccess.taobaoUrl),
+      description: "由管理端维护的淘宝短链已接入，可直接承接公域成交与导流。",
+      state: "active",
+    });
+  }
+  if (product.externalAccess?.tmallUrl) {
+    configured.push({
+      key: "tmall",
+      label: "天猫旗舰入口",
+      href: product.externalAccess.tmallUrl,
+      qrLabel: "TMALL / QR READY",
+      qrUrl: buildQrUrl(product.externalAccess.tmallUrl),
+      description: "已从后台同步天猫入口，可在高信任成交场景中承接转化。",
+      state: "active",
+    });
+  }
+  if (product.externalAccess?.wechatQrUrl || product.externalAccess?.alipayQrUrl || product.externalAccess?.miniProgramPath) {
+    configured.push({
+      key: "mini_program",
+      label: "微信 / 支付宝小程序",
+      qrLabel: product.externalAccess?.wechatQrUrl || product.externalAccess?.alipayQrUrl ? "MINI PROGRAM / QR READY" : "MINI PROGRAM / PATH READY",
+      qrUrl: product.externalAccess?.wechatQrUrl || product.externalAccess?.alipayQrUrl,
+      description: product.externalAccess?.miniProgramPath
+        ? `已同步小程序路径：${product.externalAccess.miniProgramPath}`
+        : "管理端已预留小程序二维码桥接位，可继续补充真实收款码素材。",
+      state: product.externalAccess?.wechatQrUrl || product.externalAccess?.alipayQrUrl ? "active" : "reserved",
+    });
+  }
+
+  return configured.length > 0
+    ? configured
+    : (SHOWROOM_EXTERNAL_ACCESS_LOOKUP[product.id] ?? [
+        {
+          key: "mini_program",
+          label: "微信 / 支付宝小程序",
+          qrLabel: "CHANNEL / RESERVED",
+          description: "后台尚未配置外部入口，当前保留二维码桥接位等待管理端录入。",
+          state: "reserved",
+        },
+      ]);
+}
+
+function readRetailCart(): RetailCartItem[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(RETAIL_CART_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as RetailCartItem[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRetailCart(items: RetailCartItem[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(RETAIL_CART_STORAGE_KEY, JSON.stringify(items));
+  window.dispatchEvent(new Event("retail-cart-updated"));
+}
+
+function useRetailCart() {
+  const [items, setItems] = useState<RetailCartItem[]>(() => readRetailCart());
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const sync = () => setItems(readRetailCart());
+    window.addEventListener("storage", sync);
+    window.addEventListener("retail-cart-updated", sync as EventListener);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("retail-cart-updated", sync as EventListener);
+    };
+  }, []);
+
+  const applyUpdate = (updater: (current: RetailCartItem[]) => RetailCartItem[]) => {
+    setItems((current) => {
+      const next = updater(current);
+      writeRetailCart(next);
+      return next;
+    });
+  };
+
+  return {
+    items,
+    itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+    totalAmount: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    addItem: (nextItem: RetailCartItem) => {
+      applyUpdate((current) => {
+        const existing = current.find((item) => item.productId === nextItem.productId && item.skuId === nextItem.skuId);
+        if (!existing) {
+          return [...current, nextItem];
+        }
+        return current.map((item) =>
+          item.productId === nextItem.productId && item.skuId === nextItem.skuId
+            ? { ...item, quantity: item.quantity + nextItem.quantity }
+            : item,
+        );
+      });
+    },
+    updateQuantity: (productId: string, skuId: string, quantity: number) => {
+      applyUpdate((current) =>
+        current
+          .map((item) =>
+            item.productId === productId && item.skuId === skuId ? { ...item, quantity: Math.max(1, quantity) } : item,
+          )
+          .filter((item) => item.quantity > 0),
+      );
+    },
+    removeItem: (productId: string, skuId: string) => {
+      applyUpdate((current) => current.filter((item) => !(item.productId === productId && item.skuId === skuId)));
+    },
+    clear: () => {
+      writeRetailCart([]);
+      setItems([]);
+    },
+  };
 }
 
 function BrandMark() {
@@ -330,10 +643,473 @@ function MetricPanel({ value, label, description }: { value: string; label: stri
   );
 }
 
-export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel?: string; isSyncing?: boolean }) {
+function CutlineArrow() {
+  return (
+    <Link
+      href="/showroom"
+      aria-label="进入数字展柜"
+      className="cutline-arrow group inline-flex items-center gap-5 text-[#f3efe6]"
+    >
+      <span className="micro-copy text-[#c8c1b6] transition-colors duration-300 group-hover:text-[#f3efe6]">ENTER /SHOWROOM</span>
+      <span className="cutline-arrow-line" aria-hidden="true" />
+      <ArrowRight className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
+    </Link>
+  );
+}
+
+export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) {
+  const [depthShift, setDepthShift] = useState({ x: 0, y: 0 });
+  const signal = getProductSignalColor(featured);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const updateShift = (nextX: number, nextY: number) => {
+      setDepthShift({
+        x: Math.max(-1, Math.min(1, nextX)),
+        y: Math.max(-1, Math.min(1, nextY)),
+      });
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      updateShift(event.clientX / window.innerWidth - 0.5, event.clientY / window.innerHeight - 0.5);
+    };
+
+    const handleMouseLeave = () => updateShift(0, 0);
+
+    const handleOrientation = (event: DeviceOrientationEvent) => {
+      const gamma = typeof event.gamma === "number" ? event.gamma / 45 : 0;
+      const beta = typeof event.beta === "number" ? (event.beta - 45) / 45 : 0;
+      updateShift(gamma, beta);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
+    window.addEventListener("deviceorientation", handleOrientation as EventListener, { passive: true });
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseleave", handleMouseLeave);
+      window.removeEventListener("deviceorientation", handleOrientation as EventListener);
+    };
+  }, []);
+
+  const primaryTransform = `translate3d(${(depthShift.x * 30).toFixed(1)}px, ${(depthShift.y * 18).toFixed(1)}px, 0)`;
+  const secondaryTransform = `translate3d(${(depthShift.x * -14).toFixed(1)}px, ${(depthShift.y * -10).toFixed(1)}px, 0)`;
+  const tertiaryTransform = `translate3d(${(depthShift.x * 8).toFixed(1)}px, ${(depthShift.y * 6).toFixed(1)}px, 0)`;
+
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#000000] text-[#f3efe6]">
+      <section className="hero-stage relative isolate min-h-screen border-b border-[#101010]">
+        <div className="noise-layer absolute inset-0 opacity-30" />
+        <div className="hero-grid-lines absolute inset-0 opacity-70" />
+        <div className="absolute inset-x-0 top-0 h-px bg-[#151515]" />
+        <div className="absolute inset-y-0 left-[10%] w-px bg-[#101010]" />
+        <div className="absolute inset-y-0 right-[12%] w-px bg-[#111111]" />
+
+        <div className="relative mx-auto flex min-h-screen max-w-[1600px] flex-col px-6 py-8 md:px-10 lg:px-14 xl:px-16">
+          <header className="flex items-start justify-between gap-8 border-b border-[#121212] pb-6">
+            <BrandMark />
+            <div className="hidden text-right md:block">
+              <p className="micro-copy text-[#7d7d7d]">RETAIL STRONGHOLD / MONOLITHIC HERO</p>
+              <p className="orbital-caption mt-3 text-[#b6aea2]">// 3026 ORBITAL JEWELER //</p>
+            </div>
+          </header>
+
+          <div className="grid flex-1 gap-12 py-10 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
+            <div className="relative z-10 max-w-3xl">
+              <p className="micro-copy text-[#7f7f7f]">ATTRACTION ENGINE / 流量集散中心 / 零售堡垒</p>
+              <h1 className="brand-hero-title mt-8 text-[#f3efe6]">ICLOUSH LAB.</h1>
+              <p className="orbital-caption mt-6 text-[#d6d0c6]">// 3026 ORBITAL JEWELER //</p>
+              <p className="mt-10 max-w-2xl font-zh-serif text-base leading-9 text-[#aba396] md:text-lg">
+                这是品牌转型的前线阵地：不解释组织结构，不分散注意力，只用巨物、轨道、留白与硬边切口在第一秒完成心理掠夺，然后把所有视线推向数字展柜。
+              </p>
+              <div className="mt-14">
+                <CutlineArrow />
+              </div>
+            </div>
+
+            <div className="hero-depth-stage relative min-h-[26rem] xl:min-h-[42rem]">
+              <Crosshair className="left-[8%] top-[10%]" />
+              <Crosshair className="bottom-[12%] right-[10%]" />
+              <div className="hero-depth-silhouette absolute left-[4%] top-[6%] h-[72%] w-[22%]" style={{ transform: secondaryTransform }} />
+              <div className="hero-depth-frame absolute inset-x-[8%] top-[8%] bottom-[10%]" style={{ transform: tertiaryTransform }} />
+              <div className="hero-depth-axis absolute left-[16%] top-[14%] bottom-[14%] w-px bg-[#171717]" />
+              <div className="hero-depth-axis absolute right-[12%] top-[18%] bottom-[12%] w-px" style={{ backgroundColor: `${signal}55` }} />
+              <div className="hero-depth-caption absolute left-[12%] top-[12%] z-20">
+                <p className="micro-copy text-[#7f7f7f]">FEATURED MASS</p>
+                <p className="mt-3 font-zh-sans text-[1.4rem] font-semibold tracking-[0.18em] text-[#f3efe6] md:text-[2rem]">{featured.code}</p>
+              </div>
+              <div className="hero-depth-object absolute inset-x-[20%] bottom-[8%] top-[14%] z-10" style={{ transform: primaryTransform }}>
+                {featured.imageUrl ? (
+                  <img src={featured.imageUrl} alt={featured.name} className="hero-depth-image h-full w-full object-contain" />
+                ) : (
+                  <>
+                    <div className="hero-depth-monolith absolute left-1/2 top-[7%] h-[78%] w-[34%] -translate-x-1/2" />
+                    <div className="hero-depth-crown absolute left-1/2 top-[2%] h-[10%] w-[14%] -translate-x-1/2" />
+                    <div className="hero-depth-ring absolute inset-x-[12%] top-[28%] h-[22%]" />
+                    <div className="hero-depth-ring absolute inset-x-[18%] bottom-[18%] h-[18%]" />
+                  </>
+                )}
+              </div>
+              <div className="hero-depth-copy absolute bottom-[10%] left-[8%] z-20 max-w-xs">
+                <p className="micro-copy" style={{ color: signal }}>
+                  {featured.series === "AP" ? "ATMOSPHERIC PURIFICATION" : "FABRIC CARE"}
+                </p>
+                <p className="mt-4 font-zh-serif text-sm leading-8 text-[#9e968a]">{featured.heroLine}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function ConnectedMonolithicHeroPage() {
+  const showroomQuery = trpc.retail.galleryObjects.useQuery({});
+  const products = useMemo(() => {
+    const queryProducts = showroomQuery.data?.products ?? [];
+    if (queryProducts.length === 0) {
+      return SHOWROOM_PRODUCTS;
+    }
+    return queryProducts.map((product, index) => mapManagedProductToShowroom(product, index, showroomQuery.data?.source ?? "fallback"));
+  }, [showroomQuery.data]);
+
+  return <MonolithicHeroPage featured={products[0] ?? SHOWROOM_PRODUCTS[0]} />;
+}
+
+function SkuSelector(props: {
+  options: RetailSkuOption[];
+  selectedSkuId: string;
+  onSelect: (skuId: string) => void;
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {props.options.map((sku) => {
+        const active = sku.id === props.selectedSkuId;
+        return (
+          <button
+            key={sku.id}
+            type="button"
+            onClick={() => props.onSelect(sku.id)}
+            className={`monolith-panel p-4 text-left transition ${active ? "border-[#f3efe6]" : "border-[#1a1a1a]"}`}
+          >
+            <p className="micro-copy text-[#7f7f7f]">SKU OPTION</p>
+            <p className="mt-3 font-zh-sans text-base font-semibold tracking-[0.14em] text-[#f3efe6]">{sku.label}</p>
+            <p className="mt-3 text-sm leading-7 text-[#a89f94]">{sku.note}</p>
+            <p className="mt-4 micro-copy" style={{ color: active ? "#f3efe6" : "#8f877c" }}>
+              {formatCurrency(sku.price)}
+            </p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExternalAccessPanel({ product }: { product: ShowroomProduct }) {
+  const channels = getExternalAccessChannels(product);
+
+  return (
+    <div className="monolith-panel p-6 md:p-8">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="micro-copy text-[#7f7f7f]">EXTERNAL ACCESS / 外部入口</p>
+          <h3 className="display-subtitle mt-3 text-[#f3efe6]">转化桥接层</h3>
+        </div>
+        <p className="micro-copy text-[#8c8378]">TAOBAO / TMALL / MINI PROGRAM</p>
+      </div>
+      <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">
+        当前官网作为流量集散中心，负责完成第一眼捕获、SKU 选择与订单意图沉淀；外部入口则承接平台成交与私域缩短路径。
+      </p>
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        {channels.map((channel) => (
+          <div key={channel.key} className="channel-frame p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="micro-copy text-[#7f7f7f]">{channel.key.replace("_", " ")}</p>
+                <h4 className="mt-3 font-zh-sans text-lg font-semibold tracking-[0.16em] text-[#f3efe6]">{channel.label}</h4>
+              </div>
+              <QrCode className="h-5 w-5 text-[#9c7a31]" />
+            </div>
+            <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">{channel.description}</p>
+            <div className="qr-placeholder mt-6 overflow-hidden" aria-label={`${channel.label} 二维码占位`}>
+              {channel.qrUrl ? (
+                <img src={channel.qrUrl} alt={`${channel.label} 二维码`} className="h-full w-full object-cover" />
+              ) : (
+                <span className="micro-copy text-[#7f7f7f]">{channel.qrLabel}</span>
+              )}
+            </div>
+            {channel.href ? (
+              <a href={channel.href} target="_blank" rel="noreferrer" className="monolith-button mt-6 inline-flex h-11 items-center justify-center px-5 text-[11px] font-medium tracking-[0.28em]">
+                立即跳转
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </a>
+            ) : (
+              <div className="micro-copy mt-6 text-[#8b8377]">CHANNEL RESERVED</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StaticCartDock(props: {
+  cart: ReturnType<typeof useRetailCart>;
+  checkoutLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-3 border border-[#232323] bg-[#050505] px-4 py-3 text-[#f3efe6] md:bottom-8 md:right-8"
+      >
+        <ShoppingBag className="h-4 w-4" />
+        <span className="micro-copy">CART {String(props.cart.itemCount).padStart(2, "0")}</span>
+      </button>
+
+      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+        <button type="button" aria-label="关闭购物袋" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/92" />
+        <aside className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-[#1c1c1c] bg-[#020202] p-6 md:p-8">
+          <div className="hairline-grid absolute inset-0 opacity-45" />
+          <div className="relative flex h-full flex-col">
+            <div className="flex items-start justify-between gap-4 border-b border-[#171717] pb-5">
+              <div>
+                <p className="micro-copy text-[#7f7f7f]">RETAIL CART</p>
+                <h3 className="display-subtitle mt-3 text-[#f3efe6]">购物袋</h3>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="monolith-button inline-flex h-11 w-11 items-center justify-center px-0 text-[#f3efe6]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-6 flex-1">
+              <div className="monolith-panel p-5">
+                <p className="micro-copy text-[#7f7f7f]">STATIC CART PREVIEW</p>
+                <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">当前导出的展示页未绑定在线下单上下文，因此仅保留购物袋结构与文案，用于样式和回归测试。</p>
+              </div>
+            </div>
+            <div className="mt-6 border-t border-[#171717] pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <p className="micro-copy text-[#7f7f7f]">TOTAL</p>
+                <p className="font-zh-sans text-[1.8rem] font-semibold tracking-[0.14em] text-[#f3efe6]">{formatCurrency(props.cart.totalAmount)}</p>
+              </div>
+              <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">{props.checkoutLabel ?? "下一步将进入零售下单与支付参数获取流程。"}</p>
+              <div className="mt-5 flex gap-3">
+                <button type="button" className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.28em]">
+                  清空购物袋
+                </button>
+                <button type="button" className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.28em]">
+                  发起零售下单
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+function CartDock(props: {
+  cart: ReturnType<typeof useRetailCart>;
+  checkoutLabel?: string;
+  interactive?: boolean;
+}) {
+  if (!props.interactive) {
+    return <StaticCartDock cart={props.cart} checkoutLabel={props.checkoutLabel} />;
+  }
+
+  return <InteractiveCartDock cart={props.cart} checkoutLabel={props.checkoutLabel} />;
+}
+
+function InteractiveCartDock(props: {
+  cart: ReturnType<typeof useRetailCart>;
+  checkoutLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [activeOrder, setActiveOrder] = useState<{ orderId: number; orderNo: string } | null>(null);
+  const authQuery = trpc.auth.me.useQuery();
+  const createRetailOrder = trpc.retail.createRetailOrder.useMutation({
+    onSuccess(data) {
+      setCheckoutError(null);
+      setActiveOrder({ orderId: data.order.id, orderNo: data.order.orderNo });
+    },
+    onError(error) {
+      setCheckoutError(error.message);
+    },
+  });
+  const retailOrderStatus = trpc.retail.retailOrderStatus.useQuery(
+    activeOrder ? { brandId: 2, orderId: activeOrder.orderId } : { brandId: 2, orderId: 1 },
+    {
+      enabled: Boolean(activeOrder),
+      refetchInterval: (query) => (query.state.data?.terminal ? false : 2500),
+    },
+  );
+  const canSubmitRetailOrder =
+    props.cart.items.length > 0 &&
+    props.cart.items.every((item) => typeof item.backendProductId === "number" && typeof item.backendSkuId === "number");
+
+  const handleRetailCheckout = () => {
+    if (!authQuery.data) {
+      setCheckoutError("当前零售下单链路依赖登录态，以便绑定真实订单与支付回调。请先完成登录后再发起订单。");
+      return;
+    }
+
+    if (!canSubmitRetailOrder) {
+      setCheckoutError("购物袋中仍存在仅用于展陈的占位 SKU。请优先选择已映射后台商品池的对象后再下单。");
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      setCheckoutError("当前环境无法读取站点 origin，请刷新后重试。");
+      return;
+    }
+
+    setCheckoutError(null);
+    createRetailOrder.mutate({
+      brandId: 2,
+      gateway: "wechat_pay_v3",
+      origin: window.location.origin,
+      returnUrl: `${window.location.origin}/showroom`,
+      items: props.cart.items.map((item) => ({
+        productId: item.backendProductId as number,
+        skuId: item.backendSkuId as number,
+        quantity: item.quantity,
+      })),
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-3 border border-[#232323] bg-[#050505] px-4 py-3 text-[#f3efe6] md:bottom-8 md:right-8"
+      >
+        <ShoppingBag className="h-4 w-4" />
+        <span className="micro-copy">CART {String(props.cart.itemCount).padStart(2, "0")}</span>
+      </button>
+
+      <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+        <button type="button" aria-label="关闭购物袋" onClick={() => setOpen(false)} className="absolute inset-0 bg-black/92" />
+        <aside className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-[#1c1c1c] bg-[#020202] p-6 md:p-8">
+          <div className="hairline-grid absolute inset-0 opacity-45" />
+          <div className="relative flex h-full flex-col">
+            <div className="flex items-start justify-between gap-4 border-b border-[#171717] pb-5">
+              <div>
+                <p className="micro-copy text-[#7f7f7f]">RETAIL CART</p>
+                <h3 className="display-subtitle mt-3 text-[#f3efe6]">购物袋</h3>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="monolith-button inline-flex h-11 w-11 items-center justify-center px-0 text-[#f3efe6]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {props.cart.items.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="monolith-panel max-w-md p-6 text-center">
+                  <p className="micro-copy text-[#7f7f7f]">EMPTY BAG</p>
+                  <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">购物袋目前为空。你可以先从对象序列中选定 SKU，再回到这里发起零售下单。</p>
+                </div>
+              </div>
+            ) : (
+              <div className="relative flex flex-1 flex-col overflow-hidden">
+                <div className="mt-6 space-y-4 overflow-y-auto pr-1">
+                  {props.cart.items.map((item) => (
+                    <div key={`${item.productId}-${item.skuId}`} className="monolith-panel p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="micro-copy text-[#7f7f7f]">{item.productCode}</p>
+                          <h4 className="mt-3 font-zh-sans text-lg font-semibold tracking-[0.14em] text-[#f3efe6]">{item.productName}</h4>
+                          <p className="mt-2 text-sm leading-7 text-[#9f978b]">{item.skuLabel}</p>
+                        </div>
+                        <button type="button" onClick={() => props.cart.removeItem(item.productId, item.skuId)} className="micro-copy text-[#8b8377] hover:text-[#f3efe6]">
+                          REMOVE
+                        </button>
+                      </div>
+                      <div className="mt-5 flex items-center justify-between gap-4">
+                        <div className="inline-flex items-center gap-3 border border-[#232323] px-3 py-2">
+                          <button type="button" onClick={() => (item.quantity === 1 ? props.cart.removeItem(item.productId, item.skuId) : props.cart.updateQuantity(item.productId, item.skuId, item.quantity - 1))}>
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="micro-copy text-[#f3efe6]">{String(item.quantity).padStart(2, "0")}</span>
+                          <button type="button" onClick={() => props.cart.updateQuantity(item.productId, item.skuId, item.quantity + 1)}>
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <p className="font-zh-sans text-lg font-semibold tracking-[0.12em] text-[#f3efe6]">{formatCurrency(item.price * item.quantity)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 border-t border-[#171717] pt-6">
+                  {(checkoutError || createRetailOrder.data || retailOrderStatus.data) && (
+                    <div className="monolith-panel mb-5 p-5">
+                      <p className="micro-copy text-[#7f7f7f]">PAYMENT LINK STATUS</p>
+                      {checkoutError ? (
+                        <p className="mt-4 font-zh-serif text-sm leading-8 text-[#c38c8c]">{checkoutError}</p>
+                      ) : retailOrderStatus.data?.transactionState === "successful" ? (
+                        <>
+                          <p className="mt-4 font-zh-sans text-xl font-semibold tracking-[0.18em] text-[#f3efe6]">// TRANSACTION SUCCESSFUL //</p>
+                          <p className="mt-3 font-zh-serif text-sm leading-8 text-[#a89f94]">订单 {retailOrderStatus.data.summary.orderNo} 已完成支付确认，前台轮询链路已捕获成功状态。</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="mt-4 font-zh-sans text-sm tracking-[0.16em] text-[#f3efe6]">{retailOrderStatus.data?.prompt ?? "// PAYMENT GATEWAY STAGED //"}</p>
+                          <p className="mt-3 font-zh-serif text-sm leading-8 text-[#a89f94]">
+                            {createRetailOrder.data
+                              ? `订单 ${createRetailOrder.data.order.orderNo} 已创建，当前支付网关阶段：${createRetailOrder.data.gateway.stage}。`
+                              : "正在等待订单创建。"}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="micro-copy text-[#7f7f7f]">TOTAL</p>
+                    <p className="font-zh-sans text-[1.8rem] font-semibold tracking-[0.14em] text-[#f3efe6]">{formatCurrency(props.cart.totalAmount)}</p>
+                  </div>
+                  <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">{props.checkoutLabel ?? "下一步将进入零售下单与支付参数获取流程。"}</p>
+                  <p className="micro-copy mt-3 text-[#8b8377]">
+                    {authQuery.data ? "AUTH LINKED / 已绑定登录态" : "LOGIN REQUIRED / 需先登录后创建真实订单"}
+                  </p>
+                  <div className="mt-5 flex gap-3">
+                    <button type="button" onClick={() => props.cart.clear()} className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.28em]">
+                      清空购物袋
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRetailCheckout}
+                      disabled={createRetailOrder.isPending}
+                      className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.28em] disabled:opacity-60"
+                    >
+                      {createRetailOrder.isPending ? "创建零售订单中..." : "发起零售下单"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel?: string; isSyncing?: boolean; interactiveCart?: boolean }) {
   const products = props?.products ?? SHOWROOM_PRODUCTS;
   const sourceLabel = props?.sourceLabel ?? (products.every((product) => product.source === "database") ? "数据库" : "原型档案");
   const [scrollY, setScrollY] = useState(0);
+  const cart = useRetailCart();
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -450,6 +1226,7 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
             const columnClassName = product.layout === "full" ? "lg:col-span-12" : product.layout === "wide" ? "lg:col-span-7" : "lg:col-span-5";
             const parallaxStyle = { transform: `translateY(${Math.min(scrollY * (0.02 + index * 0.004), 28)}px)` };
             const signal = getProductSignalColor(product);
+            const primarySku = getRetailSkuOptions(product)[0];
 
             return (
               <article key={product.id} style={parallaxStyle} className={`${columnClassName} group relative border border-[#181818] bg-black p-5 md:p-7`}>
@@ -488,11 +1265,34 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                         <p className="mt-3 font-zh-sans text-[1.9rem] font-semibold leading-none tracking-[0.14em] text-[#f3efe6]">
                           {formatCurrency(product.price)}
                         </p>
+                        <p className="mt-3 text-sm leading-7 text-[#8f877c]">首推 SKU：{primarySku.label}</p>
                       </div>
-                      <Link href={`/object/${product.id}`} className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.3em]">
-                        查看对象档案
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Link>
+                      <div className="flex flex-col gap-3 md:flex-row">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            cart.addItem({
+                              productId: product.id,
+                              productCode: product.code,
+                              productName: product.name,
+                              skuId: primarySku.id,
+                              skuLabel: primarySku.label,
+                              price: primarySku.price,
+                              quantity: Math.max(primarySku.minOrderQty ?? 1, 1),
+                              backendProductId: primarySku.backendProductId,
+                              backendSkuId: primarySku.backendSkuId,
+                              minOrderQty: primarySku.minOrderQty ?? 1,
+                            })
+                          }
+                          className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.3em]"
+                        >
+                          加入购物袋
+                        </button>
+                        <Link href={`/object/${product.id}`} className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.3em]">
+                          查看对象档案
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -510,9 +1310,9 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[
-              "当前前台面向中文区高端零售与顾问式成交，不再使用企业团体采购口吻。",
+              "官网前台现在以零售转化为主，购物袋承担 SKU 暂存，后续将衔接支付参数轮询与二维码扫码成交。",
+              "PDP 将同时暴露外部入口桥接层，用于导向淘宝 / 天猫与小程序矩阵，缩短顾客跳转成本。",
               "按钮继续保持透明边框与硬切反白反馈，不使用阴影、玻璃、液态过渡或温和亲和的填充块。",
-              "在正式支付接入前，所有主转化动作通过系统通知层承接，并为企业微信与小程序导流预留显眼节点。",
             ].map((item) => (
               <div key={item} className="monolith-panel p-5 font-zh-serif text-sm leading-8 text-[#a89f94]">
                 {item}
@@ -521,6 +1321,7 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
           </div>
         </div>
       </section>
+      <CartDock cart={cart} interactive={props?.interactiveCart} checkoutLabel="下一步将连接零售下单 JSON API，并在网页端轮询支付状态。" />
     </main>
   );
 }
@@ -587,9 +1388,10 @@ function AllocationDialog({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-export function ProductDetailPage(props: { id: string; product?: ShowroomProduct | null; sourceLabel?: string }) {
+export function ProductDetailPage(props: { id: string; product?: ShowroomProduct | null; sourceLabel?: string; interactiveCart?: boolean }) {
   const product = props.product ?? getShowroomProductById(props.id);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const cart = useRetailCart();
 
   if (!product) {
     return <NotFoundPage />;
@@ -597,6 +1399,9 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
 
   const signal = getProductSignalColor(product);
   const archiveSource = SOURCE_LABELS[(props.sourceLabel?.toLowerCase() as ShowroomProduct["source"]) ?? product.source] ?? props.sourceLabel ?? SOURCE_LABELS[product.source];
+  const skuOptions = getRetailSkuOptions(product);
+  const [selectedSkuId, setSelectedSkuId] = useState(skuOptions[0]?.id ?? "");
+  const selectedSku = skuOptions.find((item) => item.id === selectedSkuId) ?? skuOptions[0];
   const experimentRows =
     product.series === "FC"
       ? [
@@ -679,23 +1484,51 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
               </div>
             ))}
           </div>
+          <ExternalAccessPanel product={product} />
           <div className="monolith-panel p-6 md:p-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="micro-copy text-[#7f7f7f]">主转化入口</p>
-                <h3 className="display-subtitle mt-3 text-[#f3efe6]">申请配额</h3>
+                <h3 className="display-subtitle mt-3 text-[#f3efe6]">零售下单</h3>
               </div>
-              <p className="font-zh-sans text-[1.8rem] font-semibold leading-none tracking-[0.16em] text-[#f3efe6]">{formatCurrency(product.price)}</p>
+              <p className="font-zh-sans text-[1.8rem] font-semibold leading-none tracking-[0.16em] text-[#f3efe6]">{formatCurrency(selectedSku?.price ?? product.price)}</p>
             </div>
-            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">当前以前台系统提示层承接高净值零售转化意图，并为企业微信与小程序导流预埋显眼节点，以在支付 API 开放后无缝切换到直单链路。</p>
-            <button type="button" onClick={() => setDialogOpen(true)} className="monolith-button mt-6 inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
-              REQUEST ALLOCATION / 申请配额
-            </button>
+            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">先选择 SKU 并加入购物袋；支付 API 正式接入前，仍可通过申请配额层与外部入口桥接完成导购和顾问式成交。</p>
+            <div className="mt-6">
+              <SkuSelector options={skuOptions} selectedSkuId={selectedSkuId} onSelect={setSelectedSkuId} />
+            </div>
+            <div className="mt-6 flex flex-col gap-3 md:flex-row">
+              <button
+                type="button"
+                onClick={() =>
+                  selectedSku &&
+                  cart.addItem({
+                    productId: product.id,
+                    productCode: product.code,
+                    productName: product.name,
+                    skuId: selectedSku.id,
+                    skuLabel: selectedSku.label,
+                    price: selectedSku.price,
+                    quantity: Math.max(selectedSku.minOrderQty ?? 1, 1),
+                    backendProductId: selectedSku.backendProductId,
+                    backendSkuId: selectedSku.backendSkuId,
+                    minOrderQty: selectedSku.minOrderQty ?? 1,
+                  })
+                }
+                className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]"
+              >
+                ADD TO CART / 加入购物袋
+              </button>
+              <button type="button" onClick={() => setDialogOpen(true)} className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
+                REQUEST ALLOCATION / 申请配额
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       <AllocationDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      <CartDock cart={cart} interactive={props.interactiveCart} checkoutLabel="购物袋中的 SKU 将作为零售订单草稿，下一阶段会对接支付 JSON API 与支付状态轮询。" />
     </main>
   );
 }
@@ -723,7 +1556,7 @@ function ConnectedShowroomPage() {
     );
   }
 
-  return <ShowroomPage products={products} sourceLabel={sourceLabel} isSyncing={showroomQuery.isFetching} />;
+  return <ShowroomPage products={products} sourceLabel={sourceLabel} isSyncing={showroomQuery.isFetching} interactiveCart />;
 }
 
 function ConnectedProductDetailPage({ id }: { id: string }) {
@@ -748,7 +1581,7 @@ function ConnectedProductDetailPage({ id }: { id: string }) {
     );
   }
 
-  return <ProductDetailPage id={id} product={mappedProduct} sourceLabel={sourceLabel} />;
+  return <ProductDetailPage id={id} product={mappedProduct} sourceLabel={sourceLabel} interactiveCart />;
 }
 
 export function NotFoundPage() {
@@ -769,7 +1602,7 @@ export function NotFoundPage() {
 export default function App() {
   return (
     <Switch>
-      <Route path="/" component={ConnectedShowroomPage} />
+      <Route path="/" component={ConnectedMonolithicHeroPage} />
       <Route path="/gallery" component={ConnectedShowroomPage} />
       <Route path="/showroom" component={ConnectedShowroomPage} />
       <Route path="/object/:id">{(params) => <ConnectedProductDetailPage id={params.id} />}</Route>

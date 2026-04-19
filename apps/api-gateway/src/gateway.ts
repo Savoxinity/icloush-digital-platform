@@ -121,7 +121,7 @@ async function resolveTenantByHeaderOrHost(args: {
   return null;
 }
 
-export async function createContext({ req, res }: CreateExpressContextOptions): Promise<ApiContext> {
+export async function createRestContext(req: ApiContext["req"], res: ApiContext["res"]): Promise<ApiContext> {
   const db = await getDb();
   const headers = Object.fromEntries(Object.entries(req.headers));
   const tenant = await resolveTenantByHeaderOrHost({ db, headers });
@@ -132,6 +132,10 @@ export async function createContext({ req, res }: CreateExpressContextOptions): 
     req,
     res,
   };
+}
+
+export async function createContext({ req, res }: CreateExpressContextOptions): Promise<ApiContext> {
+  return createRestContext(req, res);
 }
 
 const t = initTRPC.context<ApiContext>().create({

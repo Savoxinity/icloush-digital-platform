@@ -24,6 +24,11 @@ type ManagedProductFormState = {
   subtitle: string;
   description: string;
   unit: string;
+  taobaoUrl: string;
+  tmallUrl: string;
+  miniProgramPath: string;
+  wechatQrUrl: string;
+  alipayQrUrl: string;
   specs: ManagedProductSpec[];
 };
 
@@ -39,6 +44,11 @@ const emptyFormState = (brandId: number | null): ManagedProductFormState => ({
   subtitle: "",
   description: "",
   unit: "件",
+  taobaoUrl: "",
+  tmallUrl: "",
+  miniProgramPath: "",
+  wechatQrUrl: "",
+  alipayQrUrl: "",
   specs: [
     { key: "核心成分", value: "" },
     { key: "适用场景", value: "" },
@@ -57,6 +67,68 @@ function priceLabel(value: number | null | undefined) {
   }
 
   return `¥ ${value.toLocaleString("zh-CN")}`;
+}
+
+const PRODUCT_META_SPEC_KEYS = {
+  taobaoUrl: "__retail_taobao_url",
+  tmallUrl: "__retail_tmall_url",
+  miniProgramPath: "__retail_mini_program_path",
+  wechatQrUrl: "__retail_wechat_qr_url",
+  alipayQrUrl: "__retail_alipay_qr_url",
+} as const;
+
+function extractRetailMeta(specs: ManagedProductSpec[]) {
+  const meta = {
+    taobaoUrl: "",
+    tmallUrl: "",
+    miniProgramPath: "",
+    wechatQrUrl: "",
+    alipayQrUrl: "",
+  };
+
+  const cleanSpecs = specs.filter((item) => {
+    if (item.key === PRODUCT_META_SPEC_KEYS.taobaoUrl) {
+      meta.taobaoUrl = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.tmallUrl) {
+      meta.tmallUrl = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.miniProgramPath) {
+      meta.miniProgramPath = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.wechatQrUrl) {
+      meta.wechatQrUrl = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.alipayQrUrl) {
+      meta.alipayQrUrl = item.value;
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    meta,
+    cleanSpecs,
+  };
+}
+
+function mergeRetailMetaIntoSpecs(specs: ManagedProductSpec[], meta: Pick<ManagedProductFormState, "taobaoUrl" | "tmallUrl" | "miniProgramPath" | "wechatQrUrl" | "alipayQrUrl">) {
+  const normalizedSpecs = specs
+    .map((item) => ({ key: item.key.trim(), value: item.value.trim() }))
+    .filter((item) => item.key && item.value);
+  const metaEntries: ManagedProductSpec[] = [
+    { key: PRODUCT_META_SPEC_KEYS.taobaoUrl, value: meta.taobaoUrl.trim() },
+    { key: PRODUCT_META_SPEC_KEYS.tmallUrl, value: meta.tmallUrl.trim() },
+    { key: PRODUCT_META_SPEC_KEYS.miniProgramPath, value: meta.miniProgramPath.trim() },
+    { key: PRODUCT_META_SPEC_KEYS.wechatQrUrl, value: meta.wechatQrUrl.trim() },
+    { key: PRODUCT_META_SPEC_KEYS.alipayQrUrl, value: meta.alipayQrUrl.trim() },
+  ].filter((item) => item.value);
+
+  return [...normalizedSpecs, ...metaEntries];
 }
 
 async function fileToBase64(file: File) {
@@ -149,6 +221,10 @@ export default function AdminProductsWorkbench(props: {
     () => formState.specs.filter((item) => item.key.trim() && item.value.trim()).length,
     [formState.specs],
   );
+  const retailAccessCount = useMemo(
+    () => [formState.taobaoUrl, formState.tmallUrl, formState.miniProgramPath, formState.wechatQrUrl, formState.alipayQrUrl].filter((item) => item.trim()).length,
+    [formState.alipayQrUrl, formState.miniProgramPath, formState.taobaoUrl, formState.tmallUrl, formState.wechatQrUrl],
+  );
 
   const beginEdit = (product: {
     id: number;
@@ -164,6 +240,7 @@ export default function AdminProductsWorkbench(props: {
     description: string | null;
     specs: ManagedProductSpec[];
   }) => {
+    const retailMeta = extractRetailMeta(product.specs);
     setFormState({
       id: product.id,
       brandId: product.brandId,
@@ -177,7 +254,12 @@ export default function AdminProductsWorkbench(props: {
       subtitle: product.subtitle ?? "",
       description: product.description ?? "",
       unit: "件",
-      specs: product.specs.length > 0 ? product.specs : [{ key: "核心成分", value: "" }],
+      taobaoUrl: retailMeta.meta.taobaoUrl,
+      tmallUrl: retailMeta.meta.tmallUrl,
+      miniProgramPath: retailMeta.meta.miniProgramPath,
+      wechatQrUrl: retailMeta.meta.wechatQrUrl,
+      alipayQrUrl: retailMeta.meta.alipayQrUrl,
+      specs: retailMeta.cleanSpecs.length > 0 ? retailMeta.cleanSpecs : [{ key: "核心成分", value: "" }],
     });
   };
 
@@ -230,9 +312,13 @@ export default function AdminProductsWorkbench(props: {
       subtitle: formState.subtitle || null,
       description: formState.description || null,
       unit: formState.unit || null,
-      specs: formState.specs
-        .map((item) => ({ key: item.key.trim(), value: item.value.trim() }))
-        .filter((item) => item.key && item.value),
+      specs: mergeRetailMetaIntoSpecs(formState.specs, {
+        taobaoUrl: formState.taobaoUrl,
+        tmallUrl: formState.tmallUrl,
+        miniProgramPath: formState.miniProgramPath,
+        wechatQrUrl: formState.wechatQrUrl,
+        alipayQrUrl: formState.alipayQrUrl,
+      }),
     });
   };
 
@@ -455,6 +541,59 @@ export default function AdminProductsWorkbench(props: {
                 className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
               />
             </label>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <p className="text-sm font-medium text-slate-900">Retail Bridge / 外部入口与二维码</p>
+                <p className="mt-1 text-xs leading-6 text-slate-500">维护淘宝/天猫短链与小程序二维码素材后，前台 PDP 的 EXTERNAL ACCESS 面板会自动读取并展示。</p>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-700">淘宝短链</span>
+                  <input
+                    value={formState.taobaoUrl}
+                    onChange={(event) => setFormState((current) => ({ ...current, taobaoUrl: event.target.value }))}
+                    placeholder="https://m.tb.cn/..."
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-700">天猫链接</span>
+                  <input
+                    value={formState.tmallUrl}
+                    onChange={(event) => setFormState((current) => ({ ...current, tmallUrl: event.target.value }))}
+                    placeholder="https://detail.tmall.com/..."
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-medium text-slate-700">微信/支付宝小程序路径</span>
+                  <input
+                    value={formState.miniProgramPath}
+                    onChange={(event) => setFormState((current) => ({ ...current, miniProgramPath: event.target.value }))}
+                    placeholder="pages/shop/detail?id=VOID-B03"
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-700">微信小程序二维码 URL</span>
+                  <input
+                    value={formState.wechatQrUrl}
+                    onChange={(event) => setFormState((current) => ({ ...current, wechatQrUrl: event.target.value }))}
+                    placeholder="https://.../wechat-qr.png"
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-slate-700">支付宝小程序二维码 URL</span>
+                  <input
+                    value={formState.alipayQrUrl}
+                    onChange={(event) => setFormState((current) => ({ ...current, alipayQrUrl: event.target.value }))}
+                    placeholder="https://.../alipay-qr.png"
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  />
+                </label>
+              </div>
+            </div>
             <label className="block">
               <span className="text-sm font-medium text-slate-700">主图 URL</span>
               <input
@@ -500,7 +639,7 @@ export default function AdminProductsWorkbench(props: {
               添加参数
             </button>
           </div>
-          <p className="mt-3 text-sm leading-7 text-slate-600">当前已填写 {totalSpecs} 项有效参数，可直接用于 PDP 数据面板。</p>
+          <p className="mt-3 text-sm leading-7 text-slate-600">当前已填写 {totalSpecs} 项有效参数，可直接用于 PDP 数据面板；另有 {retailAccessCount} 项零售桥接元数据已独立维护。</p>
           <div className="mt-5 space-y-3">
             {formState.specs.map((spec, index) => (
               <div key={`${index}-${spec.key}`} className="grid gap-3 md:grid-cols-[0.9fr_1.1fr_auto]">

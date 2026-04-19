@@ -2,11 +2,13 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { brands } from "../../../packages/database/schema";
 import {
+  createOrder,
   getOrderDetail,
   listOrderReviewQueue,
   listOrders,
   reviewOrderPayment,
 } from "../../../packages/oms/src/index";
+import { createPaymentOrder } from "../../../packages/payments/src/index";
 import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { notifyOwner } from "./_core/notification";
@@ -103,6 +105,7 @@ const adminOperationsSchema = z.object({
 
 const managedProductSeriesSchema = z.enum(["AP", "FC"]);
 const managedProductStatusSchema = z.enum(["draft", "active", "archived"]);
+const retailGatewaySchema = z.enum(["wechat_pay_v3", "alipay_openapi"]);
 const managedProductListSchema = z.object({
   brandId: z.number().int().positive().optional(),
   series: z.union([managedProductSeriesSchema, z.literal("all")]).optional(),
@@ -118,6 +121,29 @@ const managedProductDetailSchema = z
   .refine((input) => Boolean(input.id || input.code || input.slug), {
     message: "查询商品详情时必须提供 id、code 或 slug。",
     path: ["id"],
+  });
+const retailOrderItemSchema = z.object({
+  productId: z.number().int().positive(),
+  skuId: z.number().int().positive(),
+  quantity: z.number().int().min(1).max(99),
+});
+const retailCreateOrderSchema = z.object({
+  brandId: z.number().int().positive().default(2),
+  items: z.array(retailOrderItemSchema).min(1).max(20),
+  gateway: retailGatewaySchema.default("wechat_pay_v3"),
+  note: z.string().trim().max(500).nullish(),
+  origin: z.string().url().nullish(),
+  returnUrl: z.string().url().nullish(),
+});
+const retailOrderStatusSchema = z
+  .object({
+    brandId: z.number().int().positive().default(2),
+    orderId: z.number().int().positive().optional(),
+    orderNo: z.string().trim().min(1).optional(),
+  })
+  .refine((input) => Boolean(input.orderId || input.orderNo), {
+    message: "查询零售订单状态时必须提供 orderId 或 orderNo。",
+    path: ["orderId"],
   });
 
 const platformSiteKeySchema = z.enum(["shop", "lab", "tech", "care"]);
@@ -267,6 +293,15 @@ function isAdminRole(role: string | undefined) {
   return role === "admin" || role === "super_admin";
 }
 
+function mapRetailGatewayToProvider(gateway: z.infer<typeof retailGatewaySchema>) {
+  return gateway === "alipay_openapi" ? "alipay" : "wechat_jsapi";
+}
+
+function buildRetailNotifyUrl(origin: string | null | undefined, gateway: z.infer<typeof retailGatewaySchema>) {
+  const base = origin?.replace(/\/+$/, "") || "https://preview.icloush.lab";
+  return `${base}/api/orders/retail/callback/${gateway}`;
+}
+
 const retailRouter = router({
   retailSnapshot: publicProcedure.query(async () => {
     return getPlatformSnapshot();
@@ -283,6 +318,88 @@ const retailRouter = router({
       throw new Error("未找到对应商品。");
     }
     return product;
+  }),
+  createRetailOrder: protectedProcedure.input(retailCreateOrderSchema).mutation(async ({ ctx, input }) => {
+    const db = requireDb(await getDb());
+    const created = await createOrder({
+      db,
+      brandId: input.brandId,
+      userId: ctx.user.id,
+      customerType: "b2c",
+      note: input.note ?? null,
+      items: input.items,
+      payment: {
+        provider: mapRetailGatewayToProvider(input.gateway),
+        paymentScenario: "full_payment",
+      },
+    });
+
+    const gateway = await createPaymentOrder({
+      gateway: input.gateway,
+      brandId: input.brandId,
+      orderId: created.order.id,
+      orderNo: created.order.orderNo,
+      amount: created.order.payableAmount,
+      currency: created.order.currency,
+      description: `iCloush LAB. ${created.items.map((item) => item.product.name).join(" / ")}`.slice(0, 120),
+      notifyUrl: buildRetailNotifyUrl(input.origin, input.gateway),
+      returnUrl: input.returnUrl ?? null,
+      metadata: {
+        paymentId: created.payment.id,
+        userId: ctx.user.id,
+        channel: "web-b2b-retail",
+      },
+    });
+
+    return {
+      tenant: { brandId: input.brandId },
+      order: created.order,
+      items: created.items,
+      payment: created.payment,
+      gateway,
+      paymentPolling: {
+        orderId: created.order.id,
+        orderNo: created.order.orderNo,
+        recommendedIntervalMs: 2500,
+      },
+    };
+  }),
+  retailOrderStatus: protectedProcedure.input(retailOrderStatusSchema).query(async ({ ctx, input }) => {
+    const db = requireDb(await getDb());
+    const detail = await getOrderDetail({
+      db,
+      brandId: input.brandId,
+      orderId: input.orderId,
+      orderNo: input.orderNo,
+    });
+
+    if (!isAdminRole(ctx.user.globalRole) && detail.summary.userId !== ctx.user.id) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "当前用户无权查看该零售订单。",
+      });
+    }
+
+    const transactionState =
+      detail.summary.paymentStatus === "paid"
+        ? "successful"
+        : detail.summary.status === "cancelled" || detail.summary.status === "closed"
+          ? "closed"
+          : "pending";
+
+    return {
+      tenant: { brandId: input.brandId },
+      summary: detail.summary,
+      latestPayment: detail.summary.latestPayment ?? detail.payments[0] ?? null,
+      transactionState,
+      terminal: transactionState !== "pending",
+      prompt:
+        transactionState === "successful"
+          ? "// TRANSACTION SUCCESSFUL //"
+          : transactionState === "closed"
+            ? "// TRANSACTION CLOSED //"
+            : "// WAITING FOR PAYMENT CONFIRMATION //",
+    };
   }),
 });
 

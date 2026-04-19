@@ -3133,6 +3133,10 @@ export type ManagedProductRecord = {
   subtitle: string | null;
   description: string | null;
   specs: ManagedProductSpec[];
+  defaultSkuId: number | null;
+  defaultSkuCode: string | null;
+  defaultSkuLabel: string | null;
+  minOrderQty: number | null;
   updatedAt: string | null;
 };
 
@@ -3164,6 +3168,10 @@ const SPRINT3_FALLBACK_MANAGED_PRODUCTS: ManagedProductRecord[] = [
     imageUrl: "/manus-storage/icloush/void-b03.png",
     subtitle: "Atmospheric Purification / Brutal showroom hero asset",
     description: "以高张力叙事承接除味、重组与空间净化场景，适合作为 AP 系列主展品。",
+    defaultSkuId: 19001,
+    defaultSkuCode: "VOID-B03-500ML",
+    defaultSkuLabel: "500ML CORE BOTTLE",
+    minOrderQty: 1,
     specs: [
       { key: "除味率", value: "99.2%" },
       { key: "核心成分", value: "冷凝植物复合因子" },
@@ -3185,6 +3193,10 @@ const SPRINT3_FALLBACK_MANAGED_PRODUCTS: ManagedProductRecord[] = [
     imageUrl: "/manus-storage/icloush/fc-a11.png",
     subtitle: "Fabric Codex / Jewel-grade finishing protocol",
     description: "面向织物光泽、触感与纤维秩序重建的实验型护理单元。",
+    defaultSkuId: 19002,
+    defaultSkuCode: "FC-A11-500ML",
+    defaultSkuLabel: "500ML TEXTILE CORE",
+    minOrderQty: 1,
     specs: [
       { key: "柔顺提升", value: "+31%" },
       { key: "核心成分", value: "纤维微胶囊" },
@@ -3240,6 +3252,10 @@ function toManagedProductRecord(params: {
   subtitle: string | null;
   description: string | null;
   specs: unknown;
+  defaultSkuId?: number | null;
+  defaultSkuCode?: string | null;
+  defaultSkuLabel?: string | null;
+  minOrderQty?: number | null;
   updatedAt: Date | string | null;
 }): ManagedProductRecord {
   return {
@@ -3257,6 +3273,10 @@ function toManagedProductRecord(params: {
     subtitle: normalizeNullableText(params.subtitle),
     description: normalizeNullableText(params.description),
     specs: normalizeManagedProductSpecs(params.specs),
+    defaultSkuId: typeof params.defaultSkuId === "number" ? params.defaultSkuId : null,
+    defaultSkuCode: normalizeNullableText(params.defaultSkuCode),
+    defaultSkuLabel: normalizeNullableText(params.defaultSkuLabel),
+    minOrderQty: typeof params.minOrderQty === "number" ? params.minOrderQty : null,
     updatedAt: params.updatedAt ? new Date(params.updatedAt).toISOString() : null,
   };
 }
@@ -3315,6 +3335,29 @@ export async function listManagedProducts(params?: {
     .from(brands);
   const brandMap = new Map(brandRecords.map((record) => [record.id, record]));
 
+  const skuRecords = await db
+    .select({
+      id: productSkus.id,
+      brandId: productSkus.brandId,
+      productId: productSkus.productId,
+      skuCode: productSkus.skuCode,
+      specName: productSkus.specName,
+      packSize: productSkus.packSize,
+      minOrderQty: productSkus.minOrderQty,
+      status: productSkus.status,
+      updatedAt: productSkus.updatedAt,
+    })
+    .from(productSkus)
+    .orderBy(desc(productSkus.updatedAt))
+    .limit(400);
+  const defaultSkuMap = new Map<number, (typeof skuRecords)[number]>();
+  for (const sku of skuRecords) {
+    if (sku.status !== "active" || defaultSkuMap.has(sku.productId)) {
+      continue;
+    }
+    defaultSkuMap.set(sku.productId, sku);
+  }
+
   const productRecords = await db
     .select({
       id: products.id,
@@ -3339,6 +3382,7 @@ export async function listManagedProducts(params?: {
     .filter((record) => (params?.brandId ? record.brandId === params.brandId : true))
     .map((record) => {
       const brand = brandMap.get(record.brandId);
+      const sku = defaultSkuMap.get(record.id);
       return toManagedProductRecord({
         id: record.id,
         brandId: record.brandId,
@@ -3354,6 +3398,10 @@ export async function listManagedProducts(params?: {
         subtitle: record.subtitle,
         description: record.description,
         specs: record.specs,
+        defaultSkuId: sku?.id ?? null,
+        defaultSkuCode: sku?.skuCode ?? null,
+        defaultSkuLabel: sku?.packSize?.trim() || sku?.specName?.trim() || null,
+        minOrderQty: sku?.minOrderQty ?? null,
         updatedAt: record.updatedAt,
       });
     });

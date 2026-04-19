@@ -55,6 +55,145 @@ const latestByCreatedAt = <T extends { createdAt: Date | null }>(rows: T[]) =>
     return rightTime - leftTime;
   })[0] ?? null;
 
+export type SandboxPaymentOutcome = "successful" | "closed";
+
+const sandboxSettlementTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+const buildSandboxSettlementKey = (brandId: number, orderId: number, paymentId: number) =>
+  `${brandId}:${orderId}:${paymentId}`;
+
+const clampSandboxDelay = (delayMs?: number) => {
+  if (typeof delayMs !== "number" || Number.isNaN(delayMs)) {
+    return 6_000;
+  }
+  return Math.min(Math.max(Math.round(delayMs), 5_000), 10_000);
+};
+
+export async function settleSandboxOrderPayment(args: {
+  db: DatabaseClient;
+  brandId: number;
+  orderId: number;
+  paymentId: number;
+  outcome?: SandboxPaymentOutcome;
+}) {
+  const outcome = args.outcome ?? "successful";
+  const [order] = await args.db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, args.orderId), eq(orders.brandId, args.brandId)))
+    .limit(1);
+
+  if (!order) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "沙盒支付推进失败：订单不存在。",
+    });
+  }
+
+  const [payment] = await args.db
+    .select()
+    .from(payments)
+    .where(and(eq(payments.id, args.paymentId), eq(payments.orderId, args.orderId), eq(payments.brandId, args.brandId)))
+    .limit(1);
+
+  if (!payment) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "沙盒支付推进失败：支付记录不存在。",
+    });
+  }
+
+  if (order.paymentStatus === "paid" || order.status === "paid" || order.status === "closed" || order.status === "cancelled") {
+    return {
+      order,
+      payment,
+      skipped: true,
+      outcome,
+    };
+  }
+
+  const nextOrderStatus: OrderStatus = outcome === "successful" ? "paid" : "closed";
+  assertOrderStatusTransition(order.status as OrderStatus, nextOrderStatus);
+
+  return args.db.transaction(async (tx) => {
+    await tx
+      .update(payments)
+      .set({
+        status: outcome === "successful" ? "paid" : "cancelled",
+        paidAt: outcome === "successful" ? new Date() : null,
+        metaJson: {
+          ...normalizeMetaJson(payment.metaJson),
+          sandboxOutcome: outcome,
+          sandboxSettledAt: new Date().toISOString(),
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(payments.id, payment.id));
+
+    await tx
+      .update(orders)
+      .set({
+        status: nextOrderStatus,
+        paymentStatus: outcome === "successful" ? "paid" : "unpaid",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, order.id));
+
+    const [nextOrder] = await tx.select().from(orders).where(eq(orders.id, order.id)).limit(1);
+    const [nextPayment] = await tx.select().from(payments).where(eq(payments.id, payment.id)).limit(1);
+
+    return {
+      order: nextOrder,
+      payment: nextPayment,
+      skipped: false,
+      outcome,
+    };
+  });
+}
+
+export function scheduleSandboxOrderPaymentSettlement(args: {
+  db: DatabaseClient;
+  brandId: number;
+  orderId: number;
+  paymentId: number;
+  delayMs?: number;
+  outcome?: SandboxPaymentOutcome;
+}) {
+  const key = buildSandboxSettlementKey(args.brandId, args.orderId, args.paymentId);
+  const existing = sandboxSettlementTimers.get(key);
+  if (existing) {
+    clearTimeout(existing);
+  }
+
+  const delay = clampSandboxDelay(args.delayMs);
+  const timeout = setTimeout(() => {
+    sandboxSettlementTimers.delete(key);
+    void settleSandboxOrderPayment({
+      db: args.db,
+      brandId: args.brandId,
+      orderId: args.orderId,
+      paymentId: args.paymentId,
+      outcome: args.outcome,
+    }).catch((error) => {
+      console.error("[oms] sandbox payment settlement failed", {
+        brandId: args.brandId,
+        orderId: args.orderId,
+        paymentId: args.paymentId,
+        error,
+      });
+    });
+  }, delay);
+
+  sandboxSettlementTimers.set(key, timeout);
+
+  return {
+    scheduled: true,
+    key,
+    delayMs: delay,
+    outcome: args.outcome ?? "successful",
+  };
+}
+
 const summarizeOrder = (args: {
   order: typeof orders.$inferSelect;
   items: Array<typeof orderItems.$inferSelect>;
@@ -324,6 +463,11 @@ export async function createOrder(args: {
     allowCreditCard?: boolean;
     payerOpenId?: string | null;
   };
+  sandbox?: {
+    autoSettle?: boolean;
+    delayMs?: number;
+    outcome?: SandboxPaymentOutcome;
+  };
 }) {
   if (args.items.length === 0) {
     throw new TRPCError({
@@ -365,7 +509,7 @@ export async function createOrder(args: {
   const paymentScenario =
     args.payment?.paymentScenario ?? (provider === "offline_bank_transfer" ? "offline_review" : "full_payment");
 
-  return args.db.transaction(async (tx) => {
+  const result = await args.db.transaction(async (tx) => {
     const orderNo = buildOrderNo(args.brandId);
     const createdOrder = await tx
       .insert(orders)
@@ -418,6 +562,8 @@ export async function createOrder(args: {
           installmentPlanCode: args.payment?.installmentPlanCode ?? null,
           allowCreditCard: args.payment?.allowCreditCard ?? false,
           payerOpenId: args.payment?.payerOpenId ?? null,
+          sandboxAutoSettle: args.sandbox?.autoSettle ?? false,
+          sandboxOutcome: args.sandbox?.outcome ?? null,
         },
       })
       .$returningId();
@@ -431,6 +577,19 @@ export async function createOrder(args: {
       payment: paymentRows[0],
     };
   });
+
+  if (args.sandbox?.autoSettle && result.payment.provider !== "offline_bank_transfer") {
+    scheduleSandboxOrderPaymentSettlement({
+      db: args.db,
+      brandId: args.brandId,
+      orderId: result.order.id,
+      paymentId: result.payment.id,
+      delayMs: args.sandbox.delayMs,
+      outcome: args.sandbox.outcome,
+    });
+  }
+
+  return result;
 }
 
 export async function reviewOrderPayment(args: {

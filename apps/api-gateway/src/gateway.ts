@@ -339,6 +339,13 @@ export const appRouter = router({
               installmentPlanCode: z.string().optional(),
             })
             .default({ provider: "offline_bank_transfer", paymentScenario: "full_payment", allowCreditCard: false }),
+          sandbox: z
+            .object({
+              autoSettle: z.boolean().default(false),
+              delayMs: z.number().int().min(1000).max(30000).optional(),
+              outcome: z.enum(["successful", "closed"]).default("successful"),
+            })
+            .optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -360,6 +367,7 @@ export const appRouter = router({
             allowCreditCard: input.payment.allowCreditCard,
             payerOpenId: input.payment.payerOpenId,
           },
+          sandbox: input.sandbox,
         });
 
         const paymentIntent =

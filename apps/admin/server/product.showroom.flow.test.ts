@@ -147,38 +147,13 @@ vi.mock("../../web-b2b/server/db", async () => {
 
 import { appRouter as adminAppRouter } from "./routers";
 import { appRouter as webB2BAppRouter } from "../../web-b2b/server/routers";
-import { ShowroomPage, type ShowroomProduct } from "../../web-b2b/src/App";
+import { ProductDetailPage, ShowroomPage, mapManagedProductToShowroom } from "../../web-b2b/src/App";
 
 function setLocation(pathname: string) {
   Object.defineProperty(globalThis, "location", {
     value: new URL(`https://example.com${pathname}`),
     configurable: true,
   });
-}
-
-function toShowroomProduct(record: (typeof sharedProducts)[number]): ShowroomProduct {
-  return {
-    id: record.slug,
-    code: record.code,
-    name: record.name,
-    subtitle: record.subtitle ?? "Atmospheric Purification / database synced object",
-    series: record.series ?? "AP",
-    price: record.price ?? 0,
-    size: "SHOWROOM ASSET",
-    layout: "full",
-    source: "database",
-    heroLine: record.description ?? `${record.name} 已通过后台录入并同步到零售展陈前台。`,
-    formulation: record.specs.map((item) => `${item.key} // ${item.value}`).join(" // "),
-    discipline: record.series === "FC" ? "Fabric Care Deluxe" : "Atmospheric Purification",
-    overview: record.description ?? "后台录入完成后，前台应立即可见。",
-    notes: record.specs.map((item) => `${item.key}：${item.value}`),
-    stats: record.specs.map((item, index) => ({ label: item.key, value: item.value, emphasis: index === 0 ? "primary" : "secondary" })),
-    accent: {
-      glow: "rgba(111, 142, 255, 0.34)",
-      metal: "linear-gradient(145deg, rgba(246,242,235,0.22), rgba(59,66,89,0.04) 42%, rgba(9,11,22,0.92) 78%)",
-      liquid: "linear-gradient(180deg, rgba(36,45,89,0.85), rgba(10,12,22,0.2))",
-    },
-  };
 }
 
 describe("Sprint 3 product create-then-render flow", () => {
@@ -213,7 +188,10 @@ describe("Sprint 3 product create-then-render flow", () => {
       unit: "件",
       specs: [
         { key: "除味率", value: "99.8%" },
-        { key: "验证批次", value: "SPRINT3" },
+        { key: "验证批次", value: "SPRINT4" },
+        { key: "__retail_taobao_url", value: "https://m.tb.cn/sandbox-flow" },
+        { key: "__retail_mini_program_path", value: "pages/retail/detail?sku=TEST-X01" },
+        { key: "__retail_wechat_qr_url", value: "https://cdn.example.com/test-x01-wechat-qr.png" },
       ],
     });
 
@@ -232,16 +210,26 @@ describe("Sprint 3 product create-then-render flow", () => {
     expect(detail.name).toBe("联通验证样品");
     expect(detail.specs[0]?.value).toBe("99.8%");
 
+    const showroomProduct = mapManagedProductToShowroom(detail as never, 0, "database");
+    expect(showroomProduct.externalAccess?.taobaoUrl).toBe("https://m.tb.cn/sandbox-flow");
+    expect(showroomProduct.externalAccess?.miniProgramPath).toBe("pages/retail/detail?sku=TEST-X01");
+    expect(showroomProduct.externalAccess?.wechatQrUrl).toBe("https://cdn.example.com/test-x01-wechat-qr.png");
+
     setLocation("/gallery");
     const html = renderToStaticMarkup(
       React.createElement(ShowroomPage, {
-        products: [toShowroomProduct(detail)],
+        products: [showroomProduct],
         sourceLabel: "DATABASE",
       }),
     );
+    const pdpHtml = renderToStaticMarkup(React.createElement(ProductDetailPage, { id: "test-x01", product: showroomProduct }));
     expect(html).toContain("联通验证样品");
     expect(html).toContain("TEST-X01");
     expect(html).toContain("DATABASE");
     expect(html).toContain("/object/test-x01");
+    expect(pdpHtml).toContain("https://m.tb.cn/sandbox-flow");
+    expect(pdpHtml).toContain("pages/retail/detail?sku=TEST-X01");
+    expect(pdpHtml).toContain("https://cdn.example.com/test-x01-wechat-qr.png");
+    expect(pdpHtml).toContain("EXTERNAL ACCESS / 外部入口");
   });
 });

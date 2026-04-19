@@ -82,7 +82,7 @@ describe("api-gateway retail REST endpoints", () => {
         items: [{ skuId: 19001, quantity: 1 }],
       }),
     });
-    const payload = await response.json();
+    const payload = (await response.json()) as any;
 
     expect(response.status).toBe(201);
     expect(createRestContextMock).toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("api-gateway retail REST endpoints", () => {
       },
       body: JSON.stringify({ brandId: 2 }),
     });
-    const payload = await response.json();
+    const payload = (await response.json()) as any;
 
     expect(response.status).toBe(500);
     expect(payload).toMatchObject({ ok: false, message: "零售订单创建失败。" });
@@ -126,11 +126,47 @@ describe("api-gateway retail REST endpoints", () => {
     });
 
     const response = await fetch(`${baseUrl}/api/orders/retail/RTL-20260419-001/status?brandId=2`);
-    const payload = await response.json();
+    const payload = (await response.json()) as any;
 
     expect(response.status).toBe(200);
     expect(getOrderDetailMock).toHaveBeenCalledWith({ orderNo: "RTL-20260419-001" });
     expect(payload.transactionState).toBe("pending");
     expect(payload.prompt).toBe("// WAITING FOR PAYMENT CONFIRMATION //");
+  });
+
+  it("returns successful transaction envelope for sandbox-settled orders", async () => {
+    getOrderDetailMock.mockResolvedValueOnce({
+      tenant: { brandId: 2, source: "header" },
+      summary: {
+        orderNo: "RTL-20260419-002",
+        status: "paid",
+        paymentStatus: "paid",
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/orders/retail/RTL-20260419-002/status?brandId=2`);
+    const payload = (await response.json()) as any;
+
+    expect(response.status).toBe(200);
+    expect(payload.transactionState).toBe("successful");
+    expect(payload.prompt).toBe("// TRANSACTION SUCCESSFUL //");
+  });
+
+  it("returns closed transaction envelope for cancelled retail orders", async () => {
+    getOrderDetailMock.mockResolvedValueOnce({
+      tenant: { brandId: 2, source: "header" },
+      summary: {
+        orderNo: "RTL-20260419-003",
+        status: "closed",
+        paymentStatus: "failed",
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/orders/retail/RTL-20260419-003/status?brandId=2`);
+    const payload = (await response.json()) as any;
+
+    expect(response.status).toBe(200);
+    expect(payload.transactionState).toBe("closed");
+    expect(payload.prompt).toBe("// TRANSACTION CLOSED //");
   });
 });

@@ -251,7 +251,7 @@ function normalizeStatLabel(label: string) {
   return label.replace(/_/g, " ");
 }
 
-function extractRetailAccessFromSpecs(specs: Array<{ key: string; value: string }>) {
+export function extractRetailAccessFromSpecs(specs: Array<{ key: string; value: string }>) {
   const externalAccess: NonNullable<ShowroomProduct["externalAccess"]> = {};
   const cleanSpecs = specs.filter((item) => {
     if (item.key === RETAIL_META_SPEC_KEYS.taobaoUrl) {
@@ -283,11 +283,11 @@ function extractRetailAccessFromSpecs(specs: Array<{ key: string; value: string 
   };
 }
 
-function buildQrUrl(payload: string) {
+export function buildQrUrl(payload: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(payload)}`;
 }
 
-function mapManagedProductToShowroom(product: ManagedProductQueryRecord, index: number, source: "database" | "fallback"): ShowroomProduct {
+export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, index: number, source: "database" | "fallback"): ShowroomProduct {
   const series = product.series ?? (product.code.startsWith("FC") ? "FC" : "AP");
   const extracted = extractRetailAccessFromSpecs(product.specs ?? []);
   const effectiveSpecs = extracted.cleanSpecs.length > 0 ? extracted.cleanSpecs : [{ key: "状态", value: product.status.toUpperCase() }];
@@ -929,6 +929,73 @@ function CartDock(props: {
   return <InteractiveCartDock cart={props.cart} checkoutLabel={props.checkoutLabel} />;
 }
 
+export const RETAIL_ORDER_POLL_INTERVAL_MS = 2000;
+export const TRANSACTION_SIGNAL_HEADLINE = "// TRANSACTION SUCCESSFUL //";
+
+export function getRetailOrderStatusRefetchInterval(query: { state: { data?: { terminal?: boolean } | undefined } }) {
+  return query.state.data?.terminal ? false : RETAIL_ORDER_POLL_INTERVAL_MS;
+}
+
+export function buildTransactionSignalBody(orderNo?: string | null) {
+  return orderNo
+    ? `配额已确认，等待星际物理投递。订单编号 ${orderNo} 已进入成功态。`
+    : "配额已确认，等待星际物理投递。";
+}
+
+export function TransactionSignalOverlay(props: {
+  open: boolean;
+  typedSignalBody: string;
+  orderNo?: string | null;
+  onAcknowledge: () => void;
+  onReturn: () => void;
+}) {
+  return (
+    <div
+      className={`fixed inset-0 z-[70] flex items-center justify-center px-6 transition duration-500 ${
+        props.open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+      }`}
+    >
+      <button
+        type="button"
+        aria-label="关闭交易成功提示"
+        onClick={props.onReturn}
+        className="absolute inset-0 bg-black/94"
+      />
+      <div className="relative w-full max-w-2xl overflow-hidden border border-[#2a2417] bg-[#030303] px-6 py-8 shadow-[0_0_80px_rgba(191,145,62,0.14)] md:px-10 md:py-12">
+        <div className="hairline-grid absolute inset-0 opacity-35" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#ba8a38] to-transparent" />
+        <div className="absolute left-0 top-0 h-full w-px bg-gradient-to-b from-[#ba8a38] via-transparent to-transparent opacity-80" />
+        <div className="relative">
+          <p className="micro-copy text-[#8f846f]">PAYMENT SIGNAL / SANDBOX LOOP CLOSED</p>
+          <div className="mt-5 h-px w-24 bg-[#ba8a38]" />
+          <p className="mt-6 font-zh-sans text-2xl font-semibold tracking-[0.2em] text-[#f4efe4] md:text-3xl">{TRANSACTION_SIGNAL_HEADLINE}</p>
+          <p className="mt-4 font-zh-serif text-sm leading-8 text-[#c8bea8] md:text-base">
+            {props.typedSignalBody}
+            <span className="ml-1 inline-block h-4 w-px animate-pulse bg-[#d2a658] align-middle" />
+          </p>
+          <p className="micro-copy mt-5 text-[#7e7466]">{props.orderNo ?? "SIGNAL-PENDING"}</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={props.onAcknowledge}
+              className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.28em]"
+            >
+              ACKNOWLEDGE SIGNAL
+            </button>
+            <button
+              type="button"
+              onClick={props.onReturn}
+              className="inline-flex h-12 items-center justify-center border border-[#302617] px-5 text-[11px] font-medium tracking-[0.28em] text-[#cdbb97] transition hover:border-[#ba8a38] hover:text-[#f4efe4]"
+            >
+              RETURN TO CART
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InteractiveCartDock(props: {
   cart: ReturnType<typeof useRetailCart>;
   checkoutLabel?: string;
@@ -936,6 +1003,9 @@ function InteractiveCartDock(props: {
   const [open, setOpen] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [activeOrder, setActiveOrder] = useState<{ orderId: number; orderNo: string } | null>(null);
+  const [transactionSignalOpen, setTransactionSignalOpen] = useState(false);
+  const [transactionSignalOrderNo, setTransactionSignalOrderNo] = useState<string | null>(null);
+  const [typedSignalBody, setTypedSignalBody] = useState("");
   const authQuery = trpc.auth.me.useQuery();
   const createRetailOrder = trpc.retail.createRetailOrder.useMutation({
     onSuccess(data) {
@@ -950,12 +1020,47 @@ function InteractiveCartDock(props: {
     activeOrder ? { brandId: 2, orderId: activeOrder.orderId } : { brandId: 2, orderId: 1 },
     {
       enabled: Boolean(activeOrder),
-      refetchInterval: (query) => (query.state.data?.terminal ? false : 2500),
+      refetchInterval: getRetailOrderStatusRefetchInterval,
     },
   );
   const canSubmitRetailOrder =
     props.cart.items.length > 0 &&
     props.cart.items.every((item) => typeof item.backendProductId === "number" && typeof item.backendSkuId === "number");
+  const transactionSignalBody = useMemo(() => buildTransactionSignalBody(transactionSignalOrderNo), [transactionSignalOrderNo]);
+
+  useEffect(() => {
+    if (retailOrderStatus.data?.transactionState !== "successful") {
+      return;
+    }
+
+    const orderNo = retailOrderStatus.data.summary.orderNo;
+    if (orderNo === transactionSignalOrderNo) {
+      return;
+    }
+
+    setTransactionSignalOrderNo(orderNo);
+    setTransactionSignalOpen(true);
+    props.cart.clear();
+  }, [props.cart, retailOrderStatus.data?.summary.orderNo, retailOrderStatus.data?.transactionState, transactionSignalOrderNo]);
+
+  useEffect(() => {
+    if (!transactionSignalOpen) {
+      setTypedSignalBody("");
+      return;
+    }
+
+    setTypedSignalBody("");
+    let cursor = 0;
+    const timer = window.setInterval(() => {
+      cursor += 1;
+      setTypedSignalBody(transactionSignalBody.slice(0, cursor));
+      if (cursor >= transactionSignalBody.length) {
+        window.clearInterval(timer);
+      }
+    }, 32);
+
+    return () => window.clearInterval(timer);
+  }, [transactionSignalBody, transactionSignalOpen]);
 
   const handleRetailCheckout = () => {
     if (!authQuery.data) {
@@ -1059,8 +1164,8 @@ function InteractiveCartDock(props: {
                         <p className="mt-4 font-zh-serif text-sm leading-8 text-[#c38c8c]">{checkoutError}</p>
                       ) : retailOrderStatus.data?.transactionState === "successful" ? (
                         <>
-                          <p className="mt-4 font-zh-sans text-xl font-semibold tracking-[0.18em] text-[#f3efe6]">// TRANSACTION SUCCESSFUL //</p>
-                          <p className="mt-3 font-zh-serif text-sm leading-8 text-[#a89f94]">订单 {retailOrderStatus.data.summary.orderNo} 已完成支付确认，前台轮询链路已捕获成功状态。</p>
+                          <p className="mt-4 font-zh-sans text-xl font-semibold tracking-[0.18em] text-[#f3efe6]">{TRANSACTION_SIGNAL_HEADLINE}</p>
+                          <p className="mt-3 font-zh-serif text-sm leading-8 text-[#a89f94]">订单 {retailOrderStatus.data.summary.orderNo} 已完成支付确认，前端每 2 秒轮询链路已捕获成功状态并触发交易信号。</p>
                         </>
                       ) : (
                         <>
@@ -1101,6 +1206,17 @@ function InteractiveCartDock(props: {
           </div>
         </aside>
       </div>
+
+      <TransactionSignalOverlay
+        open={transactionSignalOpen}
+        typedSignalBody={typedSignalBody}
+        orderNo={retailOrderStatus.data?.summary.orderNo ?? transactionSignalOrderNo ?? activeOrder?.orderNo}
+        onAcknowledge={() => {
+          setTransactionSignalOpen(false);
+          setOpen(false);
+        }}
+        onReturn={() => setTransactionSignalOpen(false)}
+      />
     </>
   );
 }

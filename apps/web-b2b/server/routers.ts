@@ -321,18 +321,24 @@ const retailRouter = router({
   }),
   createRetailOrder: protectedProcedure.input(retailCreateOrderSchema).mutation(async ({ ctx, input }) => {
     const db = requireDb(await getDb());
-    const created = await createOrder({
-      db,
-      brandId: input.brandId,
-      userId: ctx.user.id,
-      customerType: "b2c",
-      note: input.note ?? null,
-      items: input.items,
-      payment: {
-        provider: mapRetailGatewayToProvider(input.gateway),
-        paymentScenario: "full_payment",
-      },
-    });
+      const created = await createOrder({
+        db,
+        brandId: input.brandId,
+        userId: ctx.user.id,
+        customerType: "b2c",
+        note: input.note ?? null,
+        items: input.items,
+        payment: {
+          provider: mapRetailGatewayToProvider(input.gateway),
+          paymentScenario: "full_payment",
+        },
+        sandbox: {
+          autoSettle: true,
+          delayMs: 6_000,
+          outcome: "successful",
+        },
+      });
+
 
     const gateway = await createPaymentOrder({
       gateway: input.gateway,
@@ -360,7 +366,8 @@ const retailRouter = router({
       paymentPolling: {
         orderId: created.order.id,
         orderNo: created.order.orderNo,
-        recommendedIntervalMs: 2500,
+        recommendedIntervalMs: 2000,
+        sandboxExpectedSettlementMs: 6000,
       },
     };
   }),

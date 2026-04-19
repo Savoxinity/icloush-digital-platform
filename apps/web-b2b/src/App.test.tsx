@@ -3,11 +3,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildTransactionSignalBody,
   COMPLIANCE_MESSAGE,
+  getRetailOrderStatusRefetchInterval,
   MonolithicHeroPage,
   ProductDetailPage,
   ShowroomPage,
   SHOWROOM_PRODUCTS,
+  TransactionSignalOverlay,
+  TRANSACTION_SIGNAL_HEADLINE,
   getShowroomProductById,
 } from "./App";
 
@@ -116,5 +120,30 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(COMPLIANCE_MESSAGE).toContain("交易通道（WeChat / Alipay）合规接入中");
     expect(getShowroomProductById("fc-le")?.code).toBe("FC-LE");
     expect(SHOWROOM_PRODUCTS).toHaveLength(4);
+  });
+
+  it("提供 2 秒轮询 helper，并在终态时停止轮询", () => {
+    expect(getRetailOrderStatusRefetchInterval({ state: { data: undefined } })).toBe(2000);
+    expect(getRetailOrderStatusRefetchInterval({ state: { data: { terminal: false } } })).toBe(2000);
+    expect(getRetailOrderStatusRefetchInterval({ state: { data: { terminal: true } } })).toBe(false);
+  });
+
+  it("渲染交易成功弹层与科幻式回执文案", () => {
+    const html = renderToStaticMarkup(
+      <TransactionSignalOverlay
+        open
+        typedSignalBody={buildTransactionSignalBody("RTL-20260419-002")}
+        orderNo="RTL-20260419-002"
+        onAcknowledge={() => undefined}
+        onReturn={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("PAYMENT SIGNAL / SANDBOX LOOP CLOSED");
+    expect(html).toContain(TRANSACTION_SIGNAL_HEADLINE);
+    expect(html).toContain("RTL-20260419-002");
+    expect(html).toContain("配额已确认，等待星际物理投递");
+    expect(html).toContain("ACKNOWLEDGE SIGNAL");
+    expect(html).toContain("RETURN TO CART");
   });
 });

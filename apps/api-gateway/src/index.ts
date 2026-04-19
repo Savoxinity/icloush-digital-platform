@@ -37,6 +37,11 @@ app.post("/api/orders/retail", async (req, res) => {
         payerOpenId: typeof req.body?.payerOpenId === "string" ? req.body.payerOpenId : undefined,
         allowCreditCard: false,
       },
+      sandbox: {
+        autoSettle: true,
+        delayMs: 6000,
+        outcome: "successful",
+      },
     });
 
     res.status(201).json({

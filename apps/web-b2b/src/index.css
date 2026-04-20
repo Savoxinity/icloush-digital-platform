@@ -9,7 +9,7 @@
   --line: #181818;
   --line-strong: #303030;
   --muted: #7f7f7f;
-  --accent: #9c7a31;
+  --accent: #f3efe6;
   --danger: #7a232a;
 }
 
@@ -110,8 +110,8 @@ select {
     background-image:
       linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-      radial-gradient(circle at 65% 28%, rgba(156, 122, 49, 0.18), transparent 20%),
-      radial-gradient(circle at 24% 72%, rgba(255, 255, 255, 0.05), transparent 26%);
+      radial-gradient(circle at 65% 28%, rgba(255, 255, 255, 0.08), transparent 20%),
+      radial-gradient(circle at 24% 72%, rgba(255, 255, 255, 0.04), transparent 26%);
     background-size: 90px 90px, 90px 90px, 100% 100%, 100% 100%;
     pointer-events: none;
   }
@@ -137,14 +137,12 @@ select {
     overflow: hidden;
     border: 1px solid var(--line);
     background: var(--panel);
-    clip-path: polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 1.5rem 100%, 0 calc(100% - 1.5rem));
   }
 
   .monolith-button {
     border: 1px solid var(--foreground);
     background: transparent;
     color: var(--foreground);
-    clip-path: polygon(0 0, calc(100% - 1rem) 0, 100% 1rem, 100% 100%, 1rem 100%, 0 calc(100% - 1rem));
   }
 
   .monolith-button:hover,
@@ -284,7 +282,6 @@ select {
     position: relative;
     border: 1px solid #1f1f1f;
     background: #030303;
-    clip-path: polygon(0 0, calc(100% - 1.25rem) 0, 100% 1.25rem, 100% 100%, 1.25rem 100%, 0 calc(100% - 1.25rem));
   }
 
   .channel-frame::before {

@@ -38,15 +38,19 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).not.toContain("购物袋");
   });
 
-  it("渲染名录式卖场首页，包含对象目录、悬停预览语义与购物袋入口", () => {
+  it("渲染名录式卖场首页，包含对象目录、系列筛选、悬停微距预览与购物袋入口", () => {
     setLocation("/showroom");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
     expect(html).toContain("Object Index / Silent Catalogue");
     expect(html).toContain("Objects");
+    expect(html).toContain("All Objects");
+    expect(html).toContain("Atmospheric Purification");
+    expect(html).toContain("Fabric Care");
     expect(html).toContain("VOID-B03 / 大气重组基质");
     expect(html).toContain("FC-LE / 织物精华乳");
-    expect(html).toContain("Preview");
+    expect(html).toContain("Hover Focus");
+    expect(html).toContain("Macro Preview");
     expect(html).toContain("View object");
     expect(html).toContain("Add to bag");
     expect(html).toContain("RETAIL CART");
@@ -65,24 +69,25 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).not.toContain("shadow-");
   });
 
-  it("渲染中文单品档案、实验数据面板、外部入口桥接层与升级后的 fallback 通讯频道", () => {
+  it("渲染中文单品档案、静奢参数索引、外部入口桥接层与升级后的私域通讯频道", () => {
     setLocation("/object/void-b03");
     const showroomHtml = renderToStaticMarkup(<ShowroomPage />);
     const detailHtml = renderToStaticMarkup(<ProductDetailPage id="void-b03" />);
 
     expect(detailHtml).toContain("实验数据面板");
     expect(detailHtml).toContain("成分解构");
-    expect(detailHtml).toContain("REQUEST ALLOCATION / 申请配额");
-    expect(detailHtml).toContain("ADD TO CART / 加入购物袋");
+    expect(detailHtml).toContain("Request allocation / 申请配额");
+    expect(detailHtml).toContain("Add to bag / 加入购物袋");
     expect(detailHtml).toContain("EXTERNAL ACCESS / 外部入口");
     expect(detailHtml).toContain("TAOBAO / TMALL / MINI PROGRAM");
     expect(detailHtml).toContain("SKU OPTION");
-    expect(detailHtml).toContain("返回数字展柜");
+    expect(detailHtml).toContain("Back");
+    expect(detailHtml).toContain("Archive Source");
+    expect(detailHtml).toContain("Quiet Spec");
     expect(detailHtml).toContain("硫化氢解构率");
     expect(detailHtml).toContain("企业微信顾问");
     expect(detailHtml).toContain("小程序节点预留");
-    expect(detailHtml).toContain("channel-frame");
-    expect(detailHtml).toContain("clip-path:polygon(");
+    expect(detailHtml).toContain("Private Access");
     expect(showroomHtml).not.toContain("rounded-full");
     expect(showroomHtml).not.toContain("backdrop-blur");
     expect(showroomHtml).not.toContain("shadow-");

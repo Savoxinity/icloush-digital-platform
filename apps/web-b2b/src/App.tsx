@@ -87,8 +87,8 @@ const SERIES_LABELS: Record<ProductSeries, string> = {
 };
 
 const SIGNAL_COLOR: Record<ProductSeries, string> = {
-  AP: "#9c7a31",
-  FC: "#7a232a",
+  AP: "#f3efe6",
+  FC: "#8c8c8c",
 };
 
 export const COMPLIANCE_MESSAGE =
@@ -715,7 +715,6 @@ function LabVaultMenu({ open, onClose }: { open: boolean; onClose: () => void })
 export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) {
   const [depthShift, setDepthShift] = useState({ x: 0, y: 0 });
   const [menuOpen, setMenuOpen] = useState(false);
-  const signal = getProductSignalColor(featured);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -757,15 +756,14 @@ export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) 
     };
   }, [menuOpen]);
 
-  const objectTransform = `translate3d(${(depthShift.x * 14).toFixed(1)}px, ${(depthShift.y * 10).toFixed(1)}px, 0)`;
-  const mistTransform = `translate3d(${(depthShift.x * -10).toFixed(1)}px, ${(depthShift.y * -8).toFixed(1)}px, 0)`;
+  const mediaTransform = `translate3d(${(depthShift.x * 16).toFixed(1)}px, ${(depthShift.y * 12).toFixed(1)}px, 0)`;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#000000] text-[#f3efe6]">
       <LabVaultMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
       <section className="relative isolate min-h-screen border-b border-[#0c0c0c] bg-[#000000]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.08),transparent_16%),radial-gradient(circle_at_50%_58%,rgba(255,255,255,0.04),transparent_28%),linear-gradient(180deg,#020202_0%,#000000_48%,#020202_100%)]" />
-        <div className="noise-layer absolute inset-0 opacity-20" />
+        <div className="absolute inset-0 bg-[#000000]" />
+        <div className="noise-layer absolute inset-0 opacity-15" />
         <div className="absolute inset-x-0 top-0 h-px bg-[#111111]" />
         <div className="absolute inset-y-0 left-[8%] hidden w-px bg-[#0f0f0f] md:block" />
         <div className="absolute inset-y-0 right-[8%] hidden w-px bg-[#0f0f0f] md:block" />
@@ -776,7 +774,7 @@ export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) 
               <button type="button" aria-label="打开菜单" onClick={() => setMenuOpen(true)} className="group inline-flex items-center gap-4 text-left">
                 <span className="flex flex-col gap-[6px]" aria-hidden="true">
                   <span className="block h-px w-7 bg-[#f3efe6] transition group-hover:w-9" />
-                  <span className="block h-px w-5 bg-[#8d857a] transition group-hover:w-7 group-hover:bg-[#f3efe6]" />
+                  <span className="block h-px w-5 bg-[#5f5f5f] transition group-hover:w-7 group-hover:bg-[#f3efe6]" />
                   <span className="block h-px w-7 bg-[#f3efe6] transition group-hover:w-9" />
                 </span>
               </button>
@@ -795,45 +793,46 @@ export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) 
           </header>
 
           <div className="relative flex flex-1 items-center justify-center py-10 md:py-12">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative h-full w-full overflow-hidden border border-[#0d0d0d] bg-[#020202]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.78))]" />
-                <div className="absolute inset-0 opacity-60" style={{ transform: mistTransform }}>
-                  <div
-                    className="absolute left-1/2 top-[14%] h-[58%] w-[34%] -translate-x-1/2 border border-[#121212] bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.16),rgba(255,255,255,0.02)_34%,transparent_58%),linear-gradient(180deg,#050505_0%,#000000_100%)]"
-                    style={{ clipPath: "polygon(18% 0, 82% 0, 100% 12%, 100% 100%, 0 100%, 0 12%)" }}
-                  />
-                  <div className="absolute left-1/2 top-[8%] h-[12%] w-[12%] -translate-x-1/2 border border-[#121212] bg-[#050505]" />
+            <div className="absolute inset-0 overflow-hidden border border-[#0d0d0d] bg-[#010101]">
+              <div className="absolute inset-0" style={{ transform: mediaTransform }}>
+                {featured.imageUrl ? (
+                  <img src={featured.imageUrl} alt={featured.name} className="h-full w-full scale-[1.03] object-cover grayscale contrast-[1.18] brightness-[0.58] opacity-70" />
+                ) : (
+                  <div className="h-full w-full bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.12),transparent_18%),linear-gradient(180deg,#050505_0%,#000000_100%)]" />
+                )}
+              </div>
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.28)_32%,rgba(0,0,0,0.22)_68%,rgba(0,0,0,0.9)_100%),linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.78))]" />
+              <div className="absolute inset-x-0 top-0 h-[28%] bg-[linear-gradient(180deg,rgba(0,0,0,0.74),transparent)]" />
+              <div className="absolute left-6 top-6 flex items-center gap-4 text-[#8b847a] md:left-8 md:top-8">
+                <span className="font-mono text-[10px] uppercase tracking-[0.46em]">4K Still</span>
+                <span className="h-px w-12 bg-[#2a2a2a]" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.46em]">Motion Ready</span>
+              </div>
+              <div className="absolute bottom-6 left-6 right-6 flex flex-col gap-4 text-[#b8b1a7] md:bottom-8 md:left-8 md:right-8 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6a6a6a]">Featured Object</p>
+                  <p className="mt-3 font-zh-sans text-sm uppercase tracking-[0.24em] text-[#f3efe6]">{featured.code}</p>
                 </div>
-                <div className="absolute inset-0" style={{ transform: objectTransform }}>
-                  {featured.imageUrl ? <img src={featured.imageUrl} alt={featured.name} className="h-full w-full object-cover opacity-60 grayscale contrast-125" /> : null}
+                <div className="max-w-md text-left md:text-right">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6a6a6a]">Silent Pressure</p>
+                  <p className="mt-3 font-zh-serif text-sm leading-8 text-[#9b9388]">{featured.heroLine}</p>
                 </div>
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.68),transparent_32%,transparent_68%,rgba(0,0,0,0.68)),linear-gradient(180deg,rgba(0,0,0,0.2),rgba(0,0,0,0.68))]" />
               </div>
             </div>
 
-            <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
+            <div className="relative z-10 flex w-full flex-col items-center justify-center px-6 text-center">
               <p className="font-mono text-[10px] uppercase tracking-[0.72em] text-[#8f877b]">3026 Orbital Jeweler</p>
-              <h1 className="mt-8 max-w-5xl font-zh-sans text-[2.5rem] font-light uppercase tracking-[0.28em] text-[#f3efe6] md:text-[4.8rem] md:tracking-[0.38em] xl:text-[6rem]">ICLOUSH LAB.</h1>
-              <p className="mt-6 max-w-xl font-mono text-[10px] uppercase tracking-[0.5em] text-[#b2aa9f]">{featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}</p>
-              <div className="mt-8 h-px w-24" style={{ backgroundColor: signal }} />
-              <p className="mt-10 max-w-2xl font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
-                安静，但具有压迫力。像一部科幻电影片头一样，只在画面中央切入一行标题，让对象、材质、黑场和留白代替所有喧闹界面。
+              <h1 className="mt-8 max-w-5xl font-zh-sans text-[2.5rem] font-light uppercase tracking-[0.32em] text-[#f3efe6] md:text-[4.8rem] md:tracking-[0.42em] xl:text-[6rem]">ICLOUSH LAB.</h1>
+              <p className="mt-8 max-w-2xl font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
+                首页被收敛为一块可承载高清大图或短片的静默黑场。标题像电影片名一样悬停在画面中央，其他信息全部退到边缘，让留白、材质与压迫感先于说明发生。
               </p>
-              <div className="mt-12">
-                <CutlineArrow />
+              <div className="mt-10 flex items-center gap-4 text-[#f3efe6]">
+                <span className="h-px w-16 bg-[#f3efe6]" />
+                <Link href="/showroom" className="font-mono text-[10px] uppercase tracking-[0.56em] text-[#f3efe6] transition hover:text-[#b8b1a7]">
+                  Enter showroom
+                </Link>
               </div>
-            </div>
-
-            <div className="absolute bottom-8 left-0 right-0 z-10 hidden items-end justify-between md:flex">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#646464]">Featured Object</p>
-                <p className="mt-3 font-zh-sans text-sm uppercase tracking-[0.24em] text-[#f3efe6]">{featured.code}</p>
-              </div>
-              <div className="max-w-sm text-right">
-                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#646464]">Silent Pressure</p>
-                <p className="mt-3 font-zh-serif text-sm leading-8 text-[#8f877b]">{featured.heroLine}</p>
-              </div>
+              <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.5em] text-[#7f7f7f]">{featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}</p>
             </div>
           </div>
         </div>
@@ -907,7 +906,7 @@ function ExternalAccessPanel({ product }: { product: ShowroomProduct }) {
                 <p className="micro-copy text-[#7f7f7f]">{channel.key.replace("_", " ")}</p>
                 <h4 className="mt-3 font-zh-sans text-lg font-semibold tracking-[0.16em] text-[#f3efe6]">{channel.label}</h4>
               </div>
-              <QrCode className="h-5 w-5 text-[#9c7a31]" />
+              <QrCode className="h-5 w-5 text-[#5f5f5f]" />
             </div>
             <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">{channel.description}</p>
             <div className="qr-placeholder mt-6 overflow-hidden" aria-label={`${channel.label} 二维码占位`}>
@@ -1299,17 +1298,30 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
   const products = props?.products ?? SHOWROOM_PRODUCTS;
   const sourceLabel = props?.sourceLabel ?? (products.every((product) => product.source === "database") ? "数据库" : "原型档案");
   const cart = useRetailCart();
-  const [hoveredProductId, setHoveredProductId] = useState(products[0]?.id ?? SHOWROOM_PRODUCTS[0]?.id ?? "");
+  const [activeSeries, setActiveSeries] = useState<ProductSeries | "all">("all");
+  const filteredProducts = useMemo(() => {
+    if (activeSeries === "all") {
+      return products;
+    }
+    return products.filter((product) => product.series === activeSeries);
+  }, [activeSeries, products]);
+  const [hoveredProductId, setHoveredProductId] = useState(filteredProducts[0]?.id ?? products[0]?.id ?? SHOWROOM_PRODUCTS[0]?.id ?? "");
+  const [previewShift, setPreviewShift] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    if (!products.some((product) => product.id === hoveredProductId)) {
-      setHoveredProductId(products[0]?.id ?? SHOWROOM_PRODUCTS[0]?.id ?? "");
+    if (!filteredProducts.some((product) => product.id === hoveredProductId)) {
+      setHoveredProductId(filteredProducts[0]?.id ?? products[0]?.id ?? SHOWROOM_PRODUCTS[0]?.id ?? "");
     }
-  }, [hoveredProductId, products]);
+  }, [filteredProducts, hoveredProductId, products]);
 
-  const featured = products.find((product) => product.id === hoveredProductId) ?? products[0] ?? SHOWROOM_PRODUCTS[0];
+  const featured = filteredProducts.find((product) => product.id === hoveredProductId) ?? filteredProducts[0] ?? products[0] ?? SHOWROOM_PRODUCTS[0];
   const featuredSku = getRetailSkuOptions(featured)[0];
-  const featuredSignal = getProductSignalColor(featured);
+  const previewTransform = `translate3d(${(previewShift.x * 18).toFixed(1)}px, ${(previewShift.y * 14).toFixed(1)}px, 0)`;
+  const seriesFilters = [
+    { key: "all" as const, label: "All Objects", meta: `${products.length}` },
+    { key: "AP" as const, label: "Atmospheric Purification", meta: `${products.filter((product) => product.series === "AP").length}` },
+    { key: "FC" as const, label: "Fabric Care", meta: `${products.filter((product) => product.series === "FC").length}` },
+  ];
 
   return (
     <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
@@ -1332,15 +1344,36 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
             </div>
           </header>
 
-          <div className="grid gap-10 py-10 lg:grid-cols-[0.7fr_1.3fr] lg:gap-16 lg:py-14">
+          <div className="grid gap-10 py-10 lg:grid-cols-[0.74fr_1.26fr] lg:gap-16 lg:py-14">
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7f7f7f]">Object Index / Silent Catalogue</p>
               <h1 className="mt-6 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f3efe6] md:text-[3.4rem]">Objects</h1>
               <p className="mt-8 max-w-md font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
-                卖场不再做成卡片货架，而是一份被严格编辑过的名录。对象作为条目出现，图像只有在悬停或聚焦时才显现，像服装与香水品牌的目录而不是热闹电商列表。
+                卖场像一份被严格编辑过的名录。对象作为条目出现，图像只在悬停与聚焦时放大显现，目录与预览之间形成安静但直接的支配关系。
               </p>
-              <div className="mt-10 border-t border-[#111111]">
-                {products.map((product, index) => {
+
+              <div className="mt-10 border-y border-[#111111] py-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {seriesFilters.map((filter) => {
+                    const active = activeSeries === filter.key;
+                    return (
+                      <button
+                        key={filter.key}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setActiveSeries(filter.key)}
+                        className={`border px-4 py-4 text-left transition ${active ? "border-[#f3efe6] bg-[#050505] text-[#f3efe6]" : "border-[#161616] bg-[#020202] text-[#8c857b] hover:border-[#303030] hover:text-[#f3efe6]"}`}
+                      >
+                        <p className="font-mono text-[10px] uppercase tracking-[0.42em]">{filter.meta}</p>
+                        <p className="mt-3 font-zh-sans text-sm uppercase tracking-[0.14em] md:text-base">{filter.label}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="mt-6 border-t border-[#111111]">
+                {filteredProducts.map((product, index) => {
                   const active = featured.id === product.id;
                   const primarySku = getRetailSkuOptions(product)[0];
 
@@ -1351,7 +1384,7 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                       onFocus={() => setHoveredProductId(product.id)}
                       className="group border-b border-[#111111]"
                     >
-                      <div className="grid gap-4 py-5 md:grid-cols-[84px_1fr_auto] md:items-end">
+                      <div className="grid gap-4 py-5 md:grid-cols-[72px_1fr_auto] md:items-end">
                         <p className={`font-mono text-[10px] uppercase tracking-[0.44em] ${active ? "text-[#f3efe6]" : "text-[#5f5f5f]"}`}>
                           {String(index + 1).padStart(2, "0")}
                         </p>
@@ -1359,7 +1392,10 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                           <p className={`font-zh-sans text-lg uppercase tracking-[0.18em] md:text-[1.6rem] ${active ? "text-[#f3efe6]" : "text-[#c2bbb0] group-hover:text-[#f3efe6]"}`}>
                             {product.code} / {product.name}
                           </p>
-                          <p className="mt-2 font-zh-serif text-sm leading-7 text-[#8f877b]">{product.subtitle}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <p className="font-zh-serif text-sm leading-7 text-[#8f877b]">{product.subtitle}</p>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#5f5f5f]">{product.series}</span>
+                          </div>
                         </div>
                         <div className="flex flex-col items-start gap-3 md:items-end">
                           <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6b6b6b]">{formatCurrency(product.price)}</p>
@@ -1396,17 +1432,31 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
 
             <div className="lg:sticky lg:top-8 lg:self-start">
               <div className="border border-[#111111] bg-[#020202]">
-                <div className="relative aspect-[4/5] overflow-hidden border-b border-[#111111] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_22%),linear-gradient(180deg,#040404_0%,#000000_100%)]">
-                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.7),transparent_30%,transparent_70%,rgba(0,0,0,0.7))]" />
-                  {featured.imageUrl ? (
-                    <img src={featured.imageUrl} alt={featured.name} className="absolute inset-0 h-full w-full object-cover grayscale contrast-125 opacity-70" />
-                  ) : (
-                    <>
-                      <div className="absolute left-1/2 top-[15%] h-[60%] w-[34%] -translate-x-1/2 border border-[#151515] bg-[radial-gradient(circle_at_50%_25%,rgba(255,255,255,0.12),rgba(255,255,255,0.02)_38%,transparent_62%),linear-gradient(180deg,#050505_0%,#010101_100%)]" style={{ clipPath: "polygon(18% 0, 82% 0, 100% 12%, 100% 100%, 0 100%, 0 12%)" }} />
-                      <div className="absolute left-1/2 top-[9%] h-[10%] w-[12%] -translate-x-1/2 border border-[#151515] bg-[#040404]" />
-                    </>
-                  )}
-                  <div className="absolute bottom-8 left-8 right-8">
+                <div
+                  className="relative aspect-[4/5] overflow-hidden border-b border-[#111111] bg-[linear-gradient(180deg,#040404_0%,#000000_100%)]"
+                  onMouseMove={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    setPreviewShift({
+                      x: (event.clientX - rect.left) / rect.width - 0.5,
+                      y: (event.clientY - rect.top) / rect.height - 0.5,
+                    });
+                  }}
+                  onMouseLeave={() => setPreviewShift({ x: 0, y: 0 })}
+                >
+                  <div className="absolute inset-0" style={{ transform: previewTransform }}>
+                    {featured.imageUrl ? (
+                      <img src={featured.imageUrl} alt={featured.name} className="absolute inset-0 h-full w-full scale-[1.06] object-cover grayscale contrast-[1.18] brightness-[0.62]" />
+                    ) : (
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.12),transparent_18%),linear-gradient(180deg,#050505_0%,#000000_100%)]" />
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.82),transparent_34%,transparent_66%,rgba(0,0,0,0.84)),linear-gradient(180deg,rgba(0,0,0,0.14),rgba(0,0,0,0.76))]" />
+                  <div className="absolute left-6 top-6 flex items-center gap-3 text-[#7f7f7f] md:left-8 md:top-8">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.42em]">Hover Focus</span>
+                    <span className="h-px w-10 bg-[#222222]" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.42em]">Macro Preview</span>
+                  </div>
+                  <div className="absolute bottom-6 left-6 right-6 md:bottom-8 md:left-8 md:right-8">
                     <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Preview</p>
                     <p className="mt-3 font-zh-sans text-[1.6rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[2.2rem]">{featured.code}</p>
                   </div>
@@ -1414,9 +1464,7 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
 
                 <div className="grid gap-6 p-6 md:p-8">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.42em]" style={{ color: featuredSignal }}>
-                      {featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}
-                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">{featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}</p>
                     <h2 className="mt-4 max-w-[12ch] font-zh-sans text-[2rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[2.8rem]">
                       {featured.name}
                     </h2>
@@ -1473,8 +1521,8 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                 <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Conversion Discipline</p>
                 <p className="mt-5 font-zh-serif text-sm leading-8 text-[#8f877b]">
                   {props?.isSyncing
-                    ? "真实商品池正在同步，目录结构保持不变，只更新对象与 SKU 数据。"
-                    : "卖场负责把对象与欲望压缩成最少的字句，真正的技术解释、外部桥接与申请动作交给对象详情页继续承接。"}
+                    ? "真实商品池正在同步，名录结构保持不变，只更新对象与 SKU 数据。"
+                    : "目录负责把对象与欲望压缩成最少的字句，技术解释、外部桥接与申请动作则交由对象详情页继续承接。"}
                 </p>
               </div>
             </div>
@@ -1488,47 +1536,36 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
   );
 }
 
-function DataPanelRow({ label, value, signal }: { label: string; value: string; signal: string }) {
+function DataPanelRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="monolith-panel px-4 py-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="micro-copy text-[#6f6f6f]">{label}</p>
-          <p className="mt-4 font-zh-sans text-[2rem] font-semibold leading-none tracking-[0.14em] text-[#f3efe6]">{value}</p>
-        </div>
-        <div className="micro-copy mt-1" style={{ color: signal }}>
-          +
-        </div>
-      </div>
+    <div className="border border-[#161616] bg-[#020202] px-4 py-5">
+      <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">{label}</p>
+      <p className="mt-4 font-zh-sans text-[1.8rem] font-light leading-none tracking-[0.12em] text-[#f3efe6]">{value}</p>
     </div>
   );
 }
 
 function AllocationDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <div className={`fixed inset-0 z-50 ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
-      <button type="button" aria-label="关闭提示" onClick={onClose} className="absolute inset-0 bg-black/92" />
-      <div
-        className="absolute inset-x-4 bottom-4 mx-auto max-w-3xl border border-[#1f1f1f] bg-[#020202] p-6 md:bottom-8 md:p-8"
-        style={{ clipPath: "polygon(0 0, calc(100% - 2rem) 0, 100% 2rem, 100% 100%, 2rem 100%, 0 calc(100% - 2rem))" }}
-      >
-        <div className="hairline-grid absolute inset-0 opacity-45" />
+    <div className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+      <button type="button" aria-label="关闭提示" onClick={onClose} className="absolute inset-0 bg-black/94" />
+      <div className="absolute inset-x-4 bottom-4 mx-auto max-w-3xl border border-[#1a1a1a] bg-[#020202] p-6 md:bottom-8 md:p-8">
         <div className="relative">
-          <p className="micro-copy text-[#7f7f7f]">SYSTEM GATE</p>
-          <h3 className="display-subtitle mt-4 text-[#f3efe6]">申请配额</h3>
+          <p className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#7f7f7f]">Private Access</p>
+          <h3 className="mt-4 font-zh-sans text-[2rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[2.6rem]">申请配额</h3>
           <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">{COMPLIANCE_MESSAGE}</p>
-          <div className="mt-7 grid gap-4 md:grid-cols-2">
-            <div className="channel-frame p-5">
-              <p className="micro-copy text-[#7f7f7f]">备用通讯频道 A</p>
-              <h4 className="mt-4 font-zh-sans text-xl font-semibold tracking-[0.16em] text-[#f3efe6]">企业微信顾问</h4>
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <div className="border border-[#161616] bg-[#030303] p-5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Consultation Channel</p>
+              <h4 className="mt-4 font-zh-sans text-xl font-light uppercase tracking-[0.16em] text-[#f3efe6]">企业微信顾问</h4>
               <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">顾问式讲解、成分细聊、门店零售训练与高净值客户私域转化，将优先通过该频道承接。</p>
               <div className="qr-placeholder mt-6" aria-label="企业微信二维码占位">
                 <span className="micro-copy text-[#7f7f7f]">Q R / PLACEHOLDER</span>
               </div>
             </div>
-            <div className="channel-frame p-5">
-              <p className="micro-copy text-[#7f7f7f]">备用通讯频道 B</p>
-              <h4 className="mt-4 font-zh-sans text-xl font-semibold tracking-[0.16em] text-[#f3efe6]">小程序节点预留</h4>
+            <div className="border border-[#161616] bg-[#030303] p-5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Program Node</p>
+              <h4 className="mt-4 font-zh-sans text-xl font-light uppercase tracking-[0.16em] text-[#f3efe6]">小程序节点预留</h4>
               <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">一旦备案与支付钥匙就位，当前节点将切换为私域商城跳转，直接缩短购买决策路径与复购路径。</p>
               <div className="qr-placeholder mt-6" aria-label="小程序二维码占位">
                 <span className="micro-copy text-[#7f7f7f]">MINI PROGRAM / RESERVED</span>
@@ -1551,18 +1588,24 @@ function AllocationDialog({ open, onClose }: { open: boolean; onClose: () => voi
 }
 
 export function ProductDetailPage(props: { id: string; product?: ShowroomProduct | null; sourceLabel?: string; interactiveCart?: boolean }) {
-  const product = props.product ?? getShowroomProductById(props.id);
+  const resolvedProduct = props.product ?? getShowroomProductById(props.id);
+  const product = resolvedProduct ?? SHOWROOM_PRODUCTS[0];
   const [dialogOpen, setDialogOpen] = useState(false);
   const cart = useRetailCart();
-
-  if (!product) {
-    return <NotFoundPage />;
-  }
-
-  const signal = getProductSignalColor(product);
   const archiveSource = SOURCE_LABELS[(props.sourceLabel?.toLowerCase() as ShowroomProduct["source"]) ?? product.source] ?? props.sourceLabel ?? SOURCE_LABELS[product.source];
   const skuOptions = getRetailSkuOptions(product);
   const [selectedSkuId, setSelectedSkuId] = useState(skuOptions[0]?.id ?? "");
+
+  useEffect(() => {
+    if (!skuOptions.some((item) => item.id === selectedSkuId)) {
+      setSelectedSkuId(skuOptions[0]?.id ?? "");
+    }
+  }, [selectedSkuId, skuOptions]);
+
+  if (!resolvedProduct) {
+    return <NotFoundPage />;
+  }
+
   const selectedSku = skuOptions.find((item) => item.id === selectedSkuId) ?? skuOptions[0];
   const experimentRows =
     product.series === "FC"
@@ -1581,81 +1624,120 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
 
   return (
     <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
-      <section className="relative overflow-hidden border-b border-[#151515] pb-20">
-        <div className="noise-layer absolute inset-0 opacity-35" />
+      <section className="border-b border-[#151515]">
         <div className="mx-auto max-w-[1520px] px-6 py-8 md:px-10 lg:px-14 xl:px-16">
-          <div className="flex items-center justify-between gap-5 border-b border-[#151515] pb-6">
-            <Link href="/showroom" className="micro-copy inline-flex items-center gap-2 text-[#8a8a8a] hover:text-[#f3efe6]">
-              <ArrowLeft className="h-4 w-4" />
-              返回数字展柜
-            </Link>
-            <div className="micro-pill">{getSeriesLabel(product.series)}</div>
-          </div>
+          <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-[#151515] pb-6">
+            <div className="justify-self-start">
+              <Link href="/showroom" className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#8a8a8a] transition hover:text-[#f3efe6]">
+                Back
+              </Link>
+            </div>
+            <div className="justify-self-center">
+              <BrandMark compact />
+            </div>
+            <div className="justify-self-end">
+              <a href="#bag" className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#8a8a8a] transition hover:text-[#f3efe6]">
+                Bag
+              </a>
+            </div>
+          </header>
 
-          <div className="grid gap-10 pt-10 xl:grid-cols-[1.04fr_0.96fr] xl:items-end">
-            <div>
-              <p className="micro-copy" style={{ color: signal }}>
-                {product.discipline}
-              </p>
-              <h1 className="display-title mt-4 max-w-[7ch] text-[#f3efe6]">
-                {product.name}
-              </h1>
-              <p className="mt-6 font-zh-sans text-xl font-semibold tracking-[0.2em] text-[#d8d0c6]">{product.code}</p>
-              <p className="mt-6 max-w-3xl font-zh-serif text-base leading-9 text-[#a89f94] md:text-lg">{product.heroLine}</p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <span className="micro-pill">{formatCurrency(product.price)} / {product.size}</span>
-                <span className="micro-pill">来源 // {archiveSource}</span>
-                <span className="micro-pill">对象档案</span>
+          <div className="grid gap-10 pt-10 xl:grid-cols-[1.08fr_0.92fr] xl:items-end">
+            <figure className="border border-[#111111] bg-[#020202]">
+              <div className="relative aspect-[4/5] overflow-hidden bg-[linear-gradient(180deg,#050505_0%,#000000_100%)]">
+                {product.imageUrl ? (
+                  <img src={product.imageUrl} alt={product.name} className="absolute inset-0 h-full w-full object-cover grayscale contrast-[1.15] brightness-[0.62]" />
+                ) : (
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_26%,rgba(255,255,255,0.12),transparent_20%),linear-gradient(180deg,#050505_0%,#000000_100%)]" />
+                )}
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.74),transparent_34%,transparent_66%,rgba(0,0,0,0.78)),linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.72))]" />
+                <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between gap-6 md:bottom-8 md:left-8 md:right-8">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Object</p>
+                    <p className="mt-3 font-zh-sans text-sm uppercase tracking-[0.18em] text-[#f3efe6]">{product.code}</p>
+                  </div>
+                  <p className="max-w-[18rem] text-right font-zh-serif text-sm leading-7 text-[#9b9388]">{product.subtitle}</p>
+                </div>
+              </div>
+              <figcaption className="grid gap-4 border-t border-[#111111] p-6 md:grid-cols-[1fr_auto] md:items-end md:p-8">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Archive Source</p>
+                  <p className="mt-3 font-zh-serif text-sm leading-8 text-[#9b9388]">{archiveSource}</p>
+                </div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#7f7f7f]">{getSeriesLabel(product.series)}</p>
+              </figcaption>
+            </figure>
+
+            <div className="flex flex-col justify-end">
+              <p className="font-mono text-[10px] uppercase tracking-[0.56em] text-[#7f7f7f]">{product.code}</p>
+              <h1 className="mt-6 max-w-[8ch] font-zh-sans text-[2.8rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[4.6rem] md:tracking-[0.22em]">{product.name}</h1>
+              <p className="mt-8 max-w-2xl font-zh-serif text-base leading-9 text-[#a89f94] md:text-lg">{product.heroLine}</p>
+              <div className="mt-10 grid gap-4 border-t border-[#151515] pt-6 sm:grid-cols-3">
+                <div className="border border-[#111111] bg-[#020202] px-4 py-5">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Series</p>
+                  <p className="mt-3 font-zh-sans text-lg font-light uppercase tracking-[0.14em] text-[#f3efe6]">{getSeriesLabel(product.series)}</p>
+                </div>
+                <div className="border border-[#111111] bg-[#020202] px-4 py-5">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Format</p>
+                  <p className="mt-3 font-zh-sans text-lg font-light uppercase tracking-[0.14em] text-[#f3efe6]">{product.size}</p>
+                </div>
+                <div className="border border-[#111111] bg-[#020202] px-4 py-5">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Retail</p>
+                  <p className="mt-3 font-zh-sans text-lg font-light uppercase tracking-[0.14em] text-[#f3efe6]">{formatCurrency(product.price)}</p>
+                </div>
+              </div>
+              <div className="mt-10 border-t border-[#151515] pt-6">
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Protocol Note</p>
+                <p className="mt-4 font-zh-sans text-lg leading-8 text-[#f3efe6]">{product.formulation}</p>
               </div>
             </div>
-            <ProductArtifact product={product} index={2} mode="hero" />
           </div>
         </div>
       </section>
 
       <section className="mx-auto grid max-w-[1520px] gap-8 px-6 py-16 md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:px-14 xl:px-16">
-        <aside className="monolith-panel p-6 md:p-8">
-          <div className="flex items-center justify-between gap-4 border-b border-[#181818] pb-5">
+        <aside className="border border-[#111111] bg-[#020202] p-6 md:p-8">
+          <div className="flex items-end justify-between gap-4 border-b border-[#181818] pb-5">
             <div>
-              <p className="micro-copy text-[#7f7f7f]">实验数据面板</p>
-              <h2 className="display-subtitle mt-4 text-[#f3efe6]">成分解构</h2>
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">实验数据面板</p>
+              <h2 className="mt-4 font-zh-sans text-[2rem] font-light uppercase tracking-[0.16em] text-[#f3efe6] md:text-[2.8rem]">成分解构</h2>
             </div>
-            <Crosshair />
+            <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Quiet Spec</p>
           </div>
-          <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">像读取高维器物的工程铭文一样去读取参数，而不是堆叠传统电商卖点。所有信息以冷白、等宽、克制的方式展开。</p>
-          <div className="mt-6 space-y-4">
+          <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">参数不再被包装成吵闹的 HUD，而是像品牌档案中的技术索引，以冷白、细字距和充分留白的方式呈现。</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {experimentRows.map((item) => (
-              <DataPanelRow key={item.label} label={item.label} value={item.value} signal={signal} />
+              <DataPanelRow key={item.label} label={item.label} value={item.value} />
             ))}
             {product.stats.map((item) => (
-              <DataPanelRow key={`${item.label}-${item.value}`} label={item.label} value={item.value} signal={signal} />
+              <DataPanelRow key={`${item.label}-${item.value}`} label={item.label} value={item.value} />
             ))}
           </div>
         </aside>
 
         <div className="space-y-6">
-          <div className="monolith-panel p-6 md:p-8">
-            <p className="micro-copy text-[#7f7f7f]">协议注记</p>
+          <div className="border border-[#111111] bg-[#020202] p-6 md:p-8">
+            <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">协议注记</p>
             <p className="mt-4 font-zh-sans text-lg leading-8 text-[#f3efe6]">{product.formulation}</p>
             <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">{product.overview}</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {product.notes.map((item) => (
-              <div key={item} className="monolith-panel p-5 font-zh-serif text-sm leading-8 text-[#a89f94]">
+              <div key={item} className="border border-[#111111] bg-[#020202] p-5 font-zh-serif text-sm leading-8 text-[#a89f94]">
                 {item}
               </div>
             ))}
           </div>
           <ExternalAccessPanel product={product} />
-          <div className="monolith-panel p-6 md:p-8">
+          <div className="border border-[#111111] bg-[#020202] p-6 md:p-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="micro-copy text-[#7f7f7f]">主转化入口</p>
-                <h3 className="display-subtitle mt-3 text-[#f3efe6]">零售下单</h3>
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Retail Access</p>
+                <h3 className="mt-3 font-zh-sans text-[2rem] font-light uppercase tracking-[0.16em] text-[#f3efe6] md:text-[2.6rem]">零售下单</h3>
               </div>
-              <p className="font-zh-sans text-[1.8rem] font-semibold leading-none tracking-[0.16em] text-[#f3efe6]">{formatCurrency(selectedSku?.price ?? product.price)}</p>
+              <p className="font-zh-sans text-[1.8rem] font-light leading-none tracking-[0.16em] text-[#f3efe6]">{formatCurrency(selectedSku?.price ?? product.price)}</p>
             </div>
-            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">先选择 SKU 并加入购物袋；支付 API 正式接入前，仍可通过申请配额层与外部入口桥接完成导购和顾问式成交。</p>
+            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">先选择 SKU 并加入购物袋；在支付 API 正式接入前，仍可通过申请配额层与外部入口桥接完成导购和顾问式成交。</p>
             <div className="mt-6">
               <SkuSelector options={skuOptions} selectedSkuId={selectedSkuId} onSelect={setSelectedSkuId} />
             </div>
@@ -1679,10 +1761,10 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
                 }
                 className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]"
               >
-                ADD TO CART / 加入购物袋
+                Add to bag / 加入购物袋
               </button>
               <button type="button" onClick={() => setDialogOpen(true)} className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
-                REQUEST ALLOCATION / 申请配额
+                Request allocation / 申请配额
               </button>
             </div>
           </div>
@@ -1690,7 +1772,9 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
       </section>
 
       <AllocationDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
-      <CartDock cart={cart} interactive={props.interactiveCart} checkoutLabel="购物袋中的 SKU 将作为零售订单草稿，下一阶段会对接支付 JSON API 与支付状态轮询。" />
+      <div id="bag">
+        <CartDock cart={cart} interactive={props.interactiveCart} checkoutLabel="购物袋中的 SKU 将作为零售订单草稿，下一阶段会对接支付 JSON API 与支付状态轮询。" />
+      </div>
     </main>
   );
 }

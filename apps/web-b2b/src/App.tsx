@@ -1649,6 +1649,396 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
   );
 }
 
+const ECOSYSTEM_SITES = [
+  {
+    href: "/shop",
+    kicker: "B2B PROCUREMENT",
+    title: "商城系统",
+    description: "承接商品浏览、SKU 选择、购物袋与零售/采购桥接，是统一数字底座里的交易入口。",
+    accent: "#7a232a",
+  },
+  {
+    href: "/lab",
+    kicker: "BRAND LAB",
+    title: "iCloush LAB.",
+    description: "保留当前高张力零售堡垒首页、展柜与对象详情，用于承接品牌张力与零售陈列体验。",
+    accent: "#9c7a31",
+  },
+  {
+    href: "/tech",
+    kicker: "CLEAN SCIENCE",
+    title: "环洗朵科技",
+    description: "聚焦工业洗涤、后厨清洁与住房卫生的专业解决方案，是距离商业转化最近的品牌官网。",
+    accent: "#10b981",
+  },
+  {
+    href: "/care",
+    kicker: "HOTEL CARE",
+    title: "iCloush Care",
+    description: "面向酒店奢护与服务交付的品牌触点，承接服务型咨询与合作沟通。",
+    accent: "#2563eb",
+  },
+] as const;
+
+const HUANXIDUO_SOLUTIONS = [
+  {
+    title: "工业洗涤",
+    detail: "围绕酒店布草、制服与高频织物清洁，强调回洗率、织物寿命与自动分配效率。",
+  },
+  {
+    title: "后厨清洁",
+    detail: "覆盖灶台、餐具、洗碗机、重油污地面与不锈钢表面的标准化清洁链路。",
+  },
+  {
+    title: "住房卫生",
+    detail: "聚焦客房、浴室、地面、香氛洗护与卫生维保，建立易执行的日常清洁方案。",
+  },
+] as const;
+
+const HUANXIDUO_PRODUCTS = [
+  {
+    title: "工业固体洗涤剂",
+    specs: "10 / 25KG",
+    detail: "高效洗衣粉、酸性中和粉、柔顺粉与漂白粉等系统化组合。",
+  },
+  {
+    title: "工业液体洗涤剂",
+    specs: "60L",
+    detail: "高效洗衣液、中和剂、柔顺剂、乳化剂与漂液，适配自动分配链路。",
+  },
+  {
+    title: "自动分配与设备",
+    specs: "SYSTEM",
+    detail: "洗涤龙自动分配器、单机分配器、蠕动泵与软水净化装置。",
+  },
+  {
+    title: "后厨与住房卫生",
+    specs: "600ML / 5L / 20L",
+    detail: "覆盖重油污、玻璃、浴室、地面与日常卫生维保场景。",
+  },
+] as const;
+
+export function PlatformEcosystemPage() {
+  return (
+    <main className="min-h-screen bg-[#f8fafc] text-slate-950">
+      <section className="border-b border-slate-200 bg-white/90">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6 md:px-10 xl:px-14">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Unified Digital Base / Multi-Brand Ecosystem</p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">iCloush Digital Platform</h1>
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+              <Link href="/lab" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">iCloush LAB.</Link>
+              <Link href="/tech" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">环洗朵科技</Link>
+              <Link href="/care" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">iCloush Care</Link>
+              <Link href="/shop" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">商城系统</Link>
+            </div>
+          </div>
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div>
+              <p className="max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+                当前预览已切回统一数字底座视角：根路径用于展示品牌矩阵与站点分工，`/lab` 承接 iCloush LAB. 的零售堡垒，`/tech` 承接环洗朵科技官网，`/care` 承接服务品牌页，`/shop` 承接商城入口。这样你进入预览后，不会再只看到单一 LAB 首页。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link href="/tech" className="inline-flex h-12 items-center justify-center rounded-full bg-[#0047AB] px-6 text-sm font-medium text-white transition hover:bg-[#003b8e]">
+                  查看环洗朵科技
+                </Link>
+                <Link href="/lab" className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 px-6 text-sm font-medium text-slate-900 transition hover:border-slate-400">
+                  返回 iCloush LAB.
+                </Link>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">统一底座</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">1 套</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">共享用户、内容、商品、订单与 SEO 基建。</p>
+              </div>
+              <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">品牌站点</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">4 个</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">商城、LAB、环洗朵科技与 Care 已纳入同一预览入口。</p>
+              </div>
+              <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">主转化动作</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">3 类</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">商品成交、样板申领与私域咨询在同一生态中协同。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Ecosystem Sites</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">多品牌生态平台总览</h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+            每个站点承担不同商业任务，但都运行在同一套数字底座之上。你现在可以从这里直接进入环洗朵科技，而不必先经过 LAB 的零售展柜。
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          {ECOSYSTEM_SITES.map((site) => (
+            <Link key={site.href} href={site.href} className="group rounded-[2rem] border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">{site.kicker}</p>
+              <div className="mt-5 flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-2xl font-semibold tracking-tight">{site.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">{site.description}</p>
+                </div>
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: site.accent }} />
+              </div>
+              <div className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-950">
+                进入站点
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-slate-200 bg-white/80">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 md:px-10 lg:grid-cols-[0.9fr_1.1fr] xl:px-14">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Route Guide</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">当前预览可直接访问的关键路径</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              ["/", "统一数字底座总入口"],
+              ["/lab", "iCloush LAB. 品牌首页"],
+              ["/tech", "环洗朵科技官网"],
+              ["/care", "iCloush Care 服务页"],
+              ["/shop", "商城/展柜入口"],
+              ["/showroom", "LAB 零售展柜"],
+            ].map(([path, detail]) => (
+              <div key={path} className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                <p className="font-mono text-sm text-[#0047AB]">{path}</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export function HuanxiduoTechPage() {
+  return (
+    <main className="min-h-screen bg-[#F8FAFC] text-slate-950">
+      <section className="border-b border-slate-200 bg-[radial-gradient(circle_at_top_right,_rgba(16,185,129,0.16),_transparent_28%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)]">
+        <div className="mx-auto max-w-7xl px-6 py-6 md:px-10 xl:px-14">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-[#0047AB]">HUANXIDUO TECH / CLEAN SCIENCE</p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">次时代清洁解决方案</h1>
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+              <Link href="/" className="rounded-full border border-slate-200 bg-white px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">返回平台总入口</Link>
+              <Link href="/lab" className="rounded-full border border-slate-200 bg-white px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">查看 LAB</Link>
+              <Link href="/shop" className="rounded-full border border-slate-200 bg-white px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">进入商城</Link>
+            </div>
+          </div>
+          <div className="mt-10 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <p className="max-w-2xl text-base leading-8 text-slate-600 md:text-lg">
+                环洗朵科技聚焦工业洗涤、后厨清洁与住房卫生三大场景，以军规级洁净、实验室可信度与生态可持续配方，承接 iCloush 统一数字底座里最靠近 B2B 商业转化的品牌官网表达。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <a href="#sample" className="inline-flex h-12 items-center justify-center rounded-full bg-[#0047AB] px-6 text-sm font-medium text-white transition hover:bg-[#003b8e]">REQUEST SAMPLE / 申请试样</a>
+                <a href="#products" className="inline-flex h-12 items-center justify-center rounded-full border border-[#0047AB] px-6 text-sm font-medium text-[#0047AB] transition hover:bg-[#eaf1ff]">查看产品矩阵</a>
+              </div>
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500">实验室可信</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">CMA / CNAS</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">以实验室与检测逻辑建立参数级信任。</p>
+                </div>
+                <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500">行业经验</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">30 年</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">面向酒店、餐饮与居住空间的方案沉淀。</p>
+                </div>
+                <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                  <p className="text-xs uppercase tracking-[0.24em] text-slate-500">核心动作</p>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">TDS / 试样</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">下载技术规格书并推进样板申领与采购桥接。</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-[2rem] border border-[#dbe5f0] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] md:p-8">
+              <p className="font-mono text-xs uppercase tracking-[0.26em] text-[#10B981]">导航结构</p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {[
+                  ["#technology", "洁净科技"],
+                  ["#solutions", "解决方案"],
+                  ["#products", "产品矩阵"],
+                  ["#sample", "申领样板"],
+                ].map(([href, label]) => (
+                  <a key={href} href={href} className="rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700 transition hover:border-[#0047AB] hover:text-[#0047AB]">
+                    {label}
+                  </a>
+                ))}
+              </div>
+              <div className="mt-6 rounded-[1.5rem] border border-dashed border-[#10B981] bg-[#ecfdf5] p-5 text-sm leading-7 text-slate-600">
+                Hero 视频位已按环洗朵官网 PRD 预留为“活性酶分解污垢 3D 模拟背景”的视觉入口，后续可替换为真实视频或科学可视化素材。
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="technology" className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Clean Science</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">洁净科技</h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+            这一部分用于解释为什么环洗朵有效：从活性酶、自动分配到软水净化与可持续闭环，页面语言强调可验证、可部署、可复制，而不是泛化品牌口号。
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {[
+            ["军规级洁净技术", "以高标准去污、织物友好与流程稳定性承接工业级清洁需求。"],
+            ["自动分配与软水系统", "把分配器、蠕动泵与软水净化装置纳入同一系统叙事，体现方案能力而非单品售卖。"],
+            ["生态可持续", "无磷、生物降解、循环包装与浓缩配方共同构成环保承诺的技术化表达。"],
+          ].map(([title, detail]) => (
+            <div key={title} className="rounded-[2rem] border border-slate-200 bg-white p-6">
+              <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#0047AB]">TECH MODULE</p>
+              <h3 className="mt-4 text-2xl font-semibold tracking-tight">{title}</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="solutions" className="border-y border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
+          <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Solutions</p>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">解决方案</h2>
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {HUANXIDUO_SOLUTIONS.map((item) => (
+              <div key={item.title} className="rounded-[2rem] border border-slate-200 bg-slate-50 p-6">
+                <p className="font-mono text-xs uppercase tracking-[0.24em] text-[#10B981]">SCENARIO</p>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight">{item.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
+                <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#0047AB]">
+                  获取行业方案
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="products" className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Product Matrix</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">产品矩阵</h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+            当前页面先展示品类级矩阵，后续可继续下钻到 PDP，并为每个产品提供 TDS 技术规格书下载与常驻浮窗的样板申请入口。
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          {HUANXIDUO_PRODUCTS.map((item) => (
+            <div key={item.title} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.04)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-slate-500">{item.specs}</p>
+                  <h3 className="mt-3 text-2xl font-semibold tracking-tight">{item.title}</h3>
+                </div>
+                <span className="rounded-full bg-[#ecfdf5] px-3 py-1 text-xs font-medium text-[#047857]">TDS READY</span>
+              </div>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <a href="#sample" className="inline-flex h-11 items-center justify-center rounded-full border border-[#0047AB] px-5 text-sm font-medium text-[#0047AB] transition hover:bg-[#eaf1ff]">REQUEST SAMPLE / 申请试样</a>
+                <button type="button" className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 px-5 text-sm font-medium text-slate-700 transition hover:border-slate-300">DOWNLOAD TDS / 下载 TDS</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="sample" className="border-y border-slate-200 bg-[#eff6ff]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 md:px-10 lg:grid-cols-[0.92fr_1.08fr] xl:px-14">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Sample Request</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">申领样板</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+              这是环洗朵官网的核心转化钩子。后续正式接入时，可把表单提交到统一线索库，并同步触发企业微信或运营通知，让样板申请、技术咨询与采购桥接形成一条完整链路。
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-[1.5rem] border border-white bg-white p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">企业微信</p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">页脚与申样区均可放置二维码，由后台配置实际图片资源。</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white bg-white p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">技术总监直连</p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">保留“技术总监直连频段”作为高价值客户的加速联系通道。</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-white bg-white p-5">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">采购小程序</p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">扫码进入环洗朵 B2B 采购小程序，承接后续下单与支付 JSON API。</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[2rem] border border-[#dbe5f0] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.06)] md:p-8">
+            <div className="grid gap-4 md:grid-cols-2">
+              {[
+                "企业名称",
+                "联系人",
+                "手机 / 微信",
+                "所属行业",
+                "使用场景",
+                "预计月用量",
+              ].map((label) => (
+                <label key={label} className="block text-sm text-slate-600">
+                  <span className="mb-2 block">{label}</span>
+                  <div className="h-12 rounded-2xl border border-slate-200 bg-slate-50" />
+                </label>
+              ))}
+            </div>
+            <label className="mt-4 block text-sm text-slate-600">
+              <span className="mb-2 block">备注</span>
+              <div className="h-28 rounded-2xl border border-slate-200 bg-slate-50" />
+            </label>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button type="button" className="inline-flex h-12 items-center justify-center rounded-full bg-[#0047AB] px-6 text-sm font-medium text-white transition hover:bg-[#003b8e]">提交样板申请</button>
+              <button type="button" className="inline-flex h-12 items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-medium text-slate-700 transition hover:border-slate-300">扫码进入 B2B 采购小程序</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export function CareBrandPage() {
+  return (
+    <main className="min-h-screen bg-[#fcfcfd] text-slate-950">
+      <section className="mx-auto max-w-6xl px-6 py-20 md:px-10 xl:px-14">
+        <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">iCloush Care / Hotel Service</p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">酒店奢护服务品牌页</h1>
+        <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+          该页面作为统一数字底座中的服务型品牌触点，用于承接酒店洗护服务、服务流程与合作咨询。当前预览已恢复 `/care` 路由，保证生态平台中的多品牌入口完整可见。
+        </p>
+        <div className="mt-10 flex flex-wrap gap-4">
+          <Link href="/" className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white">返回平台总入口</Link>
+          <Link href="/tech" className="inline-flex h-12 items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-medium text-slate-700">查看环洗朵科技</Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function ConnectedShowroomPage() {
   const showroomQuery = trpc.retail.galleryObjects.useQuery({});
   const products = useMemo(() => {
@@ -1718,7 +2108,11 @@ export function NotFoundPage() {
 export default function App() {
   return (
     <Switch>
-      <Route path="/" component={ConnectedMonolithicHeroPage} />
+      <Route path="/" component={PlatformEcosystemPage} />
+      <Route path="/lab" component={ConnectedMonolithicHeroPage} />
+      <Route path="/shop" component={ConnectedShowroomPage} />
+      <Route path="/tech" component={HuanxiduoTechPage} />
+      <Route path="/care" component={CareBrandPage} />
       <Route path="/gallery" component={ConnectedShowroomPage} />
       <Route path="/showroom" component={ConnectedShowroomPage} />
       <Route path="/object/:id">{(params) => <ConnectedProductDetailPage id={params.id} />}</Route>

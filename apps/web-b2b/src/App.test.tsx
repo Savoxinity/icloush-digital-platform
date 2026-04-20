@@ -6,7 +6,9 @@ import {
   buildTransactionSignalBody,
   COMPLIANCE_MESSAGE,
   getRetailOrderStatusRefetchInterval,
+  HuanxiduoTechPage,
   MonolithicHeroPage,
+  PlatformEcosystemPage,
   ProductDetailPage,
   ShowroomPage,
   SHOWROOM_PRODUCTS,
@@ -120,6 +122,33 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(COMPLIANCE_MESSAGE).toContain("交易通道（WeChat / Alipay）合规接入中");
     expect(getShowroomProductById("fc-le")?.code).toBe("FC-LE");
     expect(SHOWROOM_PRODUCTS).toHaveLength(4);
+  });
+
+  it("恢复统一数字底座总入口，展示多品牌站点与关键路由", () => {
+    setLocation("/");
+    const html = renderToStaticMarkup(<PlatformEcosystemPage />);
+
+    expect(html).toContain("iCloush Digital Platform");
+    expect(html).toContain("统一数字底座");
+    expect(html).toContain("环洗朵科技");
+    expect(html).toContain('href="/lab"');
+    expect(html).toContain('href="/tech"');
+    expect(html).toContain('href="/care"');
+    expect(html).toContain('href="/shop"');
+  });
+
+  it("恢复环洗朵科技官网首页，包含四大导航语义与试样申领入口", () => {
+    setLocation("/tech");
+    const html = renderToStaticMarkup(<HuanxiduoTechPage />);
+
+    expect(html).toContain("次时代清洁解决方案");
+    expect(html).toContain("洁净科技");
+    expect(html).toContain("解决方案");
+    expect(html).toContain("产品矩阵");
+    expect(html).toContain("申领样板");
+    expect(html).toContain("REQUEST SAMPLE / 申请试样");
+    expect(html).toContain("DOWNLOAD TDS / 下载 TDS");
+    expect(html).toContain("扫码进入 B2B 采购小程序");
   });
 
   it("提供 2 秒轮询 helper，并在终态时停止轮询", () => {

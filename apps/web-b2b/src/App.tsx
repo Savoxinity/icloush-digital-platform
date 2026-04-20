@@ -552,14 +552,20 @@ function useRetailCart() {
   };
 }
 
-function BrandMark() {
-  return (
-    <div className="flex items-center gap-4">
-      <div className="monolith-badge flex h-12 w-12 items-center justify-center font-mono text-[11px] font-semibold uppercase tracking-[0.28em] text-[#f3efe6]">IC</div>
-      <div>
-        <p className="font-zh-sans text-sm font-semibold tracking-[0.42em] text-[#f3efe6]">ICLOUSH LAB.</p>
-        <p className="micro-copy mt-1 text-[#7f7f7f]">数字展柜协议 / 06 : 03 : 01</p>
+function BrandMark({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center text-[#f3efe6]">
+        <span className="font-mono text-[9px] uppercase tracking-[0.72em] text-[#f3efe6]">IC</span>
+        <span className="mt-1 h-px w-8 bg-[#2b2b2b]" />
       </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col text-left text-[#f3efe6]">
+      <p className="font-zh-sans text-sm font-semibold tracking-[0.46em] text-[#f3efe6]">ICLOUSH LAB.</p>
+      <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.32em] text-[#6f6f6f]">Archive Protocol / 3026 Orbital Jeweler</p>
     </div>
   );
 }
@@ -645,20 +651,70 @@ function MetricPanel({ value, label, description }: { value: string; label: stri
 
 function CutlineArrow() {
   return (
-    <Link
-      href="/showroom"
-      aria-label="进入数字展柜"
-      className="cutline-arrow group inline-flex items-center gap-5 text-[#f3efe6]"
-    >
-      <span className="micro-copy text-[#c8c1b6] transition-colors duration-300 group-hover:text-[#f3efe6]">ENTER /SHOWROOM</span>
-      <span className="cutline-arrow-line" aria-hidden="true" />
-      <ArrowRight className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
+    <Link href="/showroom" aria-label="进入卖场名录" className="group inline-flex items-center gap-4 text-[#f3efe6]">
+      <span className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#b8b1a6] transition-colors duration-300 group-hover:text-[#f3efe6]">Enter showroom</span>
+      <span className="h-px w-10 bg-[#2b2b2b] transition-colors duration-300 group-hover:bg-[#f3efe6]" aria-hidden="true" />
+      <ArrowRight className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
     </Link>
+  );
+}
+
+function LabVaultMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const items = [
+    { index: "01", title: "SERIES: AP", subtitle: "大气重组 / Atmospheric Purification", href: "/showroom" },
+    { index: "02", title: "SERIES: FC", subtitle: "织物奢护 / Fabric Care", href: "/showroom" },
+    { index: "03", title: "OBJECTS", subtitle: "对象名录 / Showroom Index", href: "/showroom" },
+    { index: "04", title: "ARCHIVE", subtitle: "品牌档案 / Platform Entry", href: "/" },
+  ] as const;
+
+  return (
+    <div className={`fixed inset-0 z-[80] transition ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}>
+      <button type="button" aria-label="关闭菜单" onClick={onClose} className="absolute inset-0 bg-black/96" />
+      <div className="absolute inset-0 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.04),_transparent_24%),linear-gradient(180deg,_#030303_0%,_#000000_100%)] text-[#f3efe6]">
+        <div className="noise-layer absolute inset-0 opacity-20" />
+        <div className="relative mx-auto flex min-h-screen max-w-[1600px] flex-col px-6 py-8 md:px-10 lg:px-14 xl:px-16">
+          <div className="flex items-center justify-between border-b border-[#111111] pb-5">
+            <button type="button" onClick={onClose} className="inline-flex items-center gap-4 text-left text-[#f3efe6]">
+              <span className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#9d968c]">Close</span>
+              <span className="h-px w-10 bg-[#262626]" />
+            </button>
+            <BrandMark compact />
+            <Link href="/showroom" onClick={onClose} className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#9d968c]">
+              Access
+            </Link>
+          </div>
+
+          <div className="grid flex-1 gap-12 py-12 lg:grid-cols-[0.6fr_1.4fr] lg:gap-20 lg:py-16">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6e6e6e]">The Vault Menu</p>
+              <p className="mt-8 max-w-sm font-zh-serif text-sm leading-8 text-[#8f877b]">
+                把所有解释性文字、路径与卖场入口收拢到菜单里，让首页只承担情绪与气场。菜单像品牌档案索引，而不是常规导航栏。
+              </p>
+            </div>
+            <div className="flex flex-col justify-center divide-y divide-[#101010] border-y border-[#101010]">
+              {items.map((item) => (
+                <Link key={item.index} href={item.href} onClick={onClose} className="group grid gap-4 py-6 md:grid-cols-[88px_1fr] md:items-end md:py-8">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.44em] text-[#6b6b6b]">{item.index}</p>
+                  <div className="flex items-end justify-between gap-6 border-l border-[#131313] pl-0 md:pl-8">
+                    <div>
+                      <p className="font-zh-sans text-[1.1rem] uppercase tracking-[0.24em] text-[#f3efe6] md:text-[1.8rem]">{item.title}</p>
+                      <p className="mt-3 font-zh-serif text-sm leading-7 text-[#90887c]">{item.subtitle}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-[#5d5d5d] transition duration-300 group-hover:translate-x-1 group-hover:text-[#f3efe6]" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) {
   const [depthShift, setDepthShift] = useState({ x: 0, y: 0 });
+  const [menuOpen, setMenuOpen] = useState(false);
   const signal = getProductSignalColor(featured);
 
   useEffect(() => {
@@ -679,86 +735,104 @@ export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) 
 
     const handleMouseLeave = () => updateShift(0, 0);
 
-    const handleOrientation = (event: DeviceOrientationEvent) => {
-      const gamma = typeof event.gamma === "number" ? event.gamma / 45 : 0;
-      const beta = typeof event.beta === "number" ? (event.beta - 45) / 45 : 0;
-      updateShift(gamma, beta);
-    };
-
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
-    window.addEventListener("deviceorientation", handleOrientation as EventListener, { passive: true });
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
-      window.removeEventListener("deviceorientation", handleOrientation as EventListener);
     };
   }, []);
 
-  const primaryTransform = `translate3d(${(depthShift.x * 30).toFixed(1)}px, ${(depthShift.y * 18).toFixed(1)}px, 0)`;
-  const secondaryTransform = `translate3d(${(depthShift.x * -14).toFixed(1)}px, ${(depthShift.y * -10).toFixed(1)}px, 0)`;
-  const tertiaryTransform = `translate3d(${(depthShift.x * 8).toFixed(1)}px, ${(depthShift.y * 6).toFixed(1)}px, 0)`;
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = menuOpen ? "hidden" : previousOverflow;
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [menuOpen]);
+
+  const objectTransform = `translate3d(${(depthShift.x * 14).toFixed(1)}px, ${(depthShift.y * 10).toFixed(1)}px, 0)`;
+  const mistTransform = `translate3d(${(depthShift.x * -10).toFixed(1)}px, ${(depthShift.y * -8).toFixed(1)}px, 0)`;
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#000000] text-[#f3efe6]">
-      <section className="hero-stage relative isolate min-h-screen border-b border-[#101010]">
-        <div className="noise-layer absolute inset-0 opacity-30" />
-        <div className="hero-grid-lines absolute inset-0 opacity-70" />
-        <div className="absolute inset-x-0 top-0 h-px bg-[#151515]" />
-        <div className="absolute inset-y-0 left-[10%] w-px bg-[#101010]" />
-        <div className="absolute inset-y-0 right-[12%] w-px bg-[#111111]" />
+      <LabVaultMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <section className="relative isolate min-h-screen border-b border-[#0c0c0c] bg-[#000000]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.08),transparent_16%),radial-gradient(circle_at_50%_58%,rgba(255,255,255,0.04),transparent_28%),linear-gradient(180deg,#020202_0%,#000000_48%,#020202_100%)]" />
+        <div className="noise-layer absolute inset-0 opacity-20" />
+        <div className="absolute inset-x-0 top-0 h-px bg-[#111111]" />
+        <div className="absolute inset-y-0 left-[8%] hidden w-px bg-[#0f0f0f] md:block" />
+        <div className="absolute inset-y-0 right-[8%] hidden w-px bg-[#0f0f0f] md:block" />
 
         <div className="relative mx-auto flex min-h-screen max-w-[1600px] flex-col px-6 py-8 md:px-10 lg:px-14 xl:px-16">
-          <header className="flex items-start justify-between gap-8 border-b border-[#121212] pb-6">
-            <BrandMark />
-            <div className="hidden text-right md:block">
-              <p className="micro-copy text-[#7d7d7d]">RETAIL STRONGHOLD / MONOLITHIC HERO</p>
-              <p className="orbital-caption mt-3 text-[#b6aea2]">// 3026 ORBITAL JEWELER //</p>
+          <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-[#111111] pb-5 text-[#f3efe6]">
+            <div className="justify-self-start">
+              <button type="button" aria-label="打开菜单" onClick={() => setMenuOpen(true)} className="group inline-flex items-center gap-4 text-left">
+                <span className="flex flex-col gap-[6px]" aria-hidden="true">
+                  <span className="block h-px w-7 bg-[#f3efe6] transition group-hover:w-9" />
+                  <span className="block h-px w-5 bg-[#8d857a] transition group-hover:w-7 group-hover:bg-[#f3efe6]" />
+                  <span className="block h-px w-7 bg-[#f3efe6] transition group-hover:w-9" />
+                </span>
+              </button>
+            </div>
+            <div className="justify-self-center">
+              <BrandMark compact />
+            </div>
+            <div className="justify-self-end flex items-center gap-6">
+              <Link href="/showroom" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#b2aa9f] transition hover:text-[#f3efe6]">
+                Access
+              </Link>
+              <Link href="/showroom#bag" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#7f7f7f] transition hover:text-[#f3efe6]">
+                Bag
+              </Link>
             </div>
           </header>
 
-          <div className="grid flex-1 gap-12 py-10 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
-            <div className="relative z-10 max-w-3xl">
-              <p className="micro-copy text-[#7f7f7f]">ATTRACTION ENGINE / 流量集散中心 / 零售堡垒</p>
-              <h1 className="brand-hero-title mt-8 text-[#f3efe6]">ICLOUSH LAB.</h1>
-              <p className="orbital-caption mt-6 text-[#d6d0c6]">// 3026 ORBITAL JEWELER //</p>
-              <p className="mt-10 max-w-2xl font-zh-serif text-base leading-9 text-[#aba396] md:text-lg">
-                这是品牌转型的前线阵地：不解释组织结构，不分散注意力，只用巨物、轨道、留白与硬边切口在第一秒完成心理掠夺，然后把所有视线推向数字展柜。
+          <div className="relative flex flex-1 items-center justify-center py-10 md:py-12">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative h-full w-full overflow-hidden border border-[#0d0d0d] bg-[#020202]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_24%),linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.78))]" />
+                <div className="absolute inset-0 opacity-60" style={{ transform: mistTransform }}>
+                  <div
+                    className="absolute left-1/2 top-[14%] h-[58%] w-[34%] -translate-x-1/2 border border-[#121212] bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.16),rgba(255,255,255,0.02)_34%,transparent_58%),linear-gradient(180deg,#050505_0%,#000000_100%)]"
+                    style={{ clipPath: "polygon(18% 0, 82% 0, 100% 12%, 100% 100%, 0 100%, 0 12%)" }}
+                  />
+                  <div className="absolute left-1/2 top-[8%] h-[12%] w-[12%] -translate-x-1/2 border border-[#121212] bg-[#050505]" />
+                </div>
+                <div className="absolute inset-0" style={{ transform: objectTransform }}>
+                  {featured.imageUrl ? <img src={featured.imageUrl} alt={featured.name} className="h-full w-full object-cover opacity-60 grayscale contrast-125" /> : null}
+                </div>
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.68),transparent_32%,transparent_68%,rgba(0,0,0,0.68)),linear-gradient(180deg,rgba(0,0,0,0.2),rgba(0,0,0,0.68))]" />
+              </div>
+            </div>
+
+            <div className="relative z-10 flex w-full flex-col items-center justify-center text-center">
+              <p className="font-mono text-[10px] uppercase tracking-[0.72em] text-[#8f877b]">3026 Orbital Jeweler</p>
+              <h1 className="mt-8 max-w-5xl font-zh-sans text-[2.5rem] font-light uppercase tracking-[0.28em] text-[#f3efe6] md:text-[4.8rem] md:tracking-[0.38em] xl:text-[6rem]">ICLOUSH LAB.</h1>
+              <p className="mt-6 max-w-xl font-mono text-[10px] uppercase tracking-[0.5em] text-[#b2aa9f]">{featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}</p>
+              <div className="mt-8 h-px w-24" style={{ backgroundColor: signal }} />
+              <p className="mt-10 max-w-2xl font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
+                安静，但具有压迫力。像一部科幻电影片头一样，只在画面中央切入一行标题，让对象、材质、黑场和留白代替所有喧闹界面。
               </p>
-              <div className="mt-14">
+              <div className="mt-12">
                 <CutlineArrow />
               </div>
             </div>
 
-            <div className="hero-depth-stage relative min-h-[26rem] xl:min-h-[42rem]">
-              <Crosshair className="left-[8%] top-[10%]" />
-              <Crosshair className="bottom-[12%] right-[10%]" />
-              <div className="hero-depth-silhouette absolute left-[4%] top-[6%] h-[72%] w-[22%]" style={{ transform: secondaryTransform }} />
-              <div className="hero-depth-frame absolute inset-x-[8%] top-[8%] bottom-[10%]" style={{ transform: tertiaryTransform }} />
-              <div className="hero-depth-axis absolute left-[16%] top-[14%] bottom-[14%] w-px bg-[#171717]" />
-              <div className="hero-depth-axis absolute right-[12%] top-[18%] bottom-[12%] w-px" style={{ backgroundColor: `${signal}55` }} />
-              <div className="hero-depth-caption absolute left-[12%] top-[12%] z-20">
-                <p className="micro-copy text-[#7f7f7f]">FEATURED MASS</p>
-                <p className="mt-3 font-zh-sans text-[1.4rem] font-semibold tracking-[0.18em] text-[#f3efe6] md:text-[2rem]">{featured.code}</p>
+            <div className="absolute bottom-8 left-0 right-0 z-10 hidden items-end justify-between md:flex">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#646464]">Featured Object</p>
+                <p className="mt-3 font-zh-sans text-sm uppercase tracking-[0.24em] text-[#f3efe6]">{featured.code}</p>
               </div>
-              <div className="hero-depth-object absolute inset-x-[20%] bottom-[8%] top-[14%] z-10" style={{ transform: primaryTransform }}>
-                {featured.imageUrl ? (
-                  <img src={featured.imageUrl} alt={featured.name} className="hero-depth-image h-full w-full object-contain" />
-                ) : (
-                  <>
-                    <div className="hero-depth-monolith absolute left-1/2 top-[7%] h-[78%] w-[34%] -translate-x-1/2" />
-                    <div className="hero-depth-crown absolute left-1/2 top-[2%] h-[10%] w-[14%] -translate-x-1/2" />
-                    <div className="hero-depth-ring absolute inset-x-[12%] top-[28%] h-[22%]" />
-                    <div className="hero-depth-ring absolute inset-x-[18%] bottom-[18%] h-[18%]" />
-                  </>
-                )}
-              </div>
-              <div className="hero-depth-copy absolute bottom-[10%] left-[8%] z-20 max-w-xs">
-                <p className="micro-copy" style={{ color: signal }}>
-                  {featured.series === "AP" ? "ATMOSPHERIC PURIFICATION" : "FABRIC CARE"}
-                </p>
-                <p className="mt-4 font-zh-serif text-sm leading-8 text-[#9e968a]">{featured.heroLine}</p>
+              <div className="max-w-sm text-right">
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#646464]">Silent Pressure</p>
+                <p className="mt-3 font-zh-serif text-sm leading-8 text-[#8f877b]">{featured.heroLine}</p>
               </div>
             </div>
           </div>
@@ -1224,220 +1298,192 @@ function InteractiveCartDock(props: {
 export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel?: string; isSyncing?: boolean; interactiveCart?: boolean }) {
   const products = props?.products ?? SHOWROOM_PRODUCTS;
   const sourceLabel = props?.sourceLabel ?? (products.every((product) => product.source === "database") ? "数据库" : "原型档案");
-  const [scrollY, setScrollY] = useState(0);
   const cart = useRetailCart();
+  const [hoveredProductId, setHoveredProductId] = useState(products[0]?.id ?? SHOWROOM_PRODUCTS[0]?.id ?? "");
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return undefined;
+    if (!products.some((product) => product.id === hoveredProductId)) {
+      setHoveredProductId(products[0]?.id ?? SHOWROOM_PRODUCTS[0]?.id ?? "");
     }
+  }, [hoveredProductId, products]);
 
-    const handleScroll = () => setScrollY(window.scrollY || 0);
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const featured = products[0] ?? SHOWROOM_PRODUCTS[0];
+  const featured = products.find((product) => product.id === hoveredProductId) ?? products[0] ?? SHOWROOM_PRODUCTS[0];
+  const featuredSku = getRetailSkuOptions(featured)[0];
+  const featuredSignal = getProductSignalColor(featured);
 
   return (
     <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
-      <section className="relative overflow-hidden border-b border-[#151515]">
-        <div className="noise-layer absolute inset-0 opacity-35" />
-        <div className="absolute inset-x-0 top-[-12%] h-[44rem]" style={{ transform: `translateY(${Math.min(scrollY * 0.08, 36)}px)` }}>
-          <div className="absolute left-[10%] top-[8%] h-[36rem] w-[17rem] border border-[#121212] bg-[#030303]" style={{ clipPath: "polygon(18% 0, 82% 0, 100% 14%, 100% 100%, 0 100%, 0 14%)" }} />
-          <div className="absolute right-[12%] top-[18%] h-[28rem] w-[11rem] border border-[#101010] bg-[#010101]" style={{ clipPath: "polygon(0 0, calc(100% - 1.25rem) 0, 100% 1.25rem, 100% 100%, 1.25rem 100%, 0 calc(100% - 1.25rem))" }} />
-          <div className="absolute left-[25%] top-[16%] h-px w-[28%] bg-[#171717]" />
-          <div className="absolute right-[20%] bottom-[10%] h-px w-[20%] bg-[#141414]" />
-        </div>
-
-        <div className="relative mx-auto max-w-[1520px] px-6 py-8 md:px-10 lg:px-14 xl:px-16">
-          <header className="flex items-start justify-between gap-8 border-b border-[#151515] pb-6">
-            <Link href="/showroom">
-              <BrandMark />
-            </Link>
-            <nav className="hidden items-center gap-8 md:flex">
-              <Link href="/showroom" className="micro-copy text-[#8a8a8a] hover:text-[#f3efe6]">
-                数字展柜
+      <section className="border-b border-[#111111]">
+        <div className="mx-auto max-w-[1520px] px-6 py-8 md:px-10 lg:px-14 xl:px-16">
+          <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-[#111111] pb-5">
+            <div className="justify-self-start">
+              <Link href="/lab" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#9b9388] transition hover:text-[#f3efe6]">
+                Back
               </Link>
-              <a href="#sequence" className="micro-copy text-[#8a8a8a] hover:text-[#f3efe6]">
-                对象序列
+            </div>
+            <div className="justify-self-center">
+              <BrandMark compact />
+            </div>
+            <div className="justify-self-end flex items-center gap-6">
+              <span className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">{sourceLabel}</span>
+              <a href="#bag" className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#9b9388] transition hover:text-[#f3efe6]">
+                Bag
               </a>
-              <a href="#allocation" className="micro-copy text-[#8a8a8a] hover:text-[#f3efe6]">
-                转化通道
-              </a>
-            </nav>
+            </div>
           </header>
 
-          <div className="grid gap-12 py-10 xl:grid-cols-[1.08fr_0.92fr] xl:items-end">
+          <div className="grid gap-10 py-10 lg:grid-cols-[0.7fr_1.3fr] lg:gap-16 lg:py-14">
             <div>
-              <p className="micro-copy text-[#7f7f7f]">PARACAUSAL RETAIL DISPLAY / 中文主场 / 黑色祭坛协议</p>
-              <h1 className="display-title mt-6 max-w-[7ch] text-[#f3efe6]">
-                深空展柜
-              </h1>
-              <p className="mt-8 max-w-3xl font-zh-serif text-base leading-9 text-[#b7aea3] md:text-lg">
-                这里不是柔软讨好的消费场。这里是面向中文区高端众奢与高奢零售顾问式转化的黑色祭坛：巨物压迫、材质赤裸、参数极小、纹章稀薄，先建立敬畏，再启动沟通，再导向成交。
+              <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7f7f7f]">Object Index / Silent Catalogue</p>
+              <h1 className="mt-6 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f3efe6] md:text-[3.4rem]">Objects</h1>
+              <p className="mt-8 max-w-md font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
+                卖场不再做成卡片货架，而是一份被严格编辑过的名录。对象作为条目出现，图像只有在悬停或聚焦时才显现，像服装与香水品牌的目录而不是热闹电商列表。
               </p>
-              <div className="mt-8 grid max-w-4xl gap-3 md:grid-cols-3">
-                <MetricPanel value="60" label="巨物粗野" description="用悬浮体块、深空留白与俯视/仰视尺度建立压迫感。" />
-                <MetricPanel value="30" label="绝对材质" description="只保留纯黑、边线、倒角、冷白字重，不使用玻璃与流体糖衣。" />
-                <MetricPanel value="10" label="神性纹章" description="以准星、坐标、点阵与微型参数做低比例神谕式装饰。" />
-              </div>
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-                <a href="#sequence" className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
-                  进入对象序列
-                </a>
-                <Link href={`/object/${featured.id}`} className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
-                  查看签名对象
-                </Link>
+              <div className="mt-10 border-t border-[#111111]">
+                {products.map((product, index) => {
+                  const active = featured.id === product.id;
+                  const primarySku = getRetailSkuOptions(product)[0];
+
+                  return (
+                    <div
+                      key={product.id}
+                      onMouseEnter={() => setHoveredProductId(product.id)}
+                      onFocus={() => setHoveredProductId(product.id)}
+                      className="group border-b border-[#111111]"
+                    >
+                      <div className="grid gap-4 py-5 md:grid-cols-[84px_1fr_auto] md:items-end">
+                        <p className={`font-mono text-[10px] uppercase tracking-[0.44em] ${active ? "text-[#f3efe6]" : "text-[#5f5f5f]"}`}>
+                          {String(index + 1).padStart(2, "0")}
+                        </p>
+                        <div>
+                          <p className={`font-zh-sans text-lg uppercase tracking-[0.18em] md:text-[1.6rem] ${active ? "text-[#f3efe6]" : "text-[#c2bbb0] group-hover:text-[#f3efe6]"}`}>
+                            {product.code} / {product.name}
+                          </p>
+                          <p className="mt-2 font-zh-serif text-sm leading-7 text-[#8f877b]">{product.subtitle}</p>
+                        </div>
+                        <div className="flex flex-col items-start gap-3 md:items-end">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6b6b6b]">{formatCurrency(product.price)}</p>
+                          <Link href={`/object/${product.id}`} className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#9b9388] transition hover:text-[#f3efe6]">
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              cart.addItem({
+                                productId: product.id,
+                                productCode: product.code,
+                                productName: product.name,
+                                skuId: primarySku.id,
+                                skuLabel: primarySku.label,
+                                price: primarySku.price,
+                                quantity: Math.max(primarySku.minOrderQty ?? 1, 1),
+                                backendProductId: primarySku.backendProductId,
+                                backendSkuId: primarySku.backendSkuId,
+                                minOrderQty: primarySku.minOrderQty ?? 1,
+                              })
+                            }
+                            className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f] transition hover:text-[#f3efe6]"
+                          >
+                            Add to bag
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            <aside className="monolith-panel p-6 md:p-8">
-              <div className="flex items-start justify-between gap-6 border-b border-[#191919] pb-5">
-                <div>
-                  <p className="micro-copy text-[#7f7f7f]">数据来源</p>
-                  <p className="mt-4 font-zh-sans text-[1.9rem] font-semibold tracking-[0.24em] text-[#f3efe6] md:text-[2.5rem]">{sourceLabel}</p>
-                </div>
-                <div className="micro-pill" style={{ borderColor: "#3a2d10", color: "#9c7a31" }}>
-                  合规回退启用
-                </div>
-              </div>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {[
-                  { label: "陈列域", value: "高端零售" },
-                  { label: "对象数量", value: String(products.length).padStart(2, "0") },
-                  { label: "视角规则", value: "仰视蚁群" },
-                  { label: "拖拽系数", value: "ABYSS 0.08" },
-                ].map((item) => (
-                  <div key={item.label} className="monolith-panel px-4 py-5">
-                    <p className="micro-copy text-[#6f6f6f]">{item.label}</p>
-                    <p className="mt-3 font-zh-sans text-lg font-semibold tracking-[0.12em] text-[#f3efe6]">{item.value}</p>
+            <div className="lg:sticky lg:top-8 lg:self-start">
+              <div className="border border-[#111111] bg-[#020202]">
+                <div className="relative aspect-[4/5] overflow-hidden border-b border-[#111111] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_22%),linear-gradient(180deg,#040404_0%,#000000_100%)]">
+                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.7),transparent_30%,transparent_70%,rgba(0,0,0,0.7))]" />
+                  {featured.imageUrl ? (
+                    <img src={featured.imageUrl} alt={featured.name} className="absolute inset-0 h-full w-full object-cover grayscale contrast-125 opacity-70" />
+                  ) : (
+                    <>
+                      <div className="absolute left-1/2 top-[15%] h-[60%] w-[34%] -translate-x-1/2 border border-[#151515] bg-[radial-gradient(circle_at_50%_25%,rgba(255,255,255,0.12),rgba(255,255,255,0.02)_38%,transparent_62%),linear-gradient(180deg,#050505_0%,#010101_100%)]" style={{ clipPath: "polygon(18% 0, 82% 0, 100% 12%, 100% 100%, 0 100%, 0 12%)" }} />
+                      <div className="absolute left-1/2 top-[9%] h-[10%] w-[12%] -translate-x-1/2 border border-[#151515] bg-[#040404]" />
+                    </>
+                  )}
+                  <div className="absolute bottom-8 left-8 right-8">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Preview</p>
+                    <p className="mt-3 font-zh-sans text-[1.6rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[2.2rem]">{featured.code}</p>
                   </div>
-                ))}
-              </div>
-              <p className="mt-6 text-sm leading-8 text-[#a89f94]">
-                {props?.isSyncing
-                  ? "真实商品池正在同步。即使数据短暂延迟，前台仍会保持当前黑色祭坛结构，不会退回普通商品列表。"
-                  : "当前版本优先读取真实商品池，并在合规过渡阶段保留回退档案与备用通讯频道，以持续承接顾问式高端零售转化。"}
-              </p>
-            </aside>
-          </div>
-        </div>
-      </section>
+                </div>
 
-      <section id="sequence" className="mx-auto max-w-[1520px] px-6 py-16 md:px-10 lg:px-14 xl:px-16">
-        <div className="mb-12 grid gap-6 lg:grid-cols-[0.7fr_1.3fr] lg:items-end">
-          <div>
-            <p className="micro-copy text-[#7f7f7f]">OBJECT SEQUENCE / 中文展陈</p>
-            <h2 className="display-subtitle mt-4 text-[#f3efe6]">错落瀑布流</h2>
-          </div>
-          <p className="max-w-3xl font-zh-serif text-sm leading-8 text-[#a89f94] md:text-base">
-            一行不超过两件对象。核心单品独占整行，其余对象以不对称体块与深色留白穿插。背景巨物只做极轻视差，像深渊在缓慢拖拽画面，而不是做炫技式滚动秀场。
-          </p>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-12 xl:gap-8">
-          {products.map((product, index) => {
-            const columnClassName = product.layout === "full" ? "lg:col-span-12" : product.layout === "wide" ? "lg:col-span-7" : "lg:col-span-5";
-            const parallaxStyle = { transform: `translateY(${Math.min(scrollY * (0.02 + index * 0.004), 28)}px)` };
-            const signal = getProductSignalColor(product);
-            const primarySku = getRetailSkuOptions(product)[0];
-
-            return (
-              <article key={product.id} style={parallaxStyle} className={`${columnClassName} group relative border border-[#181818] bg-black p-5 md:p-7`}>
-                <div
-                  className="absolute inset-0 opacity-100"
-                  style={{
-                    clipPath: "polygon(0 0, calc(100% - 1.75rem) 0, 100% 1.75rem, 100% 100%, 1.75rem 100%, 0 calc(100% - 1.75rem))",
-                    border: "1px solid #181818",
-                  }}
-                />
-                <div className="absolute inset-0 hairline-grid opacity-50" />
-                <div className="relative grid gap-8 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
-                  <ProductArtifact product={product} index={index} />
+                <div className="grid gap-6 p-6 md:p-8">
                   <div>
-                    <ProductMetaBand product={product} />
-                    <h3 className="mt-5 max-w-[8ch] font-zh-sans text-[2.6rem] font-semibold leading-[0.92] tracking-[0.22em] text-[#f3efe6] md:text-[4rem]">
-                      {product.name}
-                    </h3>
-                    <p className="micro-copy mt-4" style={{ color: signal }}>
-                      {product.subtitle}
+                    <p className="font-mono text-[10px] uppercase tracking-[0.42em]" style={{ color: featuredSignal }}>
+                      {featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}
                     </p>
-                    <p className="mt-6 max-w-2xl font-zh-serif text-sm leading-8 text-[#a89f94] md:text-base">{product.overview}</p>
-                    <div className="mt-7 grid gap-3 md:grid-cols-2">
-                      {product.stats.slice(0, 2).map((item) => (
-                        <div key={item.label} className="monolith-panel px-4 py-5">
-                          <p className="micro-copy text-[#6f6f6f]">{item.label}</p>
-                          <p className={`mt-4 font-zh-sans text-[1.7rem] font-semibold leading-none tracking-[0.16em] ${item.emphasis === "primary" ? "text-[#f3efe6]" : "text-[#c2b6a0]"}`}>
-                            {item.value}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <h2 className="mt-4 max-w-[12ch] font-zh-sans text-[2rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[2.8rem]">
+                      {featured.name}
+                    </h2>
+                    <p className="mt-5 max-w-xl font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">{featured.overview}</p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {featured.stats.slice(0, 4).map((item) => (
+                      <div key={`${featured.id}-${item.label}`} className="border border-[#111111] px-4 py-5">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">{item.label}</p>
+                        <p className="mt-3 font-zh-sans text-[1.5rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-[#111111] pt-6">
+                    <div className="flex items-end justify-between gap-4">
                       <div>
-                        <p className="micro-copy text-[#7f7f7f]">建议零售价</p>
-                        <p className="mt-3 font-zh-sans text-[1.9rem] font-semibold leading-none tracking-[0.14em] text-[#f3efe6]">
-                          {formatCurrency(product.price)}
-                        </p>
-                        <p className="mt-3 text-sm leading-7 text-[#8f877c]">首推 SKU：{primarySku.label}</p>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Primary SKU</p>
+                        <p className="mt-3 font-zh-serif text-sm leading-8 text-[#9b9388]">{featuredSku.label}</p>
                       </div>
-                      <div className="flex flex-col gap-3 md:flex-row">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            cart.addItem({
-                              productId: product.id,
-                              productCode: product.code,
-                              productName: product.name,
-                              skuId: primarySku.id,
-                              skuLabel: primarySku.label,
-                              price: primarySku.price,
-                              quantity: Math.max(primarySku.minOrderQty ?? 1, 1),
-                              backendProductId: primarySku.backendProductId,
-                              backendSkuId: primarySku.backendSkuId,
-                              minOrderQty: primarySku.minOrderQty ?? 1,
-                            })
-                          }
-                          className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.3em]"
-                        >
-                          加入购物袋
-                        </button>
-                        <Link href={`/object/${product.id}`} className="monolith-button inline-flex h-12 items-center justify-center px-5 text-[11px] font-medium tracking-[0.3em]">
-                          查看对象档案
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </div>
+                      <p className="font-zh-sans text-[1.8rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">{formatCurrency(featured.price)}</p>
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-5">
+                      <Link href={`/object/${featured.id}`} className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#f3efe6] transition hover:text-[#cfc7bb]">
+                        View object
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          cart.addItem({
+                            productId: featured.id,
+                            productCode: featured.code,
+                            productName: featured.name,
+                            skuId: featuredSku.id,
+                            skuLabel: featuredSku.label,
+                            price: featuredSku.price,
+                            quantity: Math.max(featuredSku.minOrderQty ?? 1, 1),
+                            backendProductId: featuredSku.backendProductId,
+                            backendSkuId: featuredSku.backendSkuId,
+                            minOrderQty: featuredSku.minOrderQty ?? 1,
+                          })
+                        }
+                        className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#9b9388] transition hover:text-[#f3efe6]"
+                      >
+                        Add to bag
+                      </button>
                     </div>
                   </div>
                 </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id="allocation" className="border-t border-[#151515] bg-black">
-        <div className="mx-auto grid max-w-[1520px] gap-6 px-6 py-16 md:px-10 lg:grid-cols-[0.75fr_1.25fr] lg:px-14 xl:px-16">
-          <div>
-            <p className="micro-copy text-[#7f7f7f]">CONVERSION DISCIPLINE</p>
-            <h2 className="display-subtitle mt-4 text-[#f3efe6]">转化通道</h2>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              "官网前台现在以零售转化为主，购物袋承担 SKU 暂存，后续将衔接支付参数轮询与二维码扫码成交。",
-              "PDP 将同时暴露外部入口桥接层，用于导向淘宝 / 天猫与小程序矩阵，缩短顾客跳转成本。",
-              "按钮继续保持透明边框与硬切反白反馈，不使用阴影、玻璃、液态过渡或温和亲和的填充块。",
-            ].map((item) => (
-              <div key={item} className="monolith-panel p-5 font-zh-serif text-sm leading-8 text-[#a89f94]">
-                {item}
               </div>
-            ))}
+
+              <div id="allocation" className="mt-8 border-t border-[#111111] pt-8">
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Conversion Discipline</p>
+                <p className="mt-5 font-zh-serif text-sm leading-8 text-[#8f877b]">
+                  {props?.isSyncing
+                    ? "真实商品池正在同步，目录结构保持不变，只更新对象与 SKU 数据。"
+                    : "卖场负责把对象与欲望压缩成最少的字句，真正的技术解释、外部桥接与申请动作交给对象详情页继续承接。"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-      <CartDock cart={cart} interactive={props?.interactiveCart} checkoutLabel="下一步将连接零售下单 JSON API，并在网页端轮询支付状态。" />
+      <div id="bag">
+        <CartDock cart={cart} interactive={props?.interactiveCart} checkoutLabel="下一步将连接零售下单 JSON API，并在网页端轮询支付状态。" />
+      </div>
     </main>
   );
 }

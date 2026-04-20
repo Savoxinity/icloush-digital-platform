@@ -25,47 +25,44 @@ function setLocation(pathname: string) {
 }
 
 describe("web storefront sprint 3 中文化重构", () => {
-  it("渲染 Monolithic Hero 首页，包含品牌大字、3026 副标题与唯一 showroom 切割箭头", () => {
+  it("渲染 LAB 静奢首页，包含 3026 片名式标题、ACCESS 入口与全屏菜单文案", () => {
     setLocation("/");
     const html = renderToStaticMarkup(<MonolithicHeroPage featured={SHOWROOM_PRODUCTS[0]} />);
 
     expect(html).toContain("ICLOUSH LAB.");
-    expect(html).toContain("3026 ORBITAL JEWELER");
-    expect(html).toContain("ENTER /SHOWROOM");
-    expect(html).toContain("/showroom");
-    expect(html).toContain("hero-depth-stage");
+    expect(html).toContain("3026 Orbital Jeweler");
+    expect(html).toContain("Enter showroom");
+    expect(html).toContain("Access");
+    expect(html).toContain("The Vault Menu");
+    expect(html).toContain("SERIES: AP");
     expect(html).not.toContain("购物袋");
   });
 
-  it("渲染中文主标题、2C 路由入口、对象序列按钮与购物袋入口", () => {
+  it("渲染名录式卖场首页，包含对象目录、悬停预览语义与购物袋入口", () => {
     setLocation("/showroom");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("深空展柜");
-    expect(html).toContain("数字展柜");
-    expect(html).toContain("VOID-B03");
-    expect(html).toContain("FC-LE");
-    expect(html).toContain("/object/void-b03");
-    expect(html).toContain("进入对象序列");
-    expect(html).toContain("加入购物袋");
+    expect(html).toContain("Object Index / Silent Catalogue");
+    expect(html).toContain("Objects");
+    expect(html).toContain("VOID-B03 / 大气重组基质");
+    expect(html).toContain("FC-LE / 织物精华乳");
+    expect(html).toContain("Preview");
+    expect(html).toContain("View object");
+    expect(html).toContain("Add to bag");
     expect(html).toContain("RETAIL CART");
-    expect(html).not.toContain("B2B");
   });
 
-  it("渲染 6:3:1 方尖碑系统与中文字体分层类名", () => {
+  it("卖场切换为目录陈列后，仍保留极简黑场、黑白灰语言与对象预览结构", () => {
     setLocation("/gallery");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("巨物粗野");
-    expect(html).toContain("绝对材质");
-    expect(html).toContain("神性纹章");
-    expect(html).toContain("hairline-grid");
-    expect(html).toContain("crosshair");
-    expect(html).toContain("clip-path:polygon(");
-    expect(html).toContain("display-title");
+    expect(html).toContain("Silent Catalogue");
+    expect(html).toContain("Conversion Discipline");
+    expect(html).toContain("Atmospheric Purification");
     expect(html).toContain("font-zh-sans");
     expect(html).toContain("font-zh-serif");
-    expect(html).toContain("SIGNAL");
+    expect(html).not.toContain("rounded-full");
+    expect(html).not.toContain("shadow-");
   });
 
   it("渲染中文单品档案、实验数据面板、外部入口桥接层与升级后的 fallback 通讯频道", () => {

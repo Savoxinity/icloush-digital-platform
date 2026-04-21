@@ -20,3 +20,9 @@
 ## 内联资源回退验收
 
 由于当前开发预览中的 `/manus-storage` 代理对新旧资源均返回异常，本轮为保证预览阶段的真实可见性，已将环洗朵首屏 Hero 图与占位版 TDS 下载先切换为内联资源方案。浏览器侧验证结果显示：Hero 图像已成功加载，实际尺寸为 `845 × 475`；TDS 入口已输出 `data:application/pdf;base64,` 前缀并保留新窗口打开行为，因此新版 `/tech` 在预览中已经具备可视化 Hero 与可点击下载动作。
+
+## 第二轮视觉整改验收补充
+
+在最新 `/tech` 预览中，环洗朵首页已切换为深色工业终端式首屏：背景不再使用 Base64 占位图，而是通过 `/manus-storage/huanxiduo-hero-4k_a47d4dd9.jpg` 加载真实高清 Hero 图片，并叠加代码驱动的动态流体场与噪点扫描纹理。浏览器侧进一步确认了主滚动容器为 `main.h-screen.snap-y.snap-mandatory.overflow-y-auto`，其 `scrollSnapType` 为 `y mandatory`，且 5 个核心 section 均具有 `scrollSnapAlign: start` 与整屏高度，说明强制吸附滚动底座已生效。
+
+当前版本的动态首屏采用“高清静态图 + Canvas 代码动态场 + 噪点遮罩”的组合方案，已满足在未接入正式短片资源时的高压动态替代要求。后续如果补入实验室视频素材，可继续在同一 Hero 容器内无缝切换为真实 video background，而无需推翻现有分屏节奏与参数化布局。

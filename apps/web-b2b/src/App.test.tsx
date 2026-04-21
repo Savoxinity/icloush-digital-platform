@@ -139,25 +139,25 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain('href="/shop"');
   });
 
-  it("恢复环洗朵科技官网首页，采用工业终端式大屏结构与可执行的导航和下载入口", () => {
+  it("恢复环洗朵科技官网首页，采用动态 Hero、真实高清媒资链路与强制整屏吸附滚动", () => {
     setLocation("/tech");
     const html = renderToStaticMarkup(<HuanxiduoTechPage />);
 
     expect(html).toContain("Hyper-Resolution Industrial Terminal");
     expect(html).toContain("次时代清洁解决方案");
-    expect(html).toContain("4K HERO / LAB LIQUID MACRO");
-    expect(html).toContain("环洗朵 Hero 实验室液滴微距图");
-    expect(html).toContain("data:image/jpeg;base64,");
+    expect(html).toContain("Noise Overlay / Terminal Grain");
+    expect(html).toContain("snap-mandatory");
+    expect(html).toContain("snap-start snap-always");
     expect(html).toContain('href="#technology"');
     expect(html).toContain('href="#solutions"');
     expect(html).toContain('href="#products"');
     expect(html).toContain('href="#sample"');
     expect(html).toContain("REQUEST SAMPLE / 申请试样");
     expect(html).toContain("DOWNLOAD TDS / 下载 TDS");
-    expect(html).toContain("data:application/pdf;base64,");
-    expect(html).toContain('target="_blank"');
-    expect(html).toContain("扫码进入 B2B 采购小程序");
-    expect(html).not.toContain("rounded-full");
+    expect(html).toContain("/manus-storage/huanxiduo-hero-4k_a47d4dd9.jpg");
+    expect(html).toContain("/manus-storage/huanxiduo-tds-placeholder_18e633bb.pdf");
+    expect(html).not.toContain("data:image/jpeg;base64,");
+    expect(html).not.toContain("data:application/pdf;base64,");
   });
 
   it("提供 2 秒轮询 helper，并在终态时停止轮询", () => {

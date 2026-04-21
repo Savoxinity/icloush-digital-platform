@@ -139,25 +139,30 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain('href="/shop"');
   });
 
-  it("恢复环洗朵科技官网首页，采用动态 Hero、真实高清媒资链路与强制整屏吸附滚动", () => {
+  it("恢复环洗朵科技官网首页，采用动态 Hero、真实高清媒资链路、强制整屏吸附滚动与无边框悬浮排版", () => {
     setLocation("/tech");
     const html = renderToStaticMarkup(<HuanxiduoTechPage />);
 
     expect(html).toContain("Hyper-Resolution Industrial Terminal");
     expect(html).toContain("次时代清洁解决方案");
-    expect(html).toContain("Noise Overlay / Terminal Grain");
+    expect(html).toContain("4K POSTER // REAL ASSET FEED");
+    expect(html).toContain("PH VALUE 7.0");
+    expect(html).toContain("CNAS CERTIFIED");
+    expect(html).toContain("INDUSTRIAL LAUNDRY | KITCHEN HYGIENE | ROOM CARE");
     expect(html).toContain("snap-mandatory");
     expect(html).toContain("snap-start snap-always");
     expect(html).toContain('href="#technology"');
     expect(html).toContain('href="#solutions"');
     expect(html).toContain('href="#products"');
     expect(html).toContain('href="#sample"');
-    expect(html).toContain("REQUEST SAMPLE / 申请试样");
+    expect(html).toContain("REQUEST SAMPLE");
     expect(html).toContain("DOWNLOAD TDS / 下载 TDS");
     expect(html).toContain("/manus-storage/huanxiduo-hero-4k_a47d4dd9.jpg");
     expect(html).toContain("/manus-storage/huanxiduo-tds-placeholder_18e633bb.pdf");
     expect(html).not.toContain("data:image/jpeg;base64,");
     expect(html).not.toContain("data:application/pdf;base64,");
+    expect(html).not.toContain("border border-white/10");
+    expect(html).not.toContain("gap-px border");
   });
 
   it("提供 2 秒轮询 helper，并在终态时停止轮询", () => {

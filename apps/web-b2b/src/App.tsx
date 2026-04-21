@@ -2108,15 +2108,15 @@ export function HuanxiduoTechPage() {
   ] as const;
 
   const heroSignals = [
-    ["4K Poster", "高清媒资链路", "首屏改用真实 /manus-storage 高清图，不再依赖 Base64。"],
-    ["Snap Stack", "强制吸附滚动", "每个章节以整屏为单位硬切换，建立工业门闸般的节奏。"],
-    ["Live Motion", "代码驱动 Hero", "在缺少正式短片素材前，用动态流体场替代静态糊图。"],
+    ["4K POSTER // REAL ASSET FEED", "首屏改用真实 /manus-storage 高清图，不再依赖 Base64。"],
+    ["SNAP STACK // MANDATORY SCROLL", "每个章节以整屏为单位硬切换，建立工业门闸般的节奏。"],
+    ["LIVE MOTION // CODE-DRIVEN FIELD", "在缺少正式短片素材前，用动态流体场与噪点遮罩维持压迫感。"],
   ] as const;
 
   const technologyModules = [
-    ["MODULE 01", "军规级洁净技术", "把活性酶、去污效率与织物友好度组织成可验证的参数蓝图。"],
-    ["MODULE 02", "自动分配与软水系统", "用分配器、蠕动泵与软水装置把系统能力而不是单品感受推到前台。"],
-    ["MODULE 03", "低残留可持续闭环", "包装循环、浓缩投放和低残留同屏呈现，避免落回普通环保话术。"],
+    ["MODULE 01 // CLEAN SCIENCE", "军规级洁净技术", "把活性酶、去污效率与织物友好度组织成可验证的参数蓝图。", "PH VALUE 7.0 | CNAS CERTIFIED | ENZYME SYSTEM"],
+    ["MODULE 02 // DOSING LOGIC", "自动分配与软水系统", "用分配器、蠕动泵与软水装置把系统能力而不是单品感受推到前台。", "SOFT WATER | AUTO DOSING | LESS HUMAN ERROR"],
+    ["MODULE 03 // SUSTAINABLE LOOP", "低残留可持续闭环", "包装循环、浓缩投放和低残留同屏呈现，避免落回普通环保话术。", "LOW RESIDUE | REUSE PACKAGE | LONG CYCLE"],
   ] as const;
 
   const sampleChannels = [
@@ -2130,124 +2130,172 @@ export function HuanxiduoTechPage() {
 
   return (
     <main className="h-screen snap-y snap-mandatory overflow-y-auto bg-[#020406] text-white">
-      <section className="relative h-screen snap-start snap-always overflow-hidden border-b border-white/10">
+      <section className="relative h-screen snap-start snap-always overflow-hidden">
         <IndustrialSignalField posterUrl={heroMediaUrl} />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,4,6,0.18)_0%,rgba(2,4,6,0.42)_42%,rgba(2,4,6,0.9)_100%)]" />
         <div className="relative z-10 mx-auto flex h-full max-w-[1680px] flex-col px-6 md:px-10 xl:px-14">
-          <header className="flex items-center justify-between border-b border-white/10 py-5">
+          <header className="flex items-center justify-between py-5">
             <div className="flex items-center gap-3">
-              <span className="inline-block h-3 w-3 border border-white/60 bg-[#0b5fff]" />
+              <span className="inline-block h-2 w-2 bg-[#0b5fff]" />
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/40">Unified Digital Base / Tech</p>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/82">HUANXIDUO</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/36">Unified Digital Base / Tech</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/82">HUANXIDUO</p>
               </div>
             </div>
-            <nav className="hidden items-center gap-6 lg:flex">
-              {navigationItems.map(([href, label]) => (
-                <a key={href} href={href} className="text-[11px] font-medium uppercase tracking-[0.32em] text-white/55 transition hover:text-white">
-                  {label}
-                </a>
+            <nav className="hidden items-center gap-3 lg:flex">
+              {navigationItems.map(([href, label], index) => (
+                <React.Fragment key={href}>
+                  <a href={href} className="text-[11px] font-medium uppercase tracking-[0.32em] text-white/52 transition hover:text-white">
+                    {label}
+                  </a>
+                  {index < navigationItems.length - 1 ? <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/18">//</span> : null}
+                </React.Fragment>
               ))}
             </nav>
-            <div className="flex items-center gap-3">
-              <Link href="/" className="hidden text-[11px] uppercase tracking-[0.28em] text-white/52 transition hover:text-white sm:inline-flex">平台总入口</Link>
-              <a href="#sample" className="inline-flex h-11 items-center justify-center border border-white/14 bg-white/6 px-5 text-[11px] font-medium uppercase tracking-[0.28em] text-white transition hover:bg-white hover:text-[#020406]">
+            <div className="flex items-center gap-5">
+              <Link href="/" className="hidden text-[11px] uppercase tracking-[0.28em] text-white/44 transition hover:text-white sm:inline-flex">平台总入口</Link>
+              <a href="#sample" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white transition hover:text-[#86b4ff]">
                 REQUEST SAMPLE
+                <ArrowRight className="h-4 w-4" />
               </a>
             </div>
           </header>
 
-          <div className="grid h-full items-end gap-10 py-8 lg:grid-cols-[0.72fr_0.28fr] xl:gap-16">
-            <div className="max-w-[900px] pb-10 md:pb-14 xl:pb-18">
-              <p className="font-mono text-[11px] uppercase tracking-[0.42em] text-[#7fb1ff]">Hyper-Resolution Industrial Terminal</p>
-              <h1 className="mt-6 max-w-[1100px] text-5xl font-black leading-[0.88] tracking-[-0.08em] text-white md:text-7xl xl:text-[7.4rem]">
+          <div className="grid h-full items-end gap-12 py-10 lg:grid-cols-[0.74fr_0.26fr] xl:gap-20">
+            <div className="max-w-[980px] pb-12 md:pb-16 xl:pb-20">
+              <p className="font-mono text-[11px] uppercase tracking-[0.46em] text-[#8db9ff]">Hyper-Resolution Industrial Terminal</p>
+              <h1 className="mt-7 max-w-[1100px] text-5xl font-black leading-[0.86] tracking-[-0.08em] text-white md:text-7xl xl:text-[7.6rem]">
                 环洗朵科技
               </h1>
-              <p className="mt-5 max-w-3xl text-xl font-medium tracking-[-0.04em] text-white/86 md:text-4xl">
+              <p className="mt-5 max-w-3xl text-xl font-medium tracking-[-0.05em] text-white/88 md:text-4xl">
                 次时代清洁解决方案
               </p>
-              <p className="mt-6 max-w-2xl text-sm leading-8 text-white/62 md:text-base">
-                把实验室液滴微距、工业参数板和强制分屏滚动拼成一块发布终端。先用画面建立压迫，再用参数建立信任，最后才让样板申请与采购入口接管转化。
+              <p className="mt-8 max-w-2xl text-sm leading-9 text-white/58 md:text-base">
+                把实验室液滴微距、工业参数板和整屏硬切滚动拼成一块发布终端。画面先建立压迫，参数再建立信任，最后才让样板申请与采购入口接管转化。
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a href="#products" className="inline-flex h-14 items-center gap-3 border border-white/14 bg-white px-6 text-[11px] font-medium uppercase tracking-[0.28em] text-[#020406] transition hover:bg-[#0b5fff] hover:text-white">
+
+              <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] uppercase tracking-[0.32em] text-white/38 md:text-[11px]">
+                <span>PH VALUE 7.0</span>
+                <span>|</span>
+                <span>CNAS CERTIFIED</span>
+                <span>|</span>
+                <span>20L DRUM</span>
+                <span>|</span>
+                <span>LOW RESIDUE LOOP</span>
+              </div>
+
+              <div className="mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
+                <a href="#products" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white transition hover:text-[#86b4ff]">
                   查看产品矩阵
                   <ArrowRight className="h-4 w-4" />
                 </a>
-                <a href="#solutions" className="inline-flex h-14 items-center gap-3 border border-white/14 bg-white/8 px-6 text-[11px] font-medium uppercase tracking-[0.28em] text-white transition hover:bg-white hover:text-[#020406]">
+                <a href="#solutions" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white/76 transition hover:text-white">
                   查看解决方案
                   <ArrowRight className="h-4 w-4" />
                 </a>
-                <a href={tdsPlaceholderUrl} target="_blank" rel="noreferrer" className="inline-flex h-14 items-center gap-3 border border-[#7fb1ff]/30 bg-[#0b5fff]/14 px-6 text-[11px] font-medium uppercase tracking-[0.28em] text-[#dce8ff] transition hover:bg-[#0b5fff] hover:text-white">
+                <a href={tdsPlaceholderUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-[#a8c7ff] transition hover:text-white">
                   DOWNLOAD TDS / 下载 TDS
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </div>
             </div>
 
-            <div className="hidden self-end pb-10 lg:block">
-              <div className="grid gap-px border border-white/10 bg-white/10">
-                {heroSignals.map(([value, label, detail]) => (
-                  <div key={value} className="bg-black/45 px-5 py-5 backdrop-blur-sm">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/42">{label}</p>
-                    <p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-white">{value}</p>
-                    <p className="mt-3 text-sm leading-6 text-white/58">{detail}</p>
+            <div className="hidden self-end pb-12 lg:block">
+              <div className="space-y-10">
+                {heroSignals.map(([headline, detail]) => (
+                  <div key={headline} className="max-w-[320px]">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/34">{headline}</p>
+                    <p className="mt-4 text-sm leading-8 text-white/56">{detail}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="absolute bottom-6 left-6 right-6 hidden gap-px border border-white/10 bg-white/10 xl:grid xl:grid-cols-[0.3fr_0.34fr_0.36fr]">
-            <div className="bg-black/50 px-5 py-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/42">HERO FEED</p>
-              <p className="mt-2 text-sm text-white/72">/manus-storage/huanxiduo-hero-4k_a47d4dd9.jpg</p>
-            </div>
-            <div className="bg-black/50 px-5 py-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/42">Noise Overlay / Terminal Grain</p>
-              <p className="mt-2 text-sm text-white/72">代码驱动流体场 + 扫描纹理，暂代正式实验室短片。</p>
-            </div>
-            <div className="bg-black/50 px-5 py-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/42">4K Hero / Lab Liquid Macro</p>
-              <p className="mt-2 text-sm text-white/72">真实高清图片通过本地静态代理恢复可访问，避免 500 和 Base64 失真。</p>
-            </div>
+          <div className="absolute bottom-7 left-6 right-6 hidden xl:flex xl:items-center xl:justify-between">
+            <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/26">HERO FEED // /manus-storage/huanxiduo-hero-4k_a47d4dd9.jpg</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/22">NOISE OVERLAY // CODE-DRIVEN FLOW FIELD // LIVE INDUSTRIAL MOTION</p>
           </div>
         </div>
       </section>
 
-      <section id="technology" className="h-screen snap-start snap-always overflow-hidden border-b border-white/10 bg-[#05080d]">
-        <div className="mx-auto grid h-full max-w-[1680px] gap-8 px-6 py-8 md:px-10 lg:grid-cols-[0.38fr_0.62fr] xl:px-14">
-          <div className="flex flex-col justify-between border border-white/10 bg-white/[0.03] p-6 md:p-8">
+      <section id="technology" className="relative h-screen snap-start snap-always overflow-hidden bg-[#05080d]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(11,95,255,0.08),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.01),transparent_38%)]" />
+        <div className="relative mx-auto grid h-full max-w-[1680px] gap-12 px-6 py-10 md:px-10 lg:grid-cols-[0.36fr_0.64fr] xl:px-14">
+          <div className="flex flex-col justify-between">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.34em] text-[#7fb1ff]">Clean Science / System Logic</p>
-              <h2 className="mt-5 text-4xl font-black leading-[0.94] tracking-[-0.06em] md:text-6xl">把洁净能力做成可验证的工业系统。</h2>
-              <p className="mt-6 max-w-xl text-sm leading-8 text-white/62 md:text-base">
-                这一屏承担“可信度建立”。所有内容必须像工业终端参数面板，而不是 B2B 模板的花哨卡片。结构越硬，技术越可信。
+              <p className="font-mono text-[11px] uppercase tracking-[0.36em] text-[#8db9ff]">Clean Science / System Logic</p>
+              <h2 className="mt-6 text-4xl font-black leading-[0.92] tracking-[-0.06em] text-white md:text-6xl">
+                把洁净能力做成可验证的工业系统。
+              </h2>
+              <p className="mt-8 max-w-xl text-sm leading-9 text-white/58 md:text-base">
+                这一屏承担可信度建立。内容必须像高压工业发布终端，而不是 B2B 模板的盒子堆叠。结构越安静，技术越可信。
               </p>
             </div>
-            <div className="grid gap-px border border-white/10 bg-white/10">
+
+            <div className="space-y-8 pb-2">
               {[
                 ["TRUST FRAME", "CMA / CNAS 报告位已预留"],
                 ["DOSING SYSTEM", "设备参数、配比逻辑与工艺节点同屏"],
                 ["SUSTAINABLE LOOP", "低残留、浓缩、循环包装统一进板"],
               ].map(([code, detail]) => (
-                <div key={code} className="grid gap-px bg-white/10 md:grid-cols-[0.3fr_0.7fr]">
-                  <div className="bg-black/50 px-4 py-4 font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">{code}</div>
-                  <div className="bg-black/35 px-4 py-4 text-sm text-white/66">{detail}</div>
+                <div key={code}>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/28">{code}</p>
+                  <p className="mt-3 text-base leading-8 text-white/68">{detail}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid gap-px border border-white/10 bg-white/10 lg:grid-cols-3">
-            {technologyModules.map(([code, title, detail]) => (
-              <article key={code} className="flex h-full flex-col justify-between bg-[#08101a] p-6 md:p-7">
+          <div className="grid gap-10 lg:grid-cols-3 lg:items-end">
+            {technologyModules.map(([code, title, detail, footnote]) => (
+              <article key={code} className="flex h-full flex-col justify-between gap-14">
                 <div>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#7fb1ff]">{code}</p>
-                  <h3 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.05em] text-white">{title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/60">{detail}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-[#8db9ff]">{code}</p>
+                  <h3 className="mt-5 text-3xl font-semibold leading-tight tracking-[-0.05em] text-white">{title}</h3>
+                  <p className="mt-5 text-sm leading-8 text-white/58">{detail}</p>
                 </div>
-                <div className="mt-8 border-t border-white/10 pt-4 font-mono text-[10px] uppercase tracking-[0.28em] text-white/36">
-                  Parameter grid ready for real lab data
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/26">{footnote}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="solutions" className="relative h-screen snap-start snap-always overflow-hidden bg-[#04070b]">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.015)_0%,transparent_34%,rgba(11,95,255,0.035)_100%)]" />
+        <div className="relative mx-auto flex h-full max-w-[1680px] flex-col px-6 py-10 md:px-10 xl:px-14">
+          <div className="flex items-end justify-between gap-10">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.36em] text-[#8db9ff]">Solutions / Dispatch by Scenario</p>
+              <h2 className="mt-6 text-4xl font-black tracking-[-0.06em] text-white md:text-6xl">解决方案</h2>
+            </div>
+            <p className="hidden max-w-2xl text-sm leading-9 text-white/56 lg:block">
+              三个场景不再做成普通卡片，而是以留白、字重和动作入口直接分层，让用户每滚一次就硬切到新的工业场景。
+            </p>
+          </div>
+
+          <div className="mt-12 grid h-full content-start gap-12">
+            {HUANXIDUO_SOLUTIONS.map((item, index) => (
+              <article key={item.title} className="grid gap-6 lg:grid-cols-[0.18fr_0.46fr_0.36fr] lg:items-end">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/28">SCENARIO {String(index + 1).padStart(2, "0")}</p>
+                  <p className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white md:text-[2.45rem]">{item.title}</p>
+                  <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.32em] text-[#8db9ff]">LIVE // INDUSTRIAL LAUNDRY | KITCHEN HYGIENE | ROOM CARE</p>
+                </div>
+                <p className="max-w-3xl text-sm leading-9 text-white/58 md:text-base">{item.detail}</p>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/24">ACTION // SAMPLE | TDS | PROCUREMENT</p>
+                  <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <a href="#sample" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white transition hover:text-[#86b4ff]">
+                      获取行业方案
+                      <ArrowRight className="h-4 w-4" />
+                    </a>
+                    <a href={tdsPlaceholderUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white/62 transition hover:text-white">
+                      DOWNLOAD TDS
+                      <ArrowRight className="h-4 w-4" />
+                    </a>
+                  </div>
                 </div>
               </article>
             ))}
@@ -2255,141 +2303,110 @@ export function HuanxiduoTechPage() {
         </div>
       </section>
 
-      <section id="solutions" className="h-screen snap-start snap-always overflow-hidden border-b border-white/10 bg-[#04070b]">
-        <div className="mx-auto flex h-full max-w-[1680px] flex-col px-6 py-8 md:px-10 xl:px-14">
-          <div className="flex items-end justify-between gap-8">
+      <section id="products" className="relative h-screen snap-start snap-always overflow-hidden bg-[#020406]">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,rgba(255,255,255,0.015)_42%,transparent_100%)]" />
+        <div className="relative mx-auto flex h-full max-w-[1680px] flex-col px-6 py-10 md:px-10 xl:px-14">
+          <div className="flex items-end justify-between gap-10">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.34em] text-[#7fb1ff]">Solutions / Dispatch by Scenario</p>
-              <h2 className="mt-5 text-4xl font-black tracking-[-0.06em] md:text-6xl">解决方案</h2>
+              <p className="font-mono text-[11px] uppercase tracking-[0.36em] text-[#8db9ff]">Product Matrix / Industrial Blueprint</p>
+              <h2 className="mt-6 text-4xl font-black tracking-[-0.06em] text-white md:text-6xl">产品矩阵</h2>
             </div>
-            <p className="hidden max-w-2xl text-sm leading-8 text-white/60 lg:block">
-              三个场景不再做成普通卡片，而是像任务频道一样分屏分发，让用户每滚一次就硬切到下一组行动目标。
+            <p className="hidden max-w-2xl text-sm leading-9 text-white/56 lg:block">
+              这里不再像后台表单，而是让参数直接悬浮在空间里。通过 Label / Value 层级、空气感留白与动作密度控制完成决策加速。
             </p>
           </div>
-          <div className="mt-8 grid h-full gap-px border border-white/10 bg-white/10">
-            {HUANXIDUO_SOLUTIONS.map((item, index) => (
-              <div key={item.title} className="grid gap-px bg-white/10 lg:grid-cols-[0.18fr_0.42fr_0.4fr]">
-                <div className="flex items-start justify-between bg-[#07111d] px-5 py-5 md:px-6">
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">SCENARIO {index + 1}</p>
-                    <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white">{item.title}</p>
-                  </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-[#7fb1ff]">LIVE</div>
+
+          <div className="mt-12 grid h-full content-start gap-x-16 gap-y-12 lg:grid-cols-2">
+            {HUANXIDUO_PRODUCTS.map((item, index) => (
+              <article key={item.title} className="flex flex-col gap-8">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/28">HXD-0{index + 1}</p>
+                  <h3 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white md:text-[2.5rem]">{item.title}</h3>
+                  <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.34em] text-[#8db9ff]">{item.specs} | INDUSTRIAL BLUEPRINT | QUIET SPEC</p>
+                  <p className="mt-5 max-w-2xl text-sm leading-8 text-white/58">{item.detail}</p>
                 </div>
-                <div className="bg-black/45 px-5 py-5 text-sm leading-7 text-white/62 md:px-6">{item.detail}</div>
-                <div className="grid gap-px bg-white/10 sm:grid-cols-2">
-                  <div className="bg-black/35 px-5 py-5 md:px-6">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/42">Action</p>
-                    <p className="mt-3 text-sm leading-7 text-white/62">下载 TDS、获取行业方案并把客户推入样板申请或采购链路。</p>
+
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/26">FORMAT</span>
+                    <span className="text-base leading-8 text-white/88">固体、液体、系统设备与终端卫生四类结构。</span>
                   </div>
-                  <a href="#sample" className="flex items-center justify-between bg-[#0b5fff] px-5 py-5 text-[11px] font-medium uppercase tracking-[0.24em] text-white transition hover:bg-[#2d79ff] md:px-6">
-                    获取行业方案
+                  <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/26">USE CASE</span>
+                    <span className="text-base leading-8 text-white/72">工业洗涤 | 后厨重油污 | 客房卫生 | 设备协同</span>
+                  </div>
+                  <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/26">ACTION</span>
+                    <span className="text-base leading-8 text-white/72">REQUEST SAMPLE // DOWNLOAD TDS // B2B PROCUREMENT</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
+                  <a href="#sample" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white transition hover:text-[#86b4ff]">
+                    REQUEST SAMPLE / 申请试样
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                  <a href={tdsPlaceholderUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-[#a8c7ff] transition hover:text-white">
+                    DOWNLOAD TDS / 下载 TDS
                     <ArrowRight className="h-4 w-4" />
                   </a>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="products" className="h-screen snap-start snap-always overflow-hidden bg-[#020406]">
-        <div className="mx-auto flex h-full max-w-[1680px] flex-col px-6 py-8 md:px-10 xl:px-14">
-          <div className="flex items-end justify-between gap-8">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.34em] text-[#7fb1ff]">Product Matrix / Industrial Blueprint</p>
-              <h2 className="mt-5 text-4xl font-black tracking-[-0.06em] md:text-6xl">产品矩阵</h2>
-            </div>
-            <p className="hidden max-w-2xl text-sm leading-8 text-white/60 lg:block">
-              消费电子式矩阵展示承担“决策加速”。每个对象同时拥有规格、使用场景、TDS 下载和样板动作入口。
-            </p>
-          </div>
-          <div className="mt-8 grid h-full gap-px border border-white/10 bg-white/10 lg:grid-cols-2">
-            {HUANXIDUO_PRODUCTS.map((item, index) => (
-              <article key={item.title} className="grid gap-px bg-white/10 md:grid-cols-[0.42fr_0.58fr]">
-                <div className="flex flex-col justify-between bg-[#07101a] px-6 py-6">
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">HXD-0{index + 1}</p>
-                    <p className="mt-5 text-3xl font-semibold tracking-[-0.05em] text-white">{item.title}</p>
-                    <p className="mt-3 font-mono text-sm uppercase tracking-[0.28em] text-[#7fb1ff]">{item.specs}</p>
-                  </div>
-                  <p className="border-t border-white/10 pt-4 text-sm leading-7 text-white/60">{item.detail}</p>
-                </div>
-                <div className="grid gap-px bg-white/10">
-                  <div className="bg-black/40 px-6 py-6">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">Quiet Spec</p>
-                    <div className="mt-4 grid gap-px border border-white/10 bg-white/10 sm:grid-cols-2">
-                      <div className="bg-[#050b12] px-4 py-4">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/42">Format</p>
-                        <p className="mt-2 text-sm leading-6 text-white/64">固体、液体、系统设备与终端卫生四类结构。</p>
-                      </div>
-                      <div className="bg-[#050b12] px-4 py-4">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-white/42">Use Case</p>
-                        <p className="mt-2 text-sm leading-6 text-white/64">工业洗涤、后厨重油污、客房卫生与设备协同。</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid gap-px bg-white/10 sm:grid-cols-2">
-                    <a href="#sample" className="flex h-16 items-center justify-between bg-[#0b5fff] px-5 text-[11px] font-medium uppercase tracking-[0.24em] text-white transition hover:bg-[#2d79ff]">
-                      REQUEST SAMPLE / 申请试样
-                      <ArrowRight className="h-4 w-4" />
-                    </a>
-                    <a href={tdsPlaceholderUrl} target="_blank" rel="noreferrer" className="flex h-16 items-center justify-between bg-white px-5 text-[11px] font-medium uppercase tracking-[0.24em] text-[#020406] transition hover:bg-[#0b5fff] hover:text-white">
-                      DOWNLOAD TDS / 下载 TDS
-                      <ArrowRight className="h-4 w-4" />
-                    </a>
-                  </div>
-                </div>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="sample" className="h-screen snap-start snap-always overflow-hidden border-t border-white/10 bg-[#04070b]">
-        <div className="mx-auto grid h-full max-w-[1680px] gap-px px-6 py-8 md:px-10 lg:grid-cols-[0.38fr_0.62fr] xl:px-14">
-          <div className="grid gap-px border border-white/10 bg-white/10">
-            <div className="bg-[#07111d] px-6 py-6 md:px-8">
-              <p className="font-mono text-[11px] uppercase tracking-[0.34em] text-[#7fb1ff]">Sample Request / Conversion Hook</p>
-              <h2 className="mt-5 text-4xl font-black tracking-[-0.06em] md:text-6xl text-white">申领样板</h2>
-              <p className="mt-6 text-sm leading-8 text-white/62 md:text-base">
-                画面保持高压，动作保持直给。留资、扫码、技术直连必须在一屏内全部建立，不让用户在滚动中迷失。
+      <section id="sample" className="relative h-screen snap-start snap-always overflow-hidden bg-[#04070b]">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.015)_0%,transparent_36%,rgba(2,4,6,0.22)_100%)]" />
+        <div className="relative mx-auto grid h-full max-w-[1680px] gap-14 px-6 py-10 md:px-10 lg:grid-cols-[0.38fr_0.62fr] xl:px-14">
+          <div className="flex flex-col justify-between">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.36em] text-[#8db9ff]">Sample Request / Conversion Hook</p>
+              <h2 className="mt-6 text-4xl font-black tracking-[-0.06em] text-white md:text-6xl">申领样板</h2>
+              <p className="mt-8 text-sm leading-9 text-white/58 md:text-base">
+                画面保持高压，动作保持直给。留资、扫码、技术直连必须在一屏内全部建立，但不再把文字塞进表格盒子里。
               </p>
             </div>
-            {sampleChannels.map(([title, detail]) => (
-              <div key={title} className="bg-black/35 px-6 py-5 md:px-8">
-                <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/42">{title}</p>
-                <p className="mt-3 text-sm leading-7 text-white/62">{detail}</p>
-              </div>
-            ))}
+
+            <div className="space-y-8 pb-2">
+              {sampleChannels.map(([title, detail]) => (
+                <div key={title}>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.34em] text-white/28">{title}</p>
+                  <p className="mt-3 text-base leading-8 text-white/68">{detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grid gap-px border border-white/10 bg-white/10">
-            <div className="grid gap-px bg-white/10 md:grid-cols-2">
+          <div className="flex h-full flex-col justify-between gap-10">
+            <div className="grid gap-x-12 gap-y-8 md:grid-cols-2">
               {[
-                "企业名称",
-                "联系人",
-                "手机 / 微信",
-                "所属行业",
-                "使用场景",
-                "预计月用量",
-              ].map((label) => (
-                <label key={label} className="bg-black/35 px-5 py-5 text-sm text-white/66">
-                  <span className="mb-3 block font-mono text-[10px] uppercase tracking-[0.24em] text-white/42">{label}</span>
-                  <div className="h-12 border border-white/10 bg-[#07111d]" />
+                ["企业名称", "请输入企业名称"],
+                ["联系人", "请输入联系人姓名"],
+                ["手机 / 微信", "请输入联系方式"],
+                ["所属行业", "请选择工业洗涤 / 后厨清洁 / 住房卫生"],
+                ["使用场景", "说明设备、布草或场景需求"],
+                ["预计月用量", "如 20L DRUM | 60L SYSTEM | MONTHLY"],
+              ].map(([label, placeholder]) => (
+                <label key={label} className="block">
+                  <span className="block font-mono text-[10px] uppercase tracking-[0.32em] text-white/28">{label}</span>
+                  <span className="mt-4 block text-base leading-8 text-white/62">{placeholder}</span>
                 </label>
               ))}
             </div>
-            <label className="bg-black/35 px-5 py-5 text-sm text-white/66">
-              <span className="mb-3 block font-mono text-[10px] uppercase tracking-[0.24em] text-white/42">备注</span>
-              <div className="h-24 border border-white/10 bg-[#07111d]" />
+
+            <label className="block">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.32em] text-white/28">备注</span>
+              <span className="mt-4 block text-base leading-8 text-white/62">补充布草类型、厨房体量、设备结构或其他试样要求。</span>
             </label>
-            <div className="grid gap-px bg-white/10 md:grid-cols-2">
-              <button type="button" className="inline-flex h-16 items-center justify-between bg-[#0b5fff] px-5 text-[11px] font-medium uppercase tracking-[0.24em] text-white transition hover:bg-[#2d79ff]">
+
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-4 pt-2">
+              <button type="button" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white transition hover:text-[#86b4ff]">
                 提交样板申请
                 <ArrowRight className="h-4 w-4" />
               </button>
-              <button type="button" className="inline-flex h-16 items-center justify-between bg-white px-5 text-[11px] font-medium uppercase tracking-[0.24em] text-[#020406] transition hover:bg-[#0b5fff] hover:text-white">
+              <button type="button" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white/72 transition hover:text-white">
                 扫码进入 B2B 采购小程序
                 <ArrowRight className="h-4 w-4" />
               </button>

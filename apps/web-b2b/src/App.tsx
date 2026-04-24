@@ -34,6 +34,8 @@ export type ShowroomProduct = {
     wechatQrUrl?: string;
     alipayQrUrl?: string;
   };
+  detailImages?: string[];
+  paymentMode?: "sandbox" | "production_ready" | "production_live";
   managedProductId?: number;
   defaultSkuId?: number | null;
   defaultSkuCode?: string | null;
@@ -245,6 +247,7 @@ const RETAIL_META_SPEC_KEYS = {
   miniProgramPath: "__retail_mini_program_path",
   wechatQrUrl: "__retail_wechat_qr_url",
   alipayQrUrl: "__retail_alipay_qr_url",
+  detailImageUrls: "__retail_detail_image_urls",
 } as const;
 
 function normalizeStatLabel(label: string) {
@@ -253,6 +256,8 @@ function normalizeStatLabel(label: string) {
 
 export function extractRetailAccessFromSpecs(specs: Array<{ key: string; value: string }>) {
   const externalAccess: NonNullable<ShowroomProduct["externalAccess"]> = {};
+  let detailImages: string[] = [];
+  let paymentMode: ShowroomProduct["paymentMode"] = "sandbox";
   const cleanSpecs = specs.filter((item) => {
     if (item.key === RETAIL_META_SPEC_KEYS.taobaoUrl) {
       externalAccess.taobaoUrl = item.value;
@@ -274,12 +279,25 @@ export function extractRetailAccessFromSpecs(specs: Array<{ key: string; value: 
       externalAccess.alipayQrUrl = item.value;
       return false;
     }
+    if (item.key === RETAIL_META_SPEC_KEYS.detailImageUrls) {
+      detailImages = item.value
+        .split(/\r?\n/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+      return false;
+    }
+    if (item.key === RETAIL_META_SPEC_KEYS.paymentMode) {
+      paymentMode = item.value === "production_live" || item.value === "production_ready" ? item.value : "sandbox";
+      return false;
+    }
     return true;
   });
 
   return {
     cleanSpecs,
     externalAccess,
+    detailImages,
+    paymentMode,
   };
 }
 
@@ -323,6 +341,8 @@ export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, 
       emphasis: itemIndex === 0 ? "primary" : "secondary",
     })),
     externalAccess: extracted.externalAccess,
+    detailImages: extracted.detailImages,
+    paymentMode: extracted.paymentMode,
     managedProductId: product.id,
     defaultSkuId: product.defaultSkuId ?? null,
     defaultSkuCode: product.defaultSkuCode ?? null,
@@ -1841,6 +1861,13 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
   }
 
   const selectedSku = skuOptions.find((item) => item.id === selectedSkuId) ?? skuOptions[0];
+  const detailImages = product.detailImages?.filter(Boolean) ?? [];
+  const paymentModeLabel =
+    product.paymentMode === "production_live"
+      ? "PRODUCTION LIVE / 已切正式支付"
+      : product.paymentMode === "production_ready"
+        ? "PRODUCTION READY / 备案后可切正式"
+        : "SANDBOX / 当前为测试支付";
   const experimentRows =
     product.series === "FC"
       ? [
@@ -1962,6 +1989,28 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
               </div>
             ))}
           </div>
+          {detailImages.length > 0 ? (
+            <section className="border border-[#111111] bg-[#020202] p-6 md:p-8">
+              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Rich Content / 商品详情长图</p>
+                  <h3 className="mt-3 font-zh-sans text-[2rem] font-light uppercase tracking-[0.16em] text-[#f3efe6] md:text-[2.6rem]">沉浸详情浏览</h3>
+                </div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#8c8378]">{detailImages.length} Frames</p>
+              </div>
+              <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">这些长图由管理端按序维护，可用于承接品牌概念图、实验细节图与淘宝式纵向详情页，在不改代码的情况下持续更新。</p>
+              <div className="mt-6 space-y-4">
+                {detailImages.map((imageUrl, index) => (
+                  <figure key={`${imageUrl}-${index}`} className="overflow-hidden border border-[#111111] bg-[#050505]">
+                    <img src={imageUrl} alt={`${product.name} 详情图 ${index + 1}`} className="h-full w-full object-cover" />
+                    <figcaption className="border-t border-[#111111] px-5 py-4 font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">
+                      Detail Frame {String(index + 1).padStart(2, "0")}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <ExternalAccessPanel product={product} />
           <div className="border border-[#111111] bg-[#020202] p-6 md:p-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -1975,7 +2024,11 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
             <div className="mt-6">
               <SkuSelector options={skuOptions} selectedSkuId={selectedSkuId} onSelect={setSelectedSkuId} />
             </div>
-            <div className="mt-6 flex flex-col gap-3 md:flex-row">
+              <div className="mt-5 rounded-2xl border border-[#111111] bg-[#050505] px-4 py-4 font-mono text-[10px] uppercase tracking-[0.32em] text-[#8c8378]">
+                {paymentModeLabel}
+              </div>
+              <div className="mt-6 flex flex-col gap-3 md:flex-row">
+
               <button
                 type="button"
                 onClick={() =>

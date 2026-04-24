@@ -19,7 +19,7 @@ import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-export type PlatformSiteKey = "shop" | "lab" | "tech" | "care";
+export type PlatformSiteKey = "shop" | "lab" | "tech" | "astro" | "care";
 
 export type PlatformSiteSummary = {
   siteKey: PlatformSiteKey;
@@ -317,6 +317,13 @@ const SITE_CONFIGS: Array<{
     fallbackHighlights: ["酒店布草与客房织物清洁方案", "高浓缩织物洁净剂"],
   },
   {
+    siteKey: "astro",
+    title: "浣星司 / ASTRO",
+    brandName: "浣星司",
+    brandCodes: ["astro", "icloush-astro"],
+    fallbackHighlights: ["夜行香幕", "冷焰织雾"],
+  },
+  {
     siteKey: "care",
     title: "iCloush Care",
     brandName: "iCloush Care",
@@ -357,6 +364,17 @@ const FALLBACK_BRAND_RECORDS = [
     domain: "care.icloush.com",
     siteTitle: "iCloush Care · 织物奢护与高端服务方案",
     siteDescription: "偏服务型解决方案、顾问咨询与项目制履约入口。",
+    status: "active",
+  },
+  {
+    id: 4,
+    code: "astro",
+    name: "浣星司",
+    shortName: "ASTRO",
+    businessType: "hybrid",
+    domain: "astro.icloush.com",
+    siteTitle: "浣星司 ASTRO · 诱人商品图与黑场图像展厅",
+    siteDescription: "承接图像展陈、礼物对象浏览与后续商品详情发布。",
     status: "active",
   },
 ] as const;
@@ -556,8 +574,8 @@ function buildCatalogBadges(params: { productType: string; brandName: string; ca
 const fallbackPlatformSnapshot: PlatformSnapshot = {
   generatedAt: new Date("2026-04-11T00:00:00.000Z").toISOString(),
   totals: {
-    siteCount: 4,
-    brandCount: 3,
+    siteCount: 5,
+    brandCount: 4,
     capabilityCount: 6,
     productCount: 6,
     categoryCount: 4,
@@ -600,6 +618,18 @@ const fallbackPlatformSnapshot: PlatformSnapshot = {
       pipelineOrderCount: 1,
       leadCount: 1,
       highlightNames: ["酒店布草与客房织物清洁方案", "高浓缩织物洁净剂"],
+    },
+    {
+      siteKey: "astro",
+      title: "浣星司 / ASTRO",
+      brandName: "浣星司",
+      brandCodes: ["astro"],
+      productCount: 0,
+      categoryCount: 0,
+      orderCount: 0,
+      pipelineOrderCount: 0,
+      leadCount: 0,
+      highlightNames: ["夜行香幕", "冷焰织雾"],
     },
     {
       siteKey: "care",
@@ -831,9 +861,9 @@ function buildFallbackAdminOperationsSnapshot(brandId?: number): AdminOperations
     },
     content: {
       totals: {
-        siteCount: 4,
-        storyReadyCount: 3,
-        seoReadySiteCount: 3,
+        siteCount: 5,
+        storyReadyCount: 4,
+        seoReadySiteCount: 4,
         productStoryCount: 5,
         leadCaptureCount: 3,
       },
@@ -844,7 +874,13 @@ function buildFallbackAdminOperationsSnapshot(brandId?: number): AdminOperations
         domain:
           entry.siteKey === "shop"
             ? "shop.icloush.com"
-            : FALLBACK_BRAND_RECORDS[index === 0 ? 1 : entry.siteKey === "tech" ? 0 : 2]?.domain ?? null,
+            : entry.siteKey === "lab"
+              ? "lab.icloush.com"
+              : entry.siteKey === "tech"
+                ? "tech.icloush.com"
+                : entry.siteKey === "astro"
+                  ? "astro.icloush.com"
+                  : "care.icloush.com",
         storyReady: entry.siteKey !== "care",
         seoReady: entry.siteKey !== "care",
         leadCount: entry.leadCount,
@@ -869,7 +905,7 @@ function buildFallbackAdminOperationsSnapshot(brandId?: number): AdminOperations
     },
     seo: {
       totals: {
-        siteMetaReadyCount: 3,
+        siteMetaReadyCount: 4,
         productMetaReadyCount: 4,
         activeProductCount: 5,
         missingMetaCount: 2,
@@ -881,7 +917,13 @@ function buildFallbackAdminOperationsSnapshot(brandId?: number): AdminOperations
         domain:
           entry.siteKey === "shop"
             ? "shop.icloush.com"
-            : FALLBACK_BRAND_RECORDS[index === 0 ? 1 : entry.siteKey === "tech" ? 0 : 2]?.domain ?? null,
+            : entry.siteKey === "lab"
+              ? "lab.icloush.com"
+              : entry.siteKey === "tech"
+                ? "tech.icloush.com"
+                : entry.siteKey === "astro"
+                  ? "astro.icloush.com"
+                  : "care.icloush.com",
         activeProductCount: entry.productCount,
         seoReadyProductCount: Math.max(entry.productCount - (entry.siteKey === "care" ? 1 : 0), 0),
         siteMetaReady: entry.siteKey !== "care",
@@ -1473,6 +1515,10 @@ function pickSiteKeyByBrandCode(brandCode: string | null | undefined): PlatformS
     return "tech";
   }
 
+  if (brandCode === "astro" || brandCode === "icloush-astro") {
+    return "astro";
+  }
+
   return "care";
 }
 
@@ -1555,6 +1601,7 @@ const DEFAULT_SITE_BRAND_CODE: Record<PlatformSiteKey, string> = {
   shop: "icloush-lab",
   lab: "icloush-lab",
   tech: "huanxiduo",
+  astro: "astro",
   care: "icloush-care",
 };
 

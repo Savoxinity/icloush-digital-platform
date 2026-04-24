@@ -1,5 +1,5 @@
 import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
-import { ImagePlus, LoaderCircle, PencilLine, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ExternalLink, ImagePlus, LoaderCircle, PencilLine, Plus, QrCode, RefreshCw, Trash2 } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
@@ -29,6 +29,8 @@ type ManagedProductFormState = {
   miniProgramPath: string;
   wechatQrUrl: string;
   alipayQrUrl: string;
+  detailImageUrls: string;
+  paymentMode: "sandbox" | "production_ready" | "production_live";
   specs: ManagedProductSpec[];
 };
 
@@ -49,6 +51,8 @@ const emptyFormState = (brandId: number | null): ManagedProductFormState => ({
   miniProgramPath: "",
   wechatQrUrl: "",
   alipayQrUrl: "",
+  detailImageUrls: "",
+  paymentMode: "sandbox",
   specs: [
     { key: "核心成分", value: "" },
     { key: "适用场景", value: "" },
@@ -75,6 +79,8 @@ const PRODUCT_META_SPEC_KEYS = {
   miniProgramPath: "__retail_mini_program_path",
   wechatQrUrl: "__retail_wechat_qr_url",
   alipayQrUrl: "__retail_alipay_qr_url",
+  detailImageUrls: "__retail_detail_image_urls",
+  paymentMode: "__retail_payment_mode",
 } as const;
 
 function extractRetailMeta(specs: ManagedProductSpec[]) {
@@ -84,6 +90,8 @@ function extractRetailMeta(specs: ManagedProductSpec[]) {
     miniProgramPath: "",
     wechatQrUrl: "",
     alipayQrUrl: "",
+    detailImageUrls: "",
+    paymentMode: "sandbox" as const,
   };
 
   const cleanSpecs = specs.filter((item) => {
@@ -107,6 +115,14 @@ function extractRetailMeta(specs: ManagedProductSpec[]) {
       meta.alipayQrUrl = item.value;
       return false;
     }
+    if (item.key === PRODUCT_META_SPEC_KEYS.detailImageUrls) {
+      meta.detailImageUrls = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.paymentMode) {
+      meta.paymentMode = item.value === "production_live" || item.value === "production_ready" ? item.value : "sandbox";
+      return false;
+    }
     return true;
   });
 
@@ -116,7 +132,7 @@ function extractRetailMeta(specs: ManagedProductSpec[]) {
   };
 }
 
-function mergeRetailMetaIntoSpecs(specs: ManagedProductSpec[], meta: Pick<ManagedProductFormState, "taobaoUrl" | "tmallUrl" | "miniProgramPath" | "wechatQrUrl" | "alipayQrUrl">) {
+function mergeRetailMetaIntoSpecs(specs: ManagedProductSpec[], meta: Pick<ManagedProductFormState, "taobaoUrl" | "tmallUrl" | "miniProgramPath" | "wechatQrUrl" | "alipayQrUrl" | "detailImageUrls" | "paymentMode">) {
   const normalizedSpecs = specs
     .map((item) => ({ key: item.key.trim(), value: item.value.trim() }))
     .filter((item) => item.key && item.value);
@@ -126,6 +142,18 @@ function mergeRetailMetaIntoSpecs(specs: ManagedProductSpec[], meta: Pick<Manage
     { key: PRODUCT_META_SPEC_KEYS.miniProgramPath, value: meta.miniProgramPath.trim() },
     { key: PRODUCT_META_SPEC_KEYS.wechatQrUrl, value: meta.wechatQrUrl.trim() },
     { key: PRODUCT_META_SPEC_KEYS.alipayQrUrl, value: meta.alipayQrUrl.trim() },
+    {
+      key: PRODUCT_META_SPEC_KEYS.detailImageUrls,
+      value: meta.detailImageUrls
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join("\n"),
+    },
+    {
+      key: PRODUCT_META_SPEC_KEYS.paymentMode,
+      value: meta.paymentMode,
+    },
   ].filter((item) => item.value);
 
   return [...normalizedSpecs, ...metaEntries];
@@ -225,6 +253,29 @@ export default function AdminProductsWorkbench(props: {
     () => [formState.taobaoUrl, formState.tmallUrl, formState.miniProgramPath, formState.wechatQrUrl, formState.alipayQrUrl].filter((item) => item.trim()).length,
     [formState.alipayQrUrl, formState.miniProgramPath, formState.taobaoUrl, formState.tmallUrl, formState.wechatQrUrl],
   );
+  const detailImageCount = useMemo(
+    () =>
+      formState.detailImageUrls
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean).length,
+    [formState.detailImageUrls],
+  );
+  const landingPath = useMemo(() => {
+    const slug = formState.slug.trim();
+    if (slug) {
+      return `/product/${slug}`;
+    }
+    const fallbackCode = formState.code.trim().toLowerCase();
+    return fallbackCode ? `/product/${fallbackCode}` : "";
+  }, [formState.code, formState.slug]);
+  const landingUrl = useMemo(() => {
+    if (!landingPath) {
+      return "";
+    }
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://preview.icloush.local";
+    return `${origin}${landingPath}`;
+  }, [landingPath]);
 
   const beginEdit = (product: {
     id: number;
@@ -259,6 +310,8 @@ export default function AdminProductsWorkbench(props: {
       miniProgramPath: retailMeta.meta.miniProgramPath,
       wechatQrUrl: retailMeta.meta.wechatQrUrl,
       alipayQrUrl: retailMeta.meta.alipayQrUrl,
+      detailImageUrls: retailMeta.meta.detailImageUrls,
+      paymentMode: retailMeta.meta.paymentMode,
       specs: retailMeta.cleanSpecs.length > 0 ? retailMeta.cleanSpecs : [{ key: "核心成分", value: "" }],
     });
   };
@@ -318,6 +371,8 @@ export default function AdminProductsWorkbench(props: {
         miniProgramPath: formState.miniProgramPath,
         wechatQrUrl: formState.wechatQrUrl,
         alipayQrUrl: formState.alipayQrUrl,
+        detailImageUrls: formState.detailImageUrls,
+        paymentMode: formState.paymentMode,
       }),
     });
   };
@@ -370,6 +425,10 @@ export default function AdminProductsWorkbench(props: {
             { label: "ACTIVE", value: `${products.filter((item) => item.status === "active").length} 条` },
             { label: "DRAFT", value: `${products.filter((item) => item.status === "draft").length} 条` },
             { label: "已挂主图", value: `${products.filter((item) => item.imageUrl).length} 条` },
+            {
+              label: "已挂详情长图",
+              value: `${products.filter((item) => item.specs.some((spec) => spec.key === PRODUCT_META_SPEC_KEYS.detailImageUrls && spec.value.trim())).length} 条`,
+            },
           ].map((item) => (
             <div key={item.label} className="rounded-3xl bg-slate-50 p-5">
               <p className="text-sm text-slate-500">{item.label}</p>
@@ -418,6 +477,9 @@ export default function AdminProductsWorkbench(props: {
                     <div className="flex flex-wrap gap-2 text-xs text-slate-500">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{priceLabel(product.price)}</span>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Specs {product.specs.length} 项</span>
+                      {product.specs.some((spec) => spec.key === PRODUCT_META_SPEC_KEYS.detailImageUrls && spec.value.trim()) ? (
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">详情长图已挂载</span>
+                      ) : null}
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">更新于 {product.updatedAt ? new Date(product.updatedAt).toLocaleDateString("zh-CN") : "待同步"}</span>
                     </div>
                   </div>
@@ -543,6 +605,65 @@ export default function AdminProductsWorkbench(props: {
             </label>
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <div>
+                <p className="text-sm font-medium text-slate-900">Rich Content / 详情长图发布</p>
+                <p className="mt-1 text-xs leading-6 text-slate-500">每行填写 1 个详情长图 URL。保存后，前台 PDP 将按顺序渲染这些长图，用于承接淘宝/京东式沉浸详情浏览。</p>
+              </div>
+              <label className="mt-4 block">
+                <span className="text-sm font-medium text-slate-700">详情长图 URL 序列</span>
+                <textarea
+                  value={formState.detailImageUrls}
+                  onChange={(event) => setFormState((current) => ({ ...current, detailImageUrls: event.target.value }))}
+                  rows={5}
+                  placeholder={"https://cdn.example.com/detail-01.jpg\nhttps://cdn.example.com/detail-02.jpg"}
+                  className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700"
+                />
+              </label>
+              <p className="mt-3 text-xs leading-6 text-slate-500">当前已挂载 {detailImageCount} 张详情图。后续如果需要拖拽排序或富文本区块，可在这一版元数据链路之上继续升级。</p>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Landing Distribution / H5 落地页与二维码</p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500">运营填完 slug 或 code 后，系统会自动生成商品落地页路径、H5 访问链接与二维码预览，可直接用于朋友圈、私聊或线下物料。</p>
+                </div>
+                <QrCode className="h-5 w-5 text-slate-500" />
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">落地页路径</span>
+                    <input value={landingPath} readOnly placeholder="/product/void-b03" className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">H5 分发链接</span>
+                    <div className="mt-2 flex gap-3">
+                      <input value={landingUrl} readOnly placeholder="填写 slug 后自动生成" className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
+                      {landingUrl ? (
+                        <a href={landingUrl} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 transition hover:border-slate-300 hover:text-slate-950">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </label>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  {landingUrl ? (
+                    <div className="space-y-3">
+                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(landingUrl)}`} alt="商品落地页二维码" className="w-full rounded-2xl border border-slate-100" />
+                      <p className="text-xs leading-6 text-slate-500">二维码实时根据当前商品 slug 生成。正式发布后可直接用于 H5 商品页分发。</p>
+                    </div>
+                  ) : (
+                    <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 text-center text-xs leading-6 text-slate-400">
+                      先填写 slug 或产品代号，
+                      <br />
+                      再自动生成二维码。
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div>
                 <p className="text-sm font-medium text-slate-900">Retail Bridge / 外部入口与二维码</p>
                 <p className="mt-1 text-xs leading-6 text-slate-500">维护淘宝/天猫短链与小程序二维码素材后，前台 PDP 的 EXTERNAL ACCESS 面板会自动读取并展示。</p>
               </div>
@@ -573,6 +694,23 @@ export default function AdminProductsWorkbench(props: {
                     placeholder="pages/shop/detail?id=VOID-B03"
                     className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
                   />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-medium text-slate-700">支付通道模式</span>
+                  <select
+                    value={formState.paymentMode}
+                    onChange={(event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        paymentMode: event.target.value as ManagedProductFormState["paymentMode"],
+                      }))
+                    }
+                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                  >
+                    <option value="sandbox">SANDBOX / 当前测试</option>
+                    <option value="production_ready">PRODUCTION READY / 备案后可切正式</option>
+                    <option value="production_live">PRODUCTION LIVE / 已切正式</option>
+                  </select>
                 </label>
                 <label className="block">
                   <span className="text-sm font-medium text-slate-700">微信小程序二维码 URL</span>

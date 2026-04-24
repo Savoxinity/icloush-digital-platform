@@ -46,8 +46,8 @@ vi.mock("./lib/trpc", () => {
         snapshot: createQuery({
           generatedAt: "2026-04-10T18:00:00.000Z",
           totals: {
-            siteCount: 4,
-            brandCount: 3,
+            siteCount: 5,
+            brandCount: 4,
             capabilityCount: 6,
             productCount: 12,
             categoryCount: 6,
@@ -86,13 +86,26 @@ vi.mock("./lib/trpc", () => {
               brandCodes: ["tech"],
               productCount: 2,
               categoryCount: 1,
-              orderCount: 2,
-              pipelineOrderCount: 1,
-              leadCount: 1,
-              highlightNames: ["物业项目标准化清洁剂替换方案", "商办空间玻璃与硬表面清洁提效"],
+              orderCount: 4,
+              pipelineOrderCount: 2,
+              leadCount: 2,
+              highlightNames: ["酒店布草", "硬表面清洁"],
+            },
+            {
+              siteKey: "astro",
+              title: "浣星司 / ASTRO",
+              brandName: "浣星司",
+              brandCodes: ["astro"],
+              productCount: 0,
+              categoryCount: 0,
+              orderCount: 0,
+              pipelineOrderCount: 0,
+              leadCount: 0,
+              highlightNames: ["夜行香幕", "冷焰织雾"],
             },
             {
               siteKey: "care",
+
               title: "iCloush Care",
               brandName: "iCloush Care",
               brandCodes: ["care"],
@@ -111,7 +124,7 @@ vi.mock("./lib/trpc", () => {
             actionCount: 3,
           },
           adminSummary: {
-            brandCount: 3,
+            brandCount: 4,
             reviewQueueCount: 1,
             leadCount: 5,
             moduleCount: 6,
@@ -788,7 +801,7 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("平台结构概览");
     expect(html).toContain("Live business snapshots");
     expect(html).toContain("当前首页摘要已切换为真实业务聚合数据");
-    expect(html).toContain("4 个站点");
+    expect(html).toContain("5 个站点");
     expect(html).toContain("6 类能力");
     expect(html).toContain("B2B 商城系统");
     expect(html).toContain("5 个真实商品");
@@ -1456,6 +1469,7 @@ describe("error recovery affordances", () => {
       expect(html).toContain('href="/shop"');
       expect(html).toContain('href="/lab"');
       expect(html).toContain('href="/tech"');
+      expect(html).toContain('href="/astro"');
       expect(html).toContain('href="/care"');
       expect(html).toContain('href="/account"');
       expect(html).toContain('href="/admin"');
@@ -1485,6 +1499,7 @@ describe("error recovery affordances", () => {
       expect(html).toContain('href="/shop"');
       expect(html).toContain('href="/lab"');
       expect(html).toContain('href="/tech"');
+      expect(html).toContain('href="/astro"');
       expect(html).toContain('href="/care"');
       expect(html).toContain('href="/account"');
       expect(html).toContain('href="/admin"');

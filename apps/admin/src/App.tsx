@@ -62,7 +62,7 @@ type ShopProduct = {
   badges: readonly string[];
 };
 
-type PlatformSiteKey = "shop" | "lab" | "tech" | "care";
+type PlatformSiteKey = "shop" | "lab" | "tech" | "astro" | "care";
 
 type PlatformSiteSummary = {
   siteKey: PlatformSiteKey;
@@ -333,6 +333,14 @@ const siteEntries: SiteEntry[] = [
     tone: "from-emerald-600 to-teal-500",
   },
   {
+    title: "浣星司 / ASTRO",
+    href: "/astro",
+    description: "承接诱人商品图、黑场展陈与后续礼物对象型商品详情发布的图像展厅入口。",
+    tags: ["图像展厅", "黑场浏览", "礼物对象"],
+    icon: Sparkles,
+    tone: "from-stone-900 to-amber-500",
+  },
+  {
     title: "富朵朵 iCloush Care",
     href: "/care",
     description: "面向酒店奢护洗涤服务的品牌展示、服务流程与咨询入口。",
@@ -343,7 +351,7 @@ const siteEntries: SiteEntry[] = [
 ];
 
 const capabilityNotes = [
-  "统一商品、订单、客户、内容与 SEO 底座，支撑商城与三大品牌官网协同运营。",
+  "统一商品、订单、客户、内容与 SEO 底座，支撑商城与四大品牌站点协同运营。",
   "前台保持各品牌独立气质与访问路径，后台承接统一数据管理与运营工作流。",
   "当前首页已从模板占位页升级为真实业务总入口，下一步继续接入真实商品、客户与订单数据。",
 ];
@@ -351,8 +359,8 @@ const capabilityNotes = [
 const platformMetrics = [
   {
     label: "统一品牌矩阵",
-    value: "4 个站点",
-    detail: "商城、iCloush LAB.、环洗朵科技与 iCloush Care 已纳入统一平台入口。",
+    value: "5 个站点",
+    detail: "商城、iCloush LAB.、环洗朵科技、浣星司 ASTRO 与 iCloush Care 已纳入统一平台入口。",
     icon: Sparkles,
   },
   {
@@ -396,6 +404,15 @@ const brandStoryCards = [
     tone: "from-emerald-500/20 via-white to-teal-500/10",
     accent: "text-emerald-700",
     highlights: ["行业方案", "客户案例", "规模供货"],
+  },
+  {
+    title: "浣星司 / ASTRO",
+    audience: "礼物对象、香氛图像与高张力浏览人群",
+    summary: "以黑场图像展厅承接诱人商品图浏览，先建立欲望与停留，再逐步接入商品详情发布与转化工具。",
+    icon: Sparkles,
+    tone: "from-stone-500/20 via-white to-amber-500/10",
+    accent: "text-stone-700",
+    highlights: ["黑场展陈", "图像浏览", "礼物对象"],
   },
   {
     title: "iCloush Care",
@@ -451,6 +468,7 @@ const mobileQuickLinks = [
   { label: "商城", href: "/shop" },
   { label: "LAB", href: "/lab" },
   { label: "环洗朵科技", href: "/tech" },
+  { label: "浣星司", href: "/astro" },
   { label: "iCloush Care", href: "/care" },
   { label: "客户中心", href: "/account" },
   { label: "后台", href: "/admin" },
@@ -468,7 +486,7 @@ const routeSeoMap: Record<
 > = {
   "/": {
     title: "iCloush Digital Platform｜统一平台总入口",
-    description: "iCloush Digital Platform 统一承接 B2B 商城、iCloush LAB.、环洗朵科技、iCloush Care 与后台中台入口。",
+    description: "iCloush Digital Platform 统一承接 B2B 商城、iCloush LAB.、环洗朵科技、浣星司 ASTRO、iCloush Care 与后台中台入口。",
     keywords: "iCloush, B2B商城, 品牌官网, 酒店洗护, 企业采购",
     robots: "index, follow",
     ogType: "website",

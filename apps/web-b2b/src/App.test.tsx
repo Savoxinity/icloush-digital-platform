@@ -121,6 +121,27 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("二维码");
   });
 
+  it("在商品挂载详情长图序列时渲染沉浸式详情浏览区块", () => {
+    const html = renderToStaticMarkup(
+      <ProductDetailPage
+        id="void-b03"
+        product={{
+          ...SHOWROOM_PRODUCTS[0],
+          detailImages: [
+            "https://cdn.example.com/detail-01.jpg",
+            "https://cdn.example.com/detail-02.jpg",
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain("Rich Content / 商品详情长图");
+    expect(html).toContain("沉浸详情浏览");
+    expect(html).toContain("https://cdn.example.com/detail-01.jpg");
+    expect(html).toContain("https://cdn.example.com/detail-02.jpg");
+    expect(html).toContain("Detail Frame 01");
+  });
+
   it("暴露新的合规提示与对象查询 helper", () => {
     expect(COMPLIANCE_MESSAGE).toContain("交易通道（WeChat / Alipay）合规接入中");
     expect(getShowroomProductById("fc-le")?.code).toBe("FC-LE");

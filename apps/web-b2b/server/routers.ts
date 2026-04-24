@@ -146,7 +146,7 @@ const retailOrderStatusSchema = z
     path: ["orderId"],
   });
 
-const platformSiteKeySchema = z.enum(["shop", "lab", "tech", "care"]);
+const platformSiteKeySchema = z.enum(["shop", "lab", "tech", "astro", "care"]);
 
 const siteContactQuerySchema = z.object({
   siteKey: platformSiteKeySchema,
@@ -276,6 +276,7 @@ const fallbackBrands = [
   { id: 1, code: "huanxiduo", name: "环洗朵科技", shortName: "环洗朵", businessType: "b2b", status: "active" },
   { id: 2, code: "icloush-lab", name: "iCloush LAB.", shortName: "LAB", businessType: "hybrid", status: "active" },
   { id: 3, code: "icloush-care", name: "iCloush Care", shortName: "Care", businessType: "hybrid", status: "active" },
+  { id: 4, code: "astro", name: "浣星司", shortName: "ASTRO", businessType: "hybrid", status: "active" },
 ] as const;
 
 function requireDb<T>(db: T | null): T {

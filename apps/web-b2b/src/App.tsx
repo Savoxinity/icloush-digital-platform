@@ -854,6 +854,240 @@ function ConnectedMonolithicHeroPage() {
   return <MonolithicHeroPage featured={products[0] ?? SHOWROOM_PRODUCTS[0]} />;
 }
 
+const ASTRO_HERO_MEDIA = "/manus-storage/BD-01-电商封面图（1080-1920）_19cf7f90.png";
+const ASTRO_DETAIL_MEDIA = "/manus-storage/AP_Detail_Screen04_OlfactoryArchive_Raw_v5_228eed76.webp";
+const ASTRO_SUPPORT_MEDIA = "/manus-storage/AP_Detail_Screen03_VoidSetting_Raw_v3_e5514ed6.webp";
+
+const ASTRO_EXHIBITION_OBJECTS = [
+  {
+    code: "AST-01",
+    title: "夜行香幕",
+    subtitle: "Tempting Product Imagery / Exhibition Object",
+    imageUrl: ASTRO_HERO_MEDIA,
+    detail: "把产品图像做成压迫式电影海报，不解释功效，先制造靠近、停留与拥有的欲望。",
+    metrics: [
+      ["SCENT PRESSURE", "92"],
+      ["LOOKBOOK", "4K"],
+    ],
+  },
+  {
+    code: "AST-02",
+    title: "冷焰织雾",
+    subtitle: "Silent Luxury / Textile Perfume Study",
+    imageUrl: ASTRO_DETAIL_MEDIA,
+    detail: "用冷白标题、低照度瓶身与深空留白，把 Astro 放在介于香氛、陈列与礼物对象之间的地带。",
+    metrics: [
+      ["MATERIAL INDEX", "08"],
+      ["AFTERGLOW", "T+6H"],
+    ],
+  },
+  {
+    code: "AST-03",
+    title: "黑曜携行盒",
+    subtitle: "Giftable Object / Midnight Carry Ritual",
+    imageUrl: ASTRO_SUPPORT_MEDIA,
+    detail: "既可当作产品，也像一件可被拍摄、可被转赠、可被收藏的黑色器物，承担社交传播的第一视觉。",
+    metrics: [
+      ["GIFT SCORE", "A/A"],
+      ["DROP FORMAT", "SET"],
+    ],
+  },
+] as const;
+
+const ASTRO_PROTOCOL_METRICS = [
+  ["IMAGE-FIRST COMMERCE", "先看图，再读字，再决定进入商品页。"],
+  ["SCROLL SNAP", "整屏吸附滚动继续保留，让浏览像进入展厅隔间。"],
+  ["BRAND POSITION", "浣星司先以第 5 个品牌站点进入数字底座，再接后台商品发布器。"],
+] as const;
+
+export function AstroPage() {
+  return (
+    <main className="min-h-screen snap-y snap-mandatory overflow-y-auto bg-[#050505] text-[#f4efe6]">
+      <section className="relative min-h-screen snap-start overflow-hidden border-b border-[#111111] bg-black">
+        <div className="absolute inset-0 bg-black" />
+        <img src={ASTRO_HERO_MEDIA} alt="浣星司首屏展陈对象" className="absolute inset-0 h-full w-full object-cover opacity-50 grayscale contrast-125 brightness-[0.45]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.34)_42%,rgba(0,0,0,0.82)_100%),linear-gradient(180deg,rgba(0,0,0,0.22),rgba(0,0,0,0.82))]" />
+        <div className="noise-layer absolute inset-0 opacity-20" />
+        <div className="absolute inset-y-0 left-[8%] hidden w-px bg-[#111111] md:block" />
+        <div className="absolute inset-y-0 right-[8%] hidden w-px bg-[#111111] md:block" />
+
+        <div className="relative mx-auto flex min-h-screen max-w-[1600px] flex-col px-6 py-8 md:px-10 lg:px-14 xl:px-16">
+          <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-[#111111] pb-5">
+            <div className="justify-self-start">
+              <Link href="/" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#948b80] transition hover:text-[#f4efe6]">
+                Archive
+              </Link>
+            </div>
+            <div className="justify-self-center text-center">
+              <p className="font-mono text-[10px] uppercase tracking-[0.72em] text-[#f4efe6]">ASTRO</p>
+              <p className="mt-1 font-zh-serif text-[11px] tracking-[0.36em] text-[#7e776d]">浣星司</p>
+            </div>
+            <div className="justify-self-end flex items-center gap-6">
+              <Link href="#astro-catalogue" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#8a8175] transition hover:text-[#f4efe6]">
+                Objects
+              </Link>
+              <Link href="/shop" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#8a8175] transition hover:text-[#f4efe6]">
+                Shop
+              </Link>
+            </div>
+          </header>
+
+          <div className="relative flex flex-1 items-center py-10 md:py-12">
+            <div className="grid w-full gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+              <div className="max-w-3xl">
+                <p className="font-mono text-[10px] uppercase tracking-[0.62em] text-[#8f867a]">Tempting Product Imagery / Exhibition Index</p>
+                <h1 className="mt-8 font-zh-sans text-[2.8rem] font-light uppercase tracking-[0.28em] text-[#f4efe6] md:text-[4.8rem] md:tracking-[0.34em] xl:text-[6rem]">
+                  浣星司 ASTRO
+                </h1>
+                <p className="mt-8 max-w-2xl font-zh-serif text-sm leading-8 text-[#a49a8f] md:text-base">
+                  浣星司先不把自己做成热闹商城，而是先像一间黑场展厅。首页只负责悬挂诱人的产品图像、把对象放大到接近电影海报的尺度，再把浏览者缓慢导向商品与购买链路。
+                </p>
+                <div className="mt-10 flex flex-wrap items-center gap-5">
+                  <Link href="#astro-catalogue" className="inline-flex items-center gap-4 text-[#f4efe6] transition hover:text-white">
+                    <span className="h-px w-16 bg-[#f4efe6]" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.56em]">View exhibition</span>
+                  </Link>
+                  <Link href="/shop" className="font-mono text-[10px] uppercase tracking-[0.48em] text-[#8d8478] transition hover:text-[#f4efe6]">
+                    Enter commerce layer
+                  </Link>
+                </div>
+              </div>
+
+              <div className="justify-self-end max-w-xl border border-[#151515] bg-black/60 p-6 md:p-8" style={{ clipPath: "polygon(0 0, calc(100% - 2rem) 0, 100% 2rem, 100% 100%, 2rem 100%, 0 calc(100% - 2rem))" }}>
+                <p className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#6d655a]">Launch Intent</p>
+                <p className="mt-5 font-zh-sans text-[1.2rem] uppercase tracking-[0.24em] text-[#f4efe6] md:text-[1.6rem]">Image before explanation. Desire before specification.</p>
+                <p className="mt-5 font-zh-serif text-sm leading-8 text-[#9b9288]">
+                  这一版 `/astro` 的任务，是让浣星司先成为生态中的正式品牌入口，并形成可浏览、可停留、可继续接商品页的展陈首页。后台长图发布器与品牌隔离会在下一阶段继续补齐。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 border-t border-[#101010] py-5 md:grid-cols-3">
+            {ASTRO_PROTOCOL_METRICS.map(([label, detail]) => (
+              <div key={label} className="flex items-start gap-4 border-l border-[#111111] pl-4 first:border-l-0 first:pl-0 md:first:pl-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7a7268]">{label}</p>
+                <p className="text-sm leading-7 text-[#9c948a]">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="astro-catalogue" className="relative min-h-screen snap-start border-b border-[#101010] bg-[#030303]">
+        <div className="noise-layer absolute inset-0 opacity-15" />
+        <div className="relative mx-auto max-w-[1600px] px-6 py-16 md:px-10 lg:px-14 xl:px-16">
+          <div className="grid gap-8 lg:grid-cols-[0.58fr_1.42fr] lg:items-end">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7e7568]">Exhibition Stack</p>
+              <h2 className="mt-5 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f4efe6] md:text-[3.6rem]">
+                用图像浏览，
+                <br />
+                而不是用货架浏览。
+              </h2>
+            </div>
+            <p className="max-w-2xl font-zh-serif text-sm leading-8 text-[#988f84] md:text-base">
+              三个对象并不是标准 SKU 卡片，而是三个正在逼近用户视线的展陈镜头。每个镜头都预留了之后接入商品详情、长图发布和短链分发的位置，让 `/astro` 从第一天开始就具备商城化扩展余地。
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <article className="group relative min-h-[36rem] overflow-hidden border border-[#141414] bg-black" style={{ clipPath: "polygon(0 0, calc(100% - 2.2rem) 0, 100% 2.2rem, 100% 100%, 0 100%)" }}>
+              <img src={ASTRO_EXHIBITION_OBJECTS[0].imageUrl} alt={ASTRO_EXHIBITION_OBJECTS[0].title} className="absolute inset-0 h-full w-full object-cover opacity-70 grayscale contrast-125 brightness-[0.52] transition duration-500 group-hover:scale-[1.03]" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.08)_0%,rgba(0,0,0,0.86)_76%,rgba(0,0,0,0.96)_100%)]" />
+              <div className="absolute inset-x-7 top-7 flex items-center justify-between text-[#857c70]">
+                <span className="font-mono text-[10px] uppercase tracking-[0.42em]">{ASTRO_EXHIBITION_OBJECTS[0].code}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.42em]">Hero Frame</span>
+              </div>
+              <div className="absolute inset-x-7 bottom-8">
+                <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-[#6e665c]">{ASTRO_EXHIBITION_OBJECTS[0].subtitle}</p>
+                <h3 className="mt-4 font-zh-sans text-[2rem] uppercase tracking-[0.22em] text-[#f4efe6] md:text-[3rem]">{ASTRO_EXHIBITION_OBJECTS[0].title}</h3>
+                <p className="mt-4 max-w-xl font-zh-serif text-sm leading-8 text-[#a49a8f] md:text-base">{ASTRO_EXHIBITION_OBJECTS[0].detail}</p>
+                <div className="mt-6 flex flex-wrap gap-6 text-[#d8d1c8]">
+                  {ASTRO_EXHIBITION_OBJECTS[0].metrics.map(([label, value]) => (
+                    <div key={label}>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-[#6f675c]">{label}</p>
+                      <p className="mt-2 text-lg tracking-[0.18em]">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </article>
+
+            <div className="grid gap-6">
+              {ASTRO_EXHIBITION_OBJECTS.slice(1).map((item) => (
+                <article key={item.code} className="group relative min-h-[17rem] overflow-hidden border border-[#141414] bg-[#060606] p-6 md:p-7" style={{ clipPath: "polygon(0 0, calc(100% - 1.6rem) 0, 100% 1.6rem, 100% 100%, 1.6rem 100%, 0 calc(100% - 1.6rem))" }}>
+                  <div className="absolute inset-y-0 right-0 w-[42%] overflow-hidden border-l border-[#111111]">
+                    <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover opacity-58 grayscale contrast-125 brightness-[0.52] transition duration-500 group-hover:scale-[1.04]" />
+                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.76)_0%,rgba(0,0,0,0.2)_32%,rgba(0,0,0,0.72)_100%)]" />
+                  </div>
+                  <div className="relative z-10 flex h-full max-w-[60%] flex-col justify-between">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f665c]">{item.code}</p>
+                      <h3 className="mt-4 font-zh-sans text-[1.6rem] uppercase tracking-[0.2em] text-[#f4efe6]">{item.title}</h3>
+                      <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.38em] text-[#80776c]">{item.subtitle}</p>
+                    </div>
+                    <div>
+                      <p className="font-zh-serif text-sm leading-8 text-[#9f968a]">{item.detail}</p>
+                      <div className="mt-5 flex flex-wrap gap-5">
+                        {item.metrics.map(([label, value]) => (
+                          <div key={label}>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.38em] text-[#6e665b]">{label}</p>
+                            <p className="mt-2 text-sm tracking-[0.18em] text-[#f4efe6]">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="snap-start bg-black">
+        <div className="mx-auto grid min-h-screen max-w-[1600px] gap-8 px-6 py-16 md:px-10 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:px-14 xl:px-16">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7b7368]">Route Bridge</p>
+            <h2 className="mt-6 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f4efe6] md:text-[3.8rem]">
+              先把浣星司接进生态，
+              <br />
+              再把商品系统接进浣星司。
+            </h2>
+            <p className="mt-6 max-w-xl font-zh-serif text-sm leading-8 text-[#9e9589] md:text-base">
+              这一版 Astro 不抢做复杂电商交互，而是优先承担品牌占位、对象展陈与图像浏览。下一阶段可以在不推翻当前视觉结构的前提下，继续补上长图详情发布、品牌隔离后台、二维码和短链生成器。
+            </p>
+          </div>
+
+          <div className="grid gap-5">
+            <div className="border border-[#141414] bg-[#050505] p-6 md:p-8" style={{ clipPath: "polygon(0 0, calc(100% - 2rem) 0, 100% 2rem, 100% 100%, 0 100%)" }}>
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#776f63]">Immediate Links</p>
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                {[
+                  ["/", "Platform Entry"],
+                  ["/shop", "Commerce Layer"],
+                  ["/showroom", "LAB Showroom"],
+                ].map(([href, label]) => (
+                  <Link key={href} href={href} className="border border-[#171717] px-4 py-4 font-mono text-[10px] uppercase tracking-[0.42em] text-[#d6cfc5] transition hover:border-[#2b2b2b] hover:text-white">
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="border border-[#141414] bg-[#050505] p-6 md:p-8">
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#776f63]">Launch Note</p>
+              <p className="mt-5 font-zh-serif text-sm leading-8 text-[#9f968a] md:text-base">
+                当前 `/astro` 已具备 scroll-snap、高清商品图展陈、品牌化首屏与生态入口语义，可以先作为浣星司的展厅首页上线预览，并等待后台商品详情发布系统接入。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function SkuSelector(props: {
   options: RetailSkuOption[];
   selectedSkuId: string;
@@ -1802,6 +2036,13 @@ const ECOSYSTEM_SITES = [
     accent: "#10b981",
   },
   {
+    href: "/astro",
+    kicker: "TEMPTING OBJECTS",
+    title: "浣星司 / ASTRO",
+    description: "作为新的诱人商品图展厅入口，先承接黑场图像浏览与品牌占位，再逐步接入完整商品详情发布系统。",
+    accent: "#d4b483",
+  },
+  {
     href: "/care",
     kicker: "HOTEL CARE",
     title: "iCloush Care",
@@ -1861,6 +2102,7 @@ export function PlatformEcosystemPage() {
             <div className="flex flex-wrap gap-3 text-sm text-slate-600">
               <Link href="/lab" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">iCloush LAB.</Link>
               <Link href="/tech" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">环洗朵科技</Link>
+              <Link href="/astro" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">浣星司 / ASTRO</Link>
               <Link href="/care" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">iCloush Care</Link>
               <Link href="/shop" className="rounded-full border border-slate-200 px-4 py-2 transition hover:border-slate-300 hover:text-slate-950">商城系统</Link>
             </div>
@@ -1868,9 +2110,12 @@ export function PlatformEcosystemPage() {
           <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
             <div>
               <p className="max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-                当前预览已切回统一数字底座视角：根路径用于展示品牌矩阵与站点分工，`/lab` 承接 iCloush LAB. 的零售堡垒，`/tech` 承接环洗朵科技官网，`/care` 承接服务品牌页，`/shop` 承接商城入口。这样你进入预览后，不会再只看到单一 LAB 首页。
+                当前预览已切回统一数字底座视角：根路径用于展示品牌矩阵与站点分工，`/lab` 承接 iCloush LAB. 的零售堡垒，`/tech` 承接环洗朵科技官网，`/astro` 承接浣星司的图像展厅入口，`/care` 承接服务品牌页，`/shop` 承接商城入口。这样你进入预览后，不会再只看到单一 LAB 首页。
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
+                <Link href="/astro" className="inline-flex h-12 items-center justify-center rounded-full bg-[#111111] px-6 text-sm font-medium text-white transition hover:bg-[#1b1b1b]">
+                  查看浣星司 / ASTRO
+                </Link>
                 <Link href="/tech" className="inline-flex h-12 items-center justify-center rounded-full bg-[#0047AB] px-6 text-sm font-medium text-white transition hover:bg-[#003b8e]">
                   查看环洗朵科技
                 </Link>
@@ -1887,8 +2132,8 @@ export function PlatformEcosystemPage() {
               </div>
               <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-500">品牌站点</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight">4 个</p>
-                <p className="mt-2 text-sm leading-7 text-slate-600">商城、LAB、环洗朵科技与 Care 已纳入同一预览入口。</p>
+                <p className="mt-3 text-3xl font-semibold tracking-tight">5 个</p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">商城、LAB、环洗朵科技、浣星司与 Care 已纳入同一预览入口。</p>
               </div>
               <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
                 <p className="text-xs uppercase tracking-[0.24em] text-slate-500">主转化动作</p>
@@ -1941,6 +2186,7 @@ export function PlatformEcosystemPage() {
               ["/", "统一数字底座总入口"],
               ["/lab", "iCloush LAB. 品牌首页"],
               ["/tech", "环洗朵科技官网"],
+              ["/astro", "浣星司图像展厅"],
               ["/care", "iCloush Care 服务页"],
               ["/shop", "商城/展柜入口"],
               ["/showroom", "LAB 零售展柜"],
@@ -2510,6 +2756,7 @@ export default function App() {
       <Route path="/lab" component={ConnectedMonolithicHeroPage} />
       <Route path="/shop" component={ConnectedShowroomPage} />
       <Route path="/tech" component={HuanxiduoTechPage} />
+      <Route path="/astro" component={AstroPage} />
       <Route path="/care" component={CareBrandPage} />
       <Route path="/gallery" component={ConnectedShowroomPage} />
       <Route path="/showroom" component={ConnectedShowroomPage} />

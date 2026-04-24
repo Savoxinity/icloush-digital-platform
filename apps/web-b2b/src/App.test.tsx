@@ -6,6 +6,7 @@ import {
   buildTransactionSignalBody,
   COMPLIANCE_MESSAGE,
   getRetailOrderStatusRefetchInterval,
+  AstroPage,
   HuanxiduoTechPage,
   MonolithicHeroPage,
   PlatformEcosystemPage,
@@ -133,10 +134,29 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("iCloush Digital Platform");
     expect(html).toContain("统一数字底座");
     expect(html).toContain("环洗朵科技");
+    expect(html).toContain("浣星司 / ASTRO");
     expect(html).toContain('href="/lab"');
     expect(html).toContain('href="/tech"');
+    expect(html).toContain('href="/astro"');
     expect(html).toContain('href="/care"');
     expect(html).toContain('href="/shop"');
+  });
+
+  it("恢复浣星司 `/astro` 图像展厅首页，采用黑场 scroll-snap、高清商品图展陈与生态桥接语义", () => {
+    setLocation("/astro");
+    const html = renderToStaticMarkup(<AstroPage />);
+
+    expect(html).toContain("浣星司 ASTRO");
+    expect(html).toContain("Tempting Product Imagery / Exhibition Index");
+    expect(html).toContain("View exhibition");
+    expect(html).toContain("Enter commerce layer");
+    expect(html).toContain("Image before explanation. Desire before specification.");
+    expect(html).toContain('href="#astro-catalogue"');
+    expect(html).toContain('href="/shop"');
+    expect(html).toContain("snap-y snap-mandatory");
+    expect(html).toContain("/manus-storage/BD-01-电商封面图（1080-1920）_19cf7f90.png");
+    expect(html).toContain("/manus-storage/AP_Detail_Screen04_OlfactoryArchive_Raw_v5_228eed76.webp");
+    expect(html).toContain("/manus-storage/AP_Detail_Screen03_VoidSetting_Raw_v3_e5514ed6.webp");
   });
 
   it("恢复环洗朵科技官网首页，采用动态 Hero、真实高清媒资链路、强制整屏吸附滚动与无边框悬浮排版", () => {

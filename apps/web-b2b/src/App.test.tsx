@@ -7,6 +7,7 @@ import {
   COMPLIANCE_MESSAGE,
   getRetailOrderStatusRefetchInterval,
   AstroPage,
+  CareBrandPage,
   HuanxiduoTechPage,
   MonolithicHeroPage,
   PlatformEcosystemPage,
@@ -33,6 +34,8 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("ICLOUSH LAB.");
     expect(html).toContain("3026 Orbital Jeweler");
     expect(html).toContain("Enter showroom");
+    expect(html).toContain("进入首发货架");
+    expect(html).toContain("查看主推对象");
     expect(html).toContain("Access");
     expect(html).toContain("The Vault Menu");
     expect(html).toContain("SERIES: AP");
@@ -52,6 +55,11 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("FC-LE / 织物精华乳");
     expect(html).toContain("Hover Focus");
     expect(html).toContain("Macro Preview");
+    expect(html).toContain("首发系列占比");
+    expect(html).toContain("Shelf Brief / 上架策略");
+    expect(html).toContain("先做主推位，不先做大全目录");
+    expect(html).toContain("Launch Signal");
+    expect(html).toContain("同页完成加购");
     expect(html).toContain("View object");
     expect(html).toContain("Add to bag");
     expect(html).toContain("RETAIL CART");
@@ -92,6 +100,10 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(detailHtml).toContain("小程序节点预留");
     expect(detailHtml).toContain("发售状态");
     expect(detailHtml).toContain("成交桥接");
+    expect(detailHtml).toContain("Commerce Runtime / 正式商城信息");
+    expect(detailHtml).toContain("发货方式");
+    expect(detailHtml).toContain("售后保障");
+    expect(detailHtml).toContain("使用建议");
     expect(detailHtml).toContain("Private Access");
     expect(showroomHtml).not.toContain("rounded-full");
     expect(showroomHtml).not.toContain("backdrop-blur");
@@ -174,6 +186,10 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain('href="/care"');
     expect(html).toContain('href="/shop"');
     expect(html).toContain("品牌官网、展厅与商城在同一入口收口");
+    expect(html).toContain("Launch Checklist / 商城上架准备度");
+    expect(html).toContain("根首页已经开始承担“先解释、再导购、再转化”的正式任务");
+    expect(html).toContain("精选陈列");
+    expect(html).toContain("商详说服");
   });
 
   it("恢复浣星司 `/astro` 图像展厅首页，采用黑场 scroll-snap、高清商品图展陈与生态桥接语义", () => {
@@ -217,6 +233,8 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain('href="#products"');
     expect(html).toContain('href="#sample"');
     expect(html).toContain("REQUEST SAMPLE");
+    expect(html).toContain("VIEW COMMERCE SHELF / 查看货架");
+    expect(html).toContain("进入商城货架");
     expect(html).toContain("DOWNLOAD TDS / 下载 TDS");
     expect(html).toContain("/manus-storage/huanxiduo-hero-4k_a47d4dd9.jpg");
     expect(html).toContain("/manus-storage/huanxiduo-tds-placeholder_18e633bb.pdf");
@@ -224,6 +242,18 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).not.toContain("data:application/pdf;base64,");
     expect(html).not.toContain("border border-white/10");
     expect(html).not.toContain("gap-px border");
+  });
+
+  it("恢复 Care 服务品牌页，具备服务说明、流程与跨站转化入口", () => {
+    setLocation("/care");
+    const html = renderToStaticMarkup(<CareBrandPage />);
+
+    expect(html).toContain("酒店奢护服务品牌页");
+    expect(html).toContain("服务型品牌页现在要讲清楚的三件事");
+    expect(html).toContain("客房织物奢护");
+    expect(html).toContain("从咨询到合作的服务链路");
+    expect(html).toContain("查看解决方案母站");
+    expect(html).toContain("查看可陈列商品货架");
   });
 
   it("提供 2 秒轮询 helper，并在终态时停止轮询", () => {

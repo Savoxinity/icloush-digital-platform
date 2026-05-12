@@ -509,10 +509,18 @@ export async function createOrder(args: {
   const provider = args.payment?.provider ?? "offline_bank_transfer";
   const paymentScenario =
     args.payment?.paymentScenario ?? (provider === "offline_bank_transfer" ? "offline_review" : "full_payment");
+  const requestedQtyBySku = pricing.pricedItems.reduce(
+    (accumulator, priced) => {
+      const currentQty = accumulator.get(priced.sku.id) ?? 0;
+      accumulator.set(priced.sku.id, currentQty + priced.item.quantity);
+      return accumulator;
+    },
+    new Map<number, number>(),
+  );
 
   const result = await args.db.transaction(async (tx) => {
     const orderNo = buildOrderNo(args.brandId);
-    const skuIds = pricing.pricedItems.map((priced) => priced.sku.id);
+    const skuIds = [...requestedQtyBySku.keys()];
     const skuRows = await tx
       .select()
       .from(productSkus)
@@ -527,22 +535,47 @@ export async function createOrder(args: {
           message: `SKU ${priced.sku.id} 不存在或不属于当前品牌。`,
         });
       }
-      if (matchedSku.stockQty < priced.item.quantity) {
+    }
+
+    for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
+      const matchedSku = skuStockById.get(skuId);
+      const sampleItem = pricing.pricedItems.find((priced) => priced.sku.id === skuId);
+      if (!matchedSku || !sampleItem) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `${priced.product.name} 库存不足，当前可售 ${matchedSku.stockQty}，请求 ${priced.item.quantity}。`,
+          message: `SKU ${skuId} 不存在或不属于当前品牌。`,
+        });
+      }
+      if (matchedSku.stockQty < requestedQty) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${sampleItem.product.name} 库存不足，当前可售 ${matchedSku.stockQty}，请求 ${requestedQty}。`,
         });
       }
     }
 
-    for (const priced of pricing.pricedItems) {
-      const matchedSku = skuStockById.get(priced.sku.id)!;
-      await tx
+    for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
+      const matchedSku = skuStockById.get(skuId)!;
+      const inventoryUpdate = await tx
         .update(productSkus)
         .set({
-          stockQty: matchedSku.stockQty - priced.item.quantity,
+          stockQty: matchedSku.stockQty - requestedQty,
         })
-        .where(and(eq(productSkus.id, priced.sku.id), eq(productSkus.brandId, args.brandId)));
+        .where(and(eq(productSkus.id, skuId), eq(productSkus.brandId, args.brandId), eq(productSkus.stockQty, matchedSku.stockQty)));
+      const affectedRows = Number(
+        (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.affectedRows
+          ?? (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.rowsAffected
+          ?? (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.changedRows
+          ?? 0,
+      );
+
+      if (affectedRows < 1) {
+        const sampleItem = pricing.pricedItems.find((priced) => priced.sku.id === skuId);
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `${sampleItem?.product.name ?? `SKU ${skuId}`} 库存已被其他订单占用，请刷新后重试。`,
+        });
+      }
     }
 
     const createdOrder = await tx

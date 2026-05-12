@@ -32,7 +32,7 @@ function createThenableRows<T>(rows: T[]) {
   };
 }
 
-function createFakeDb(initialStockQty: number) {
+function createFakeDb(initialStockQty: number, options?: { conflictOnUpdate?: boolean }) {
   const state = {
     productSkus: [
       {
@@ -49,6 +49,7 @@ function createFakeDb(initialStockQty: number) {
 
   let nextOrderId = 900;
   let nextPaymentId = 1200;
+  let updateAttempts = 0;
 
   const tx = {
     select() {
@@ -79,8 +80,15 @@ function createFakeDb(initialStockQty: number) {
           return {
             async where() {
               if (tableName === "productSkus" && typeof values.stockQty === "number") {
+                updateAttempts += 1;
+                if (options?.conflictOnUpdate && updateAttempts === 1) {
+                  state.productSkus[0].stockQty = Math.max(state.productSkus[0].stockQty - 1, 0);
+                  return { affectedRows: 0 };
+                }
                 state.productSkus[0].stockQty = values.stockQty;
+                return { affectedRows: 1 };
               }
+              return { affectedRows: 1 };
             },
           };
         },
@@ -176,6 +184,46 @@ describe("OMS createOrder inventory guard", () => {
     expect(result.order.payableAmount).toBe(398);
   });
 
+  it("aggregates repeated sku rows and only deducts inventory once per sku", async () => {
+    priceOrderItemsMock.mockResolvedValue({
+      pricedItems: [
+        {
+          item: { productId: 101, skuId: 11, quantity: 1 },
+          sku: { id: 11, productId: 101, specName: "500ml", packSize: "瓶" },
+          product: { id: 101, name: "库存验证样品" },
+          unitPrice: 199,
+          lineAmount: 199,
+          matchedTier: null,
+        },
+        {
+          item: { productId: 101, skuId: 11, quantity: 2 },
+          sku: { id: 11, productId: 101, specName: "500ml", packSize: "瓶" },
+          product: { id: 101, name: "库存验证样品" },
+          unitPrice: 199,
+          lineAmount: 398,
+          matchedTier: null,
+        },
+      ],
+      subtotalAmount: 597,
+    });
+
+    const { db, state } = createFakeDb(5);
+    const result = await createOrder({
+      db: db as never,
+      brandId: 2,
+      userId: 88,
+      customerType: "b2c",
+      items: [
+        { productId: 101, skuId: 11, quantity: 1 },
+        { productId: 101, skuId: 11, quantity: 2 },
+      ],
+    });
+
+    expect(state.productSkus[0].stockQty).toBe(2);
+    expect(state.orderItems).toHaveLength(2);
+    expect(result.order.payableAmount).toBe(597);
+  });
+
   it("blocks order creation when sku stock is insufficient", async () => {
     priceOrderItemsMock.mockResolvedValue({
       pricedItems: [
@@ -204,6 +252,38 @@ describe("OMS createOrder inventory guard", () => {
     ).rejects.toThrow("库存不足");
 
     expect(state.productSkus[0].stockQty).toBe(5);
+    expect(state.orders).toHaveLength(0);
+    expect(state.payments).toHaveLength(0);
+  });
+
+  it("aborts order creation when concurrent inventory occupation causes optimistic-lock conflict", async () => {
+    priceOrderItemsMock.mockResolvedValue({
+      pricedItems: [
+        {
+          item: { productId: 101, skuId: 11, quantity: 2 },
+          sku: { id: 11, productId: 101, specName: "500ml", packSize: "瓶" },
+          product: { id: 101, name: "库存验证样品" },
+          unitPrice: 199,
+          lineAmount: 398,
+          matchedTier: null,
+        },
+      ],
+      subtotalAmount: 398,
+    });
+
+    const { db, state } = createFakeDb(5, { conflictOnUpdate: true });
+
+    await expect(
+      createOrder({
+        db: db as never,
+        brandId: 2,
+        userId: 88,
+        customerType: "b2c",
+        items: [{ productId: 101, skuId: 11, quantity: 2 }],
+      }),
+    ).rejects.toThrow("库存已被其他订单占用");
+
+    expect(state.productSkus[0].stockQty).toBe(4);
     expect(state.orders).toHaveLength(0);
     expect(state.payments).toHaveLength(0);
   });

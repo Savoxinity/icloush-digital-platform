@@ -847,13 +847,24 @@ export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) 
               <p className="mt-8 max-w-2xl font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
                 首页被收敛为一块可承载高清大图或短片的静默黑场。标题像电影片名一样悬停在画面中央，其他信息全部退到边缘，让留白、材质与压迫感先于说明发生。
               </p>
-              <div className="mt-10 flex items-center gap-4 text-[#f3efe6]">
-                <span className="h-px w-16 bg-[#f3efe6]" />
-                <Link href="/showroom" className="font-mono text-[10px] uppercase tracking-[0.56em] text-[#f3efe6] transition hover:text-[#b8b1a7]">
-                  Enter showroom
-                </Link>
+              <div className="mt-10 flex flex-col items-center gap-5 text-[#f3efe6]">
+                <div className="flex items-center gap-4 text-[#f3efe6]">
+                  <span className="h-px w-16 bg-[#f3efe6]" />
+                  <Link href="/showroom" className="font-mono text-[10px] uppercase tracking-[0.56em] text-[#f3efe6] transition hover:text-[#b8b1a7]">
+                    Enter showroom
+                  </Link>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-4">
+                  <Link href="/shop" className="inline-flex h-12 items-center justify-center border border-[#f3efe6] bg-[#f3efe6] px-6 font-mono text-[10px] uppercase tracking-[0.42em] text-[#050505] transition hover:bg-[#d9d1c4] hover:border-[#d9d1c4]">
+                    进入首发货架
+                  </Link>
+                  <Link href="/object/void-b03" className="inline-flex h-12 items-center justify-center border border-[#2a2a2a] bg-[#050505] px-6 font-mono text-[10px] uppercase tracking-[0.42em] text-[#f3efe6] transition hover:border-[#f3efe6]">
+                    查看主推对象
+                  </Link>
+                </div>
+                <p className="max-w-2xl font-zh-serif text-sm leading-7 text-[#bdb4a8]">从品牌场景进入后，优先把用户导向首发货架与主推商详，让“被吸引”更快过渡到“准备下单”。</p>
               </div>
-              <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.5em] text-[#7f7f7f]">{featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}</p>
+              <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.5em] text-[#9d958a]">{featured.series === "AP" ? "Atmospheric Purification" : "Fabric Care"}</p>
             </div>
           </div>
         </div>
@@ -1657,6 +1668,37 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
     { key: "AP" as const, label: "空气净域系列", meta: `${products.filter((product) => product.series === "AP").length}` },
     { key: "FC" as const, label: "织物护理系列", meta: `${products.filter((product) => product.series === "FC").length}` },
   ];
+  const launchSignals = [
+    {
+      label: "首发系列占比",
+      value: activeSeries === "all" ? "AP + FC" : activeSeries,
+      detail: activeSeries === "all" ? "当前两大系列都已进入同一货架，可按首发节奏分批上新。" : `当前货架已切换到 ${activeSeries} 系列，便于单系列做首发验证。`,
+    },
+    {
+      label: "可陈列对象",
+      value: `${filteredProducts.length}`,
+      detail: "所有对象都已具备价格、商详入口与购物袋动作，可继续逐步补强图文说服层。",
+    },
+    {
+      label: "主推 SKU",
+      value: featuredSku.label,
+      detail: "精选位会优先展示默认 SKU，适合先上线首批稳定规格，再逐步开放更多变体。",
+    },
+  ];
+  const shelfOperatingNotes = [
+    {
+      title: "先做主推位，不先做大全目录",
+      detail: "首页与 /shop 先把用户带到最容易成交的精选位，再由系列筛选和商详承接更深浏览。",
+    },
+    {
+      title: "每个对象都给出价格与入口",
+      detail: "不是只有概念和大图，而是同步给出价格带、默认 SKU 与加入购物袋动作，缩短犹豫时间。",
+    },
+    {
+      title: "品牌感与货架感同时成立",
+      detail: "黑场实验器物语言保留品牌张力，但文案、系列与货架动作已经朝可上架状态收敛。",
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
@@ -1700,6 +1742,15 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                   <p className="mt-3 font-zh-sans text-[1.6rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">{featured.code}</p>
                 </div>
               </div>
+              <div className="mt-8 grid gap-3 border-y border-[#111111] py-5 md:grid-cols-3">
+                {launchSignals.map((signal) => (
+                  <div key={signal.label} className="border border-[#111111] bg-[#020202] px-4 py-5">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">{signal.label}</p>
+                    <p className="mt-3 font-zh-sans text-[1.25rem] font-light uppercase tracking-[0.12em] text-[#f3efe6] md:text-[1.5rem]">{signal.value}</p>
+                    <p className="mt-3 font-zh-serif text-sm leading-7 text-[#8f877b]">{signal.detail}</p>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {products.slice(0, 3).map((product) => (
@@ -1741,6 +1792,18 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="mt-6 border border-[#111111] bg-[#020202] p-5">
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Shelf Brief / 上架策略</p>
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {shelfOperatingNotes.map((note) => (
+                    <div key={note.title} className="border border-[#111111] bg-[#050505] px-4 py-5">
+                      <p className="font-zh-sans text-base uppercase tracking-[0.14em] text-[#f3efe6]">{note.title}</p>
+                      <p className="mt-3 font-zh-serif text-sm leading-7 text-[#8f877b]">{note.detail}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1850,6 +1913,24 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                         <p className="mt-3 font-zh-sans text-[1.5rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">{item.value}</p>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="border border-[#111111] px-4 py-5">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Launch Signal</p>
+                      <p className="mt-3 font-zh-sans text-[1.2rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">首批可上架</p>
+                      <p className="mt-3 font-zh-serif text-sm leading-7 text-[#8f877b]">当前主推对象已经具备价格、默认 SKU、商详入口与购物袋动作，适合作为首发货架头图。</p>
+                    </div>
+                    <div className="border border-[#111111] px-4 py-5">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Detail Path</p>
+                      <p className="mt-3 font-zh-sans text-[1.2rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">长图 + 参数</p>
+                      <p className="mt-3 font-zh-serif text-sm leading-7 text-[#8f877b]">用户不必离开货架就能先判断价值感，再进入商详完成技术理解与外部桥接。</p>
+                    </div>
+                    <div className="border border-[#111111] px-4 py-5">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f]">Bag Runtime</p>
+                      <p className="mt-3 font-zh-sans text-[1.2rem] font-light uppercase tracking-[0.12em] text-[#f3efe6]">同页完成加购</p>
+                      <p className="mt-3 font-zh-serif text-sm leading-7 text-[#8f877b]">从精选位、列表到商详都保留进入购物袋的动作，让浏览和成交开始真正连在一起。</p>
+                    </div>
                   </div>
 
                   <div className="border-t border-[#111111] pt-6">
@@ -2017,6 +2098,20 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
     { title: "内容维护", detail: detailImages.length > 0 ? `已挂载 ${detailImages.length} 张详情长图，运营可继续按序补充品牌概念图、实验图与成交细节图。` : "详情长图区已预留，可由运营继续补充纵向详情图而无需再改动代码结构。" },
     { title: "成交桥接", detail: "已支持购物袋、外部渠道、二维码与短链预留，适合在正式支付完全接通前先完成浏览、导购与咨询转化。" },
   ];
+  const commerceInfoPanels = [
+    {
+      title: "发货方式",
+      detail: "当前按默认 SKU 先承接线上下单与顾问式确认，后续可继续接入库存校验、正式支付与物流单号回传。",
+    },
+    {
+      title: "售后保障",
+      detail: "页面已预留售后与咨询承接语义，适合在正式上线时继续补齐退换条件、顾问答疑与复购关怀说明。",
+    },
+    {
+      title: "使用建议",
+      detail: product.series === "FC" ? "建议优先用于贴身衣物、真丝或高价值纤维的精细护理场景，先小范围测试再进入高频换洗。" : "建议优先用于衣橱、皮具、车内与密闭空间，先完成小面积试喷，再根据气味强度调整使用频率。",
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-[#000000] text-[#f3efe6]">
@@ -2151,6 +2246,23 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               {servicePanels.map((item) => (
+                <div key={item.title} className="border border-[#111111] bg-[#050505] p-5">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">{item.title}</p>
+                  <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="border border-[#111111] bg-[#020202] p-6 md:p-8">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Commerce Runtime / 正式商城信息</p>
+                <h3 className="mt-3 font-zh-sans text-[2rem] font-light uppercase tracking-[0.16em] text-[#f3efe6] md:text-[2.6rem]">下单前应被明确告知的信息</h3>
+              </div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#8c8378]">Shipping + Aftercare + Usage</p>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {commerceInfoPanels.map((item) => (
                 <div key={item.title} className="border border-[#111111] bg-[#050505] p-5">
                   <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">{item.title}</p>
                   <p className="mt-4 font-zh-serif text-sm leading-8 text-[#a89f94]">{item.detail}</p>
@@ -2399,7 +2511,34 @@ export function PlatformEcosystemPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="grid gap-6 rounded-[2rem] border border-slate-200 bg-white p-6 md:grid-cols-[0.95fr_1.05fr] md:p-8">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Launch Checklist / 商城上架准备度</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">根首页已经开始承担“先解释、再导购、再转化”的正式任务</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-600 md:text-base">
+              这一次不只是把多个站点摆在同一页里，而是明确告诉访问者：平台首页负责建立信任与认知，/shop 负责完成精选货架与类目浏览，/object/:id 负责把成交说服推进到最后一步。
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">入口层</p>
+              <p className="mt-3 text-xl font-semibold tracking-tight">品牌解释</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">先用多品牌生态和代表性对象建立“这是谁、卖什么、值不值得看”。</p>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">货架层</p>
+              <p className="mt-3 text-xl font-semibold tracking-tight">精选陈列</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">把用户送入 /shop 后，直接看到价格带、系列与可加购对象，而不是抽象概念页。</p>
+            </div>
+            <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">成交层</p>
+              <p className="mt-3 text-xl font-semibold tracking-tight">商详说服</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">进入对象详情后，再承接长图、实验参数、外部桥接与购物袋动作。</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-14 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Featured Commerce Objects</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">本轮优先陈列的商品对象</h2>
@@ -2694,6 +2833,7 @@ export function HuanxiduoTechPage() {
             </nav>
             <div className="flex items-center gap-5">
               <Link href="/" className="hidden text-[11px] uppercase tracking-[0.28em] text-white/44 transition hover:text-white sm:inline-flex">平台总入口</Link>
+              <Link href="/shop" className="hidden text-[11px] uppercase tracking-[0.28em] text-[#a8c7ff] transition hover:text-white lg:inline-flex">进入商城货架</Link>
               <a href="#sample" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white transition hover:text-[#86b4ff]">
                 REQUEST SAMPLE
                 <ArrowRight className="h-4 w-4" />
@@ -2888,9 +3028,14 @@ export function HuanxiduoTechPage() {
                   </a>
                   <a href={tdsPlaceholderUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-[#a8c7ff] transition hover:text-white">
                     DOWNLOAD TDS / 下载 TDS
-                    <ArrowRight className="h-4 w-4" />
+                    <ExternalLink className="h-4 w-4" />
                   </a>
+                  <Link href="/shop" className="inline-flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-white/72 transition hover:text-white">
+                    VIEW COMMERCE SHELF / 查看货架
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
+
               </article>
             ))}
           </div>
@@ -2959,23 +3104,105 @@ export function HuanxiduoTechPage() {
 }
 
 export function CareBrandPage() {
+  const serviceModules = [
+    {
+      title: "客房织物奢护",
+      detail: "围绕高端床品、巾类、浴袍与贴身布草建立更稳定的清洁、柔护与香氛体验。",
+    },
+    {
+      title: "香氛与除异味协同",
+      detail: "将空间除味、织物留香与欢迎场景融合到同一服务包里，提升高端酒店的气味识别度。",
+    },
+    {
+      title: "服务交付与培训",
+      detail: "把标准流程、试样反馈、运营培训与复购沟通整合成可持续服务，而非一次性采购。",
+    },
+  ] as const;
+  const processSteps = [
+    ["01", "需求诊断", "先确认酒店体量、布草压力、香氛方向与当前清洁痛点，再决定试样组合。"],
+    ["02", "试样验证", "通过试洗、试喷和标准化记录，把感受差异转成可比较的交付证据。"],
+    ["03", "持续服务", "最终以采购、复购、运营培训和服务巡检构成长期合作，而不是单次成交。"],
+  ] as const;
 
   return (
-    <main className="min-h-screen bg-[#fcfcfd] text-slate-950">
-      <section className="mx-auto max-w-6xl px-6 py-20 md:px-10 xl:px-14">
-        <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">iCloush Care / Hotel Service</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">酒店奢护服务品牌页</h1>
-        <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-          该页面作为统一数字底座中的服务型品牌触点，用于承接酒店洗护服务、服务流程与合作咨询。当前预览已恢复 `/care` 路由，保证生态平台中的多品牌入口完整可见。
-        </p>
-        <div className="mt-10 flex flex-wrap gap-4">
-          <Link href="/" className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white">返回平台总入口</Link>
-          <Link href="/tech" className="inline-flex h-12 items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-medium text-slate-700">查看环洗朵科技</Link>
+    <main className="min-h-screen bg-[#f6f7fb] text-slate-950">
+      <section className="border-b border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f6f7fb_100%)]">
+        <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 xl:px-14">
+          <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Care Brand / Service Touchpoint</p>
+          <div className="mt-4 grid gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-end">
+            <div>
+              <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">酒店奢护服务品牌页</h1>
+              <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+                `/care` 不再只是品牌入口占位，而是用来承接酒店奢护服务咨询、试样申请与服务说明的正式页面。它与 `/tech` 的工业解决方案、`/shop` 的商品货架形成互补：前者讲方法，后者讲商品，这里讲持续服务与合作关系。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link href="/tech" className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white">查看解决方案母站</Link>
+                <Link href="/shop" className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 text-sm font-medium text-slate-900 transition hover:border-slate-400">查看可陈列商品货架</Link>
+                <Link href="/" className="inline-flex h-12 items-center justify-center rounded-full border border-slate-200 px-6 text-sm font-medium text-slate-700">返回平台总入口</Link>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">服务形态</p>
+                <p className="mt-3 text-2xl font-semibold tracking-tight">咨询 + 试样 + 复购</p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">先用服务说服，再让商品和采购节奏进入稳定循环。</p>
+              </div>
+              <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">适用对象</p>
+                <p className="mt-3 text-2xl font-semibold tracking-tight">酒店 / 服务公寓 / 精品民宿</p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">页面已经明确面向服务采购与运营团队，不再停留在泛泛品牌展示。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Service Modules</p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">服务型品牌页现在要讲清楚的三件事</h2>
+          </div>
+          <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+            如果用户从平台首页或环洗朵科技页进入 `/care`，应该马上明白这里不是商城，也不是纯介绍页，而是用于承接高价值服务咨询与试样合作的转化触点。
+          </p>
+        </div>
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {serviceModules.map((item) => (
+            <div key={item.title} className="rounded-[1.75rem] border border-slate-200 bg-white p-6">
+              <p className="text-xl font-semibold tracking-tight">{item.title}</p>
+              <p className="mt-4 text-sm leading-7 text-slate-600">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-slate-200 bg-white/80">
+        <div className="mx-auto max-w-7xl px-6 py-14 md:px-10 xl:px-14">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Service Process</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">从咨询到合作的服务链路</h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-7 text-slate-600 md:text-base">
+              这里用可读的流程把“服务”落到动作层，帮助销售、运营和客户都更容易理解下一步要做什么。
+            </p>
+          </div>
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {processSteps.map(([index, title, detail]) => (
+              <div key={index} className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Step {index}</p>
+                <p className="mt-3 text-2xl font-semibold tracking-tight">{title}</p>
+                <p className="mt-4 text-sm leading-7 text-slate-600">{detail}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </main>
   );
 }
+
 
 function ConnectedShowroomPage() {
   const showroomQuery = trpc.retail.galleryObjects.useQuery({});

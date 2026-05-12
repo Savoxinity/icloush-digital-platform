@@ -1610,7 +1610,7 @@ describe("lab contact config update helpers", () => {
   };
 
   it("builds a lab-scoped payload for contact config updates", () => {
-    expect(buildLabContactConfigPayload(draft)).toEqual({
+    expect(buildLabContactConfigPayload("lab", draft)).toEqual({
       siteKey: "lab",
       contactScene: "business",
       ...draft,
@@ -1620,9 +1620,9 @@ describe("lab contact config update helpers", () => {
   it("submits the normalized payload through the provided mutation callback", () => {
     const mutate = vi.fn();
 
-    submitLabContactConfigUpdate(mutate, draft);
+    submitLabContactConfigUpdate(mutate, "lab", draft);
 
-    expect(mutate).toHaveBeenCalledWith(buildLabContactConfigPayload(draft));
+    expect(mutate).toHaveBeenCalledWith(buildLabContactConfigPayload("lab", draft));
   });
 
   it("returns explicit success and failure feedback copy for lab contact updates", () => {

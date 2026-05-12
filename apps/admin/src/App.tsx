@@ -1255,10 +1255,10 @@ export function createEmptyTechClientLogoDraft(): TechClientLogoDraft {
   };
 }
 
-export function buildLabContactConfigPayload(draft: LabContactDraft) {
+export function buildLabContactConfigPayload(siteKey: PlatformSiteKey, draft: LabContactDraft) {
   return {
-    siteKey: "lab" as const,
-    contactScene: "business" as const,
+    siteKey,
+    contactScene: siteKey === "care" ? ("consulting" as const) : ("business" as const),
     headline: draft.headline,
     description: draft.description,
     primaryCtaLabel: draft.primaryCtaLabel,
@@ -1321,9 +1321,9 @@ export function mapTechCaseStudyDrafts(
   }));
 }
 
-export function buildTechSolutionModulesPayload(drafts: ReadonlyArray<TechSolutionDraft>) {
+export function buildTechSolutionModulesPayload(siteKey: PlatformSiteKey, drafts: ReadonlyArray<TechSolutionDraft>) {
   return {
-    siteKey: "tech" as const,
+    siteKey,
     items: drafts
       .map((draft, index) => ({
         title: draft.title.trim(),
@@ -1335,9 +1335,9 @@ export function buildTechSolutionModulesPayload(drafts: ReadonlyArray<TechSoluti
   };
 }
 
-export function buildTechCaseStudiesPayload(drafts: ReadonlyArray<TechCaseStudyDraft>) {
+export function buildTechCaseStudiesPayload(siteKey: PlatformSiteKey, drafts: ReadonlyArray<TechCaseStudyDraft>) {
   return {
-    siteKey: "tech" as const,
+    siteKey,
     items: drafts
       .map((draft, index) => ({
         title: draft.title.trim(),
@@ -1377,9 +1377,9 @@ export function mapTechClientLogoDrafts(
   }));
 }
 
-export function buildTechClientLogosPayload(drafts: ReadonlyArray<TechClientLogoDraft>) {
+export function buildTechClientLogosPayload(siteKey: PlatformSiteKey, drafts: ReadonlyArray<TechClientLogoDraft>) {
   return {
-    siteKey: "tech" as const,
+    siteKey,
     items: drafts
       .map((draft, index) => ({
         clientName: draft.clientName.trim(),
@@ -1424,30 +1424,34 @@ export async function syncEnterpriseApplicationReviewAfterSave(
 
 export function submitLabContactConfigUpdate(
   mutate: (payload: ReturnType<typeof buildLabContactConfigPayload>) => unknown,
+  siteKey: PlatformSiteKey,
   draft: LabContactDraft,
 ) {
-  return mutate(buildLabContactConfigPayload(draft));
+  return mutate(buildLabContactConfigPayload(siteKey, draft));
 }
 
 export function submitTechSolutionModulesUpdate(
   mutate: (payload: ReturnType<typeof buildTechSolutionModulesPayload>) => unknown,
+  siteKey: PlatformSiteKey,
   drafts: ReadonlyArray<TechSolutionDraft>,
 ) {
-  return mutate(buildTechSolutionModulesPayload(drafts));
+  return mutate(buildTechSolutionModulesPayload(siteKey, drafts));
 }
 
 export function submitTechCaseStudiesUpdate(
   mutate: (payload: ReturnType<typeof buildTechCaseStudiesPayload>) => unknown,
+  siteKey: PlatformSiteKey,
   drafts: ReadonlyArray<TechCaseStudyDraft>,
 ) {
-  return mutate(buildTechCaseStudiesPayload(drafts));
+  return mutate(buildTechCaseStudiesPayload(siteKey, drafts));
 }
 
 export function submitTechClientLogosUpdate(
   mutate: (payload: ReturnType<typeof buildTechClientLogosPayload>) => unknown,
+  siteKey: PlatformSiteKey,
   drafts: ReadonlyArray<TechClientLogoDraft>,
 ) {
-  return mutate(buildTechClientLogosPayload(drafts));
+  return mutate(buildTechClientLogosPayload(siteKey, drafts));
 }
 
 function buildHomepageMetrics(snapshot: PlatformSnapshot | undefined, snapshotState: SnapshotState) {
@@ -3114,6 +3118,7 @@ export function AccountPage() {
   }, [availableBrands, selectedBrandId]);
 
   const activeBrandId = selectedBrandId ?? availableBrands[0]?.id ?? null;
+  const scopedOrderBrandId = activeBrandId ?? 0;
   const selectedBrand = useMemo(
     () => availableBrands.find(brand => brand.id === activeBrandId) ?? null,
     [activeBrandId, availableBrands],
@@ -3166,7 +3171,7 @@ export function AccountPage() {
 
   const myOrdersQuery = trpc.orders.myList.useQuery(
     {
-      brandId: activeBrandId ?? 1,
+      brandId: scopedOrderBrandId,
       limit: 5,
     },
     {
@@ -3178,7 +3183,7 @@ export function AccountPage() {
   const featuredOrderNo = myOrderRecords[0]?.orderNo;
   const orderDetailQuery = trpc.orders.detail.useQuery(
     {
-      brandId: activeBrandId ?? 1,
+      brandId: scopedOrderBrandId,
       orderNo: featuredOrderNo ?? "",
     },
     {
@@ -3732,6 +3737,7 @@ export function AdminContent() {
   }, [availableBrands, selectedBrandId]);
 
   const activeBrandId = selectedBrandId ?? availableBrands[0]?.id ?? null;
+  const scopedOrderBrandId = activeBrandId ?? 0;
   const selectedBrand = useMemo(
     () => availableBrands.find((brand) => brand.id === activeBrandId) ?? null,
     [activeBrandId, availableBrands],
@@ -3906,7 +3912,7 @@ export function AdminContent() {
 
   const adminOrdersQuery = trpc.orders.list.useQuery(
     {
-      brandId: activeBrandId ?? 1,
+      brandId: scopedOrderBrandId,
       limit: 6,
     },
     {
@@ -3916,7 +3922,7 @@ export function AdminContent() {
 
   const reviewQueueQuery = trpc.orders.reviewQueue.useQuery(
     {
-      brandId: activeBrandId ?? 1,
+      brandId: scopedOrderBrandId,
       limit: 6,
     },
     {
@@ -4655,7 +4661,7 @@ export function AdminContent() {
                     className="space-y-4"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      submitLabContactConfigUpdate(updateLabContactConfigMutation.mutate, labContactDraft);
+                      submitLabContactConfigUpdate(updateLabContactConfigMutation.mutate, activeSiteKey, labContactDraft);
                     }}
                   >
                     <div className="grid gap-4">
@@ -4774,7 +4780,7 @@ export function AdminContent() {
                     className="space-y-4"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      submitTechSolutionModulesUpdate(updateTechSolutionModulesMutation.mutate, techSolutionDrafts);
+                      submitTechSolutionModulesUpdate(updateTechSolutionModulesMutation.mutate, activeSiteKey, techSolutionDrafts);
                     }}
                   >
                     <div className="space-y-4">
@@ -4909,7 +4915,7 @@ export function AdminContent() {
                     className="space-y-4"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      submitTechCaseStudiesUpdate(updateTechCaseStudiesMutation.mutate, techCaseDrafts);
+                      submitTechCaseStudiesUpdate(updateTechCaseStudiesMutation.mutate, activeSiteKey, techCaseDrafts);
                     }}
                   >
                     <div className="space-y-4">
@@ -5091,7 +5097,7 @@ export function AdminContent() {
                     className="space-y-4"
                     onSubmit={(event) => {
                       event.preventDefault();
-                      submitTechClientLogosUpdate(updateTechClientLogosMutation.mutate, techClientLogoDrafts);
+                      submitTechClientLogosUpdate(updateTechClientLogosMutation.mutate, activeSiteKey, techClientLogoDrafts);
                     }}
                   >
                     <div className="space-y-4">

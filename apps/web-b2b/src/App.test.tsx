@@ -43,11 +43,11 @@ describe("web storefront sprint 3 中文化重构", () => {
     setLocation("/showroom");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("Object Index / Silent Catalogue");
-    expect(html).toContain("Objects");
-    expect(html).toContain("All Objects");
-    expect(html).toContain("Atmospheric Purification");
-    expect(html).toContain("Fabric Care");
+    expect(html).toContain("Featured Shelf / Commerce Selection");
+    expect(html).toContain("精选商品货架");
+    expect(html).toContain("全部在售商品");
+    expect(html).toContain("空气净域系列");
+    expect(html).toContain("织物护理系列");
     expect(html).toContain("VOID-B03 / 大气重组基质");
     expect(html).toContain("FC-LE / 织物精华乳");
     expect(html).toContain("Hover Focus");
@@ -61,9 +61,9 @@ describe("web storefront sprint 3 中文化重构", () => {
     setLocation("/gallery");
     const html = renderToStaticMarkup(<ShowroomPage />);
 
-    expect(html).toContain("Silent Catalogue");
+    expect(html).toContain("Featured Shelf / Commerce Selection");
     expect(html).toContain("Conversion Discipline");
-    expect(html).toContain("Atmospheric Purification");
+    expect(html).toContain("空气净域系列");
     expect(html).toContain("font-zh-sans");
     expect(html).toContain("font-zh-serif");
     expect(html).not.toContain("rounded-full");
@@ -185,8 +185,15 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("View exhibition");
     expect(html).toContain("Enter commerce layer");
     expect(html).toContain("Image before explanation. Desire before specification.");
+    expect(html).toContain("让浣星司不仅能展示");
+    expect(html).toContain("诱人商品图挂载位");
+    expect(html).toContain("商品落地页跳转挂载位");
+    expect(html).toContain("Product Landing Hooks");
+    expect(html).toContain("夜行香幕 / 商品详情挂载示例");
     expect(html).toContain('href="#astro-catalogue"');
     expect(html).toContain('href="/shop"');
+    expect(html).toContain('href="/object/void-b03"');
+    expect(html).toContain('href="/object/void-d05"');
     expect(html).toContain("snap-y snap-mandatory");
     expect(html).toContain("/manus-storage/BD-01-电商封面图（1080-1920）_19cf7f90.png");
     expect(html).toContain("/manus-storage/AP_Detail_Screen04_OlfactoryArchive_Raw_v5_228eed76.webp");

@@ -921,6 +921,45 @@ const ASTRO_PROTOCOL_METRICS = [
   ["BRAND POSITION", "浣星司先以第 5 个品牌站点进入数字底座，再接后台商品发布器。"],
 ] as const;
 
+const ASTRO_CONCEPT_STACK = [
+  {
+    code: "FRAME 01",
+    title: "诱人商品图挂载位",
+    detail: "用于持续补充黑场海报、礼赠场景、器物静物与开箱镜头，让浣星司保有先被看见、再被理解的浏览节奏。",
+  },
+  {
+    code: "FRAME 02",
+    title: "概念图与品牌语义挂载位",
+    detail: "用于放置材质特写、香气隐喻、使用场景与品牌语句，让商品不只是 SKU，而是被设计过的礼物对象。",
+  },
+  {
+    code: "FRAME 03",
+    title: "商品落地页跳转挂载位",
+    detail: "每个展陈镜头都预留进入 PDP、短链分发和后续私域咨询的位置，方便把浏览直接引向线上陈列链路。",
+  },
+] as const;
+
+const ASTRO_PRODUCT_DROPS = [
+  {
+    href: "/object/void-b03",
+    label: "Drop 01",
+    title: "夜行香幕 / 商品详情挂载示例",
+    description: "把浣星司当前最接近零售化的空气净域对象作为落地页样板，承接从图像展厅进入商详页的第一条路径。",
+  },
+  {
+    href: "/object/void-d05",
+    label: "Drop 02",
+    title: "冷焰织雾 / 深色礼赠挂载示例",
+    description: "继续利用现有深色商品详情结构，承接“礼物对象”“香氛器物”“黑色陈列”的浏览预期。",
+  },
+  {
+    href: "/shop",
+    label: "Drop 03",
+    title: "进入商城陈列层",
+    description: "当用户从浣星司展厅产生购买兴趣后，允许其继续进入统一商城货架，完成更多对象比较与咨询转化。",
+  },
+] as const;
+
 export function AstroPage() {
   return (
     <main className="min-h-screen snap-y snap-mandatory overflow-y-auto bg-[#050505] text-[#f4efe6]">
@@ -1061,6 +1100,47 @@ export function AstroPage() {
                     </div>
                   </div>
                 </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="snap-start border-b border-[#101010] bg-[#020202]">
+        <div className="mx-auto grid min-h-screen max-w-[1600px] gap-10 px-6 py-16 md:px-10 lg:grid-cols-[0.84fr_1.16fr] lg:items-start lg:px-14 xl:px-16">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7b7368]">Concept Mounts</p>
+            <h2 className="mt-6 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f4efe6] md:text-[3.6rem]">
+              让浣星司不仅能展示，
+              <br />
+              也能开始承接商品。
+            </h2>
+            <p className="mt-6 max-w-xl font-zh-serif text-sm leading-8 text-[#9e9589] md:text-base">
+              下一阶段不必推翻当前黑场展厅语气，只需要持续把“诱人商品图”“概念图”和“商品落地页入口”像镜头一样挂进来，`/astro` 就能逐步从品牌占位页走向可上线的商品陈列站点。
+            </p>
+            <div className="mt-8 grid gap-4">
+              {ASTRO_CONCEPT_STACK.map((item) => (
+                <div key={item.code} className="border border-[#141414] bg-[#050505] p-5 md:p-6" style={{ clipPath: "polygon(0 0, calc(100% - 1.4rem) 0, 100% 1.4rem, 100% 100%, 0 100%)" }}>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#746c61]">{item.code}</p>
+                  <h3 className="mt-4 font-zh-sans text-[1.25rem] uppercase tracking-[0.16em] text-[#f4efe6] md:text-[1.55rem]">{item.title}</h3>
+                  <p className="mt-4 font-zh-serif text-sm leading-8 text-[#9d9489]">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7b7368]">Product Landing Hooks</p>
+            <div className="mt-6 grid gap-5">
+              {ASTRO_PRODUCT_DROPS.map((item, index) => (
+                <Link key={item.href} href={item.href} className="group block border border-[#151515] bg-black p-6 transition hover:border-[#2f2a23] hover:bg-[#050505] md:p-8" style={{ clipPath: index === 1 ? "polygon(0 0, calc(100% - 1.8rem) 0, 100% 1.8rem, 100% 100%, 1.2rem 100%, 0 calc(100% - 1.2rem))" : "polygon(0 0, calc(100% - 1.8rem) 0, 100% 1.8rem, 100% 100%, 0 100%)" }}>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7d7468]">{item.label}</p>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#c9c1b6] transition group-hover:text-white">Open route</span>
+                  </div>
+                  <h3 className="mt-6 font-zh-sans text-[1.5rem] uppercase tracking-[0.18em] text-[#f4efe6] md:text-[1.9rem]">{item.title}</h3>
+                  <p className="mt-4 max-w-2xl font-zh-serif text-sm leading-8 text-[#9d9489] md:text-base">{item.description}</p>
+                </Link>
               ))}
             </div>
           </div>
@@ -1573,9 +1653,9 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
   const featuredSku = getRetailSkuOptions(featured)[0];
   const previewTransform = `translate3d(${(previewShift.x * 18).toFixed(1)}px, ${(previewShift.y * 14).toFixed(1)}px, 0)`;
   const seriesFilters = [
-    { key: "all" as const, label: "All Objects", meta: `${products.length}` },
-    { key: "AP" as const, label: "Atmospheric Purification", meta: `${products.filter((product) => product.series === "AP").length}` },
-    { key: "FC" as const, label: "Fabric Care", meta: `${products.filter((product) => product.series === "FC").length}` },
+    { key: "all" as const, label: "全部在售商品", meta: `${products.length}` },
+    { key: "AP" as const, label: "空气净域系列", meta: `${products.filter((product) => product.series === "AP").length}` },
+    { key: "FC" as const, label: "织物护理系列", meta: `${products.filter((product) => product.series === "FC").length}` },
   ];
 
   return (
@@ -1638,10 +1718,10 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
 
           <div className="grid gap-10 py-10 lg:grid-cols-[0.74fr_1.26fr] lg:gap-16 lg:py-14">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7f7f7f]">Object Index / Silent Catalogue</p>
-              <h1 className="mt-6 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f3efe6] md:text-[3.4rem]">Objects</h1>
+              <p className="font-mono text-[10px] uppercase tracking-[0.52em] text-[#7f7f7f]">Featured Shelf / Commerce Selection</p>
+              <h1 className="mt-6 font-zh-sans text-[2.2rem] font-light uppercase tracking-[0.24em] text-[#f3efe6] md:text-[3.4rem]">精选商品货架</h1>
               <p className="mt-8 max-w-md font-zh-serif text-sm leading-8 text-[#9b9388] md:text-base">
-                卖场像一份被严格编辑过的名录。对象作为条目出现，图像只在悬停与聚焦时放大显现，目录与预览之间形成安静但直接的支配关系。
+                这里开始更像真正的线上货架：用户可以先看主推商品、再按系列浏览，并从同一页完成比较、进入商详与加入购物袋，而不是先理解一套抽象对象名录。
               </p>
 
               <div className="mt-10 border-y border-[#111111] py-5">
@@ -2390,9 +2470,10 @@ export function PlatformEcosystemPage() {
           <div>
             <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Route Guide</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-4xl">当前预览可直接访问的关键路径</h2>
-            <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600 md:text-base">
-              如果要直接上线做商品陈列，推荐优先从 `/shop` 与 `/object/:id` 进入；如果要做品牌浏览和展厅展示，则可从 `/astro`、`/lab` 与 `/tech` 进入各自的品牌语境。
-            </p>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600 md:text-base">
+                如果要直接上线做商品陈列，推荐优先从 `/shop` 与 `/object/:id` 进入；如果要做品牌浏览和展厅展示，则可从 `/astro`、`/lab` 与 `/tech` 进入各自的品牌语境。当前 `/shop` 也已经从“对象目录”进一步转向更直白的精选货架表达。
+              </p>
+
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {[

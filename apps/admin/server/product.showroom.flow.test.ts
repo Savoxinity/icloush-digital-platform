@@ -66,6 +66,13 @@ async function mockedUpsertProduct(input: {
   specs?: Array<{ key: string; value: string }> | null;
 }) {
   const slug = (input.slug?.trim() || input.code.trim().toLowerCase()).replace(/[^a-z0-9-]+/g, "-");
+  const shortCode = `iclou-${slug.replace(/[^a-z0-9]+/g, "").slice(0, 10)}`;
+  const persistedSpecs = [
+    ...(input.specs ?? []).filter((item) => !["__retail_landing_path", "__retail_short_code", "__retail_short_url"].includes(item.key)),
+    { key: "__retail_landing_path", value: `/product/${slug}` },
+    { key: "__retail_short_code", value: shortCode },
+    { key: "__retail_short_url", value: `/s/${shortCode}` },
+  ];
   const normalized = {
     id: input.id ?? nextId++,
     brandId: input.brandId,
@@ -80,7 +87,7 @@ async function mockedUpsertProduct(input: {
     imageUrl: input.imageUrl ?? null,
     subtitle: input.subtitle ?? null,
     description: input.description ?? null,
-    specs: input.specs ?? [],
+    specs: persistedSpecs,
     updatedAt: new Date("2026-04-18T19:20:00.000Z").toISOString(),
   };
 
@@ -142,11 +149,23 @@ vi.mock("../../web-b2b/server/db", async () => {
         ) ?? null
       );
     }),
+    getManagedProductByShortCode: vi.fn(async (shortCode: string) => {
+      const normalizedShortCode = shortCode.trim().toLowerCase();
+      return (
+        sharedProducts.find((record) =>
+          record.specs.some(
+            (spec) => spec.key === "__retail_short_code" && spec.value.trim().toLowerCase() === normalizedShortCode,
+          ),
+        ) ?? null
+      );
+    }),
   };
 });
 
 import { appRouter as adminAppRouter } from "./routers";
+import { getManagedProductByShortCode } from "../../web-b2b/server/db";
 import { appRouter as webB2BAppRouter } from "../../web-b2b/server/routers";
+import { resolveShortlinkRedirectTarget } from "../../web-b2b/server/shortlink";
 import { ProductDetailPage, ShowroomPage, mapManagedProductToShowroom } from "../../web-b2b/src/App";
 
 function setLocation(pathname: string) {
@@ -214,6 +233,9 @@ describe("Sprint 3 product create-then-render flow", () => {
     expect(showroomProduct.externalAccess?.taobaoUrl).toBe("https://m.tb.cn/sandbox-flow");
     expect(showroomProduct.externalAccess?.miniProgramPath).toBe("pages/retail/detail?sku=TEST-X01");
     expect(showroomProduct.externalAccess?.wechatQrUrl).toBe("https://cdn.example.com/test-x01-wechat-qr.png");
+    expect(detail.specs.some((spec) => spec.key === "__retail_landing_path" && spec.value === "/product/test-x01")).toBe(true);
+    expect(detail.specs.some((spec) => spec.key === "__retail_short_code" && spec.value === "iclou-testx01")).toBe(true);
+    expect(detail.specs.some((spec) => spec.key === "__retail_short_url" && spec.value === "/s/iclou-testx01")).toBe(true);
 
     setLocation("/gallery");
     const html = renderToStaticMarkup(
@@ -231,5 +253,41 @@ describe("Sprint 3 product create-then-render flow", () => {
     expect(pdpHtml).toContain("pages/retail/detail?sku=TEST-X01");
     expect(pdpHtml).toContain("https://cdn.example.com/test-x01-wechat-qr.png");
     expect(pdpHtml).toContain("EXTERNAL ACCESS / 外部入口");
+  });
+
+  it("resolves persisted short code to PDP route and falls back to gallery when missing", async () => {
+    const adminCaller = adminAppRouter.createCaller({
+      req: {} as never,
+      res: {} as never,
+      user: { id: 1, role: "admin", globalRole: "admin" } as never,
+    });
+
+    await adminCaller.admin.upsertProduct({
+      brandId: 2,
+      code: "TEST-LINK-01",
+      name: "短链验证样品",
+      slug: "test-link-01",
+      series: "FC",
+      price: 2680,
+      status: "active",
+      imageUrl: "/manus-storage/icloush/test-link-01.png",
+      unit: "件",
+      specs: [{ key: "验证批次", value: "SHORTLINK" }],
+    });
+
+    const resolvedProduct = await getManagedProductByShortCode("iclou-testlink01");
+    expect(resolvedProduct?.slug).toBe("test-link-01");
+
+    const resolvedTarget = await resolveShortlinkRedirectTarget({
+      shortCode: "iclou-testlink01",
+      getProductByShortCode: getManagedProductByShortCode,
+    });
+    const fallbackTarget = await resolveShortlinkRedirectTarget({
+      shortCode: "missing-code",
+      getProductByShortCode: getManagedProductByShortCode,
+    });
+
+    expect(resolvedTarget).toBe("/object/test-link-01");
+    expect(fallbackTarget).toBe("/gallery");
   });
 });

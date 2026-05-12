@@ -30,6 +30,9 @@ type ManagedProductFormState = {
   wechatQrUrl: string;
   alipayQrUrl: string;
   detailImageUrls: string;
+  landingPath: string;
+  shortCode: string;
+  shortUrl: string;
   paymentMode: "sandbox" | "production_ready" | "production_live";
   specs: ManagedProductSpec[];
 };
@@ -52,6 +55,9 @@ const emptyFormState = (brandId: number | null): ManagedProductFormState => ({
   wechatQrUrl: "",
   alipayQrUrl: "",
   detailImageUrls: "",
+  landingPath: "",
+  shortCode: "",
+  shortUrl: "",
   paymentMode: "sandbox",
   specs: [
     { key: "核心成分", value: "" },
@@ -80,6 +86,9 @@ const PRODUCT_META_SPEC_KEYS = {
   wechatQrUrl: "__retail_wechat_qr_url",
   alipayQrUrl: "__retail_alipay_qr_url",
   detailImageUrls: "__retail_detail_image_urls",
+  landingPath: "__retail_landing_path",
+  shortCode: "__retail_short_code",
+  shortUrl: "__retail_short_url",
   paymentMode: "__retail_payment_mode",
 } as const;
 
@@ -91,6 +100,9 @@ function extractRetailMeta(specs: ManagedProductSpec[]) {
     wechatQrUrl: "",
     alipayQrUrl: "",
     detailImageUrls: "",
+    landingPath: "",
+    shortCode: "",
+    shortUrl: "",
     paymentMode: "sandbox" as const,
   };
 
@@ -117,6 +129,18 @@ function extractRetailMeta(specs: ManagedProductSpec[]) {
     }
     if (item.key === PRODUCT_META_SPEC_KEYS.detailImageUrls) {
       meta.detailImageUrls = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.landingPath) {
+      meta.landingPath = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.shortCode) {
+      meta.shortCode = item.value;
+      return false;
+    }
+    if (item.key === PRODUCT_META_SPEC_KEYS.shortUrl) {
+      meta.shortUrl = item.value;
       return false;
     }
     if (item.key === PRODUCT_META_SPEC_KEYS.paymentMode) {
@@ -157,6 +181,28 @@ function mergeRetailMetaIntoSpecs(specs: ManagedProductSpec[], meta: Pick<Manage
   ].filter((item) => item.value);
 
   return [...normalizedSpecs, ...metaEntries];
+}
+
+export function normalizeDetailImageValue(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function isAllowedDetailImageUrl(value: string) {
+  return value.startsWith("http://") || value.startsWith("https://") || value.startsWith("/manus-storage/");
+}
+
+export function getDetailImageValidationError(value: string) {
+  const detailImageEntries = normalizeDetailImageValue(value);
+  if (detailImageEntries.some((item) => !isAllowedDetailImageUrl(item))) {
+    return "详情长图仅支持 http(s) 或 /manus-storage/ 开头的图片地址。请先修正后再保存。";
+  }
+  if (detailImageEntries.length > 8) {
+    return "详情长图当前最多支持 8 张，请先删减后再保存。";
+  }
+  return null;
 }
 
 async function fileToBase64(file: File) {
@@ -211,20 +257,7 @@ export default function AdminProductsWorkbench(props: {
     },
   );
 
-  const uploadProductImageMutation = trpc.admin.uploadProductImage.useMutation({
-    onSuccess: (payload) => {
-      setFormState((current) => ({
-        ...current,
-        imageUrl: payload.url,
-      }));
-      sonnerToast.success("商品主图已上传，可直接用于 showroom 与 PDP。", {
-        description: payload.url,
-      });
-    },
-    onError: (error) => {
-      sonnerToast.error(error.message || "图片上传失败，请稍后重试。");
-    },
-  });
+  const uploadProductImageMutation = trpc.admin.uploadProductImage.useMutation();
 
   const upsertProductMutation = trpc.admin.upsertProduct.useMutation({
     onSuccess: async (payload) => {
@@ -262,20 +295,30 @@ export default function AdminProductsWorkbench(props: {
     [formState.detailImageUrls],
   );
   const landingPath = useMemo(() => {
+    if (formState.landingPath.trim()) {
+      return formState.landingPath.trim();
+    }
     const slug = formState.slug.trim();
     if (slug) {
       return `/product/${slug}`;
     }
     const fallbackCode = formState.code.trim().toLowerCase();
     return fallbackCode ? `/product/${fallbackCode}` : "";
-  }, [formState.code, formState.slug]);
+  }, [formState.code, formState.landingPath, formState.slug]);
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://preview.icloush.local";
   const landingUrl = useMemo(() => {
-    if (!landingPath) {
-      return "";
+    return landingPath ? `${origin}${landingPath}` : "";
+  }, [landingPath, origin]);
+  const shortUrl = useMemo(() => {
+    const relativeShortUrl = formState.shortUrl.trim();
+    if (relativeShortUrl.startsWith("http://") || relativeShortUrl.startsWith("https://")) {
+      return relativeShortUrl;
     }
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://preview.icloush.local";
-    return `${origin}${landingPath}`;
-  }, [landingPath]);
+    if (relativeShortUrl) {
+      return `${origin}${relativeShortUrl.startsWith("/") ? relativeShortUrl : `/${relativeShortUrl}`}`;
+    }
+    return "";
+  }, [formState.shortUrl, origin]);
 
   const beginEdit = (product: {
     id: number;
@@ -311,6 +354,9 @@ export default function AdminProductsWorkbench(props: {
       wechatQrUrl: retailMeta.meta.wechatQrUrl,
       alipayQrUrl: retailMeta.meta.alipayQrUrl,
       detailImageUrls: retailMeta.meta.detailImageUrls,
+      landingPath: retailMeta.meta.landingPath,
+      shortCode: retailMeta.meta.shortCode,
+      shortUrl: retailMeta.meta.shortUrl,
       paymentMode: retailMeta.meta.paymentMode,
       specs: retailMeta.cleanSpecs.length > 0 ? retailMeta.cleanSpecs : [{ key: "核心成分", value: "" }],
     });
@@ -328,14 +374,51 @@ export default function AdminProductsWorkbench(props: {
 
     try {
       const base64Data = await fileToBase64(file);
-      uploadProductImageMutation.mutate({
+      const payload = await uploadProductImageMutation.mutateAsync({
         brandId: activeBrandId,
         fileName: file.name,
         contentType: file.type || "application/octet-stream",
         base64Data,
       });
+      setFormState((current) => ({
+        ...current,
+        imageUrl: payload.url,
+      }));
+      sonnerToast.success("商品主图已上传，可直接用于 showroom 与 PDP。", {
+        description: payload.url,
+      });
     } catch (error) {
       sonnerToast.error(error instanceof Error ? error.message : "图片读取失败，请稍后重试。");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const handleDetailUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0 || !activeBrandId) {
+      return;
+    }
+
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of files.slice(0, 8)) {
+        const base64Data = await fileToBase64(file);
+        const payload = await uploadProductImageMutation.mutateAsync({
+          brandId: activeBrandId,
+          fileName: file.name,
+          contentType: file.type || "application/octet-stream",
+          base64Data,
+        });
+        uploadedUrls.push(payload.url);
+      }
+      setFormState((current) => ({
+        ...current,
+        detailImageUrls: [...normalizeDetailImageValue(current.detailImageUrls), ...uploadedUrls].slice(0, 8).join("\n"),
+      }));
+      sonnerToast.success(`已上传 ${uploadedUrls.length} 张详情图，保存后会同步到 PDP。`);
+    } catch (error) {
+      sonnerToast.error(error instanceof Error ? error.message : "详情图上传失败，请稍后重试。");
     } finally {
       event.target.value = "";
     }
@@ -349,6 +432,12 @@ export default function AdminProductsWorkbench(props: {
 
     if (!formState.code.trim() || !formState.name.trim()) {
       sonnerToast.error("请至少填写商品代号与商品名称。");
+      return;
+    }
+
+    const detailImageError = getDetailImageValidationError(formState.detailImageUrls);
+    if (detailImageError) {
+      sonnerToast.error(detailImageError);
       return;
     }
 
@@ -604,9 +693,16 @@ export default function AdminProductsWorkbench(props: {
               />
             </label>
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-              <div>
-                <p className="text-sm font-medium text-slate-900">Rich Content / 详情长图发布</p>
-                <p className="mt-1 text-xs leading-6 text-slate-500">每行填写 1 个详情长图 URL。保存后，前台 PDP 将按顺序渲染这些长图，用于承接淘宝/京东式沉浸详情浏览。</p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Rich Content / 详情长图发布</p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500">支持每行填写 1 个详情图 URL，或直接上传多张详情图。保存后，前台 PDP 将按顺序渲染这些长图，用于承接淘宝/京东式沉浸详情浏览。</p>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 transition hover:border-slate-300 hover:text-slate-950">
+                  <ImagePlus className="h-4 w-4" />
+                  批量上传详情图
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleDetailUpload} />
+                </label>
               </div>
               <label className="mt-4 block">
                 <span className="text-sm font-medium text-slate-700">详情长图 URL 序列</span>
@@ -618,13 +714,22 @@ export default function AdminProductsWorkbench(props: {
                   className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-700"
                 />
               </label>
-              <p className="mt-3 text-xs leading-6 text-slate-500">当前已挂载 {detailImageCount} 张详情图。后续如果需要拖拽排序或富文本区块，可在这一版元数据链路之上继续升级。</p>
+              <p className="mt-3 text-xs leading-6 text-slate-500">当前已挂载 {detailImageCount} 张详情图，仅接受 http(s) 或 /manus-storage/ 地址，最多支持 8 张。上传后可继续手动调整顺序。</p>
+              {detailImageCount > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {normalizeDetailImageValue(formState.detailImageUrls).map((item, index) => (
+                    <span key={`${item}-${index}`} className="rounded-full bg-white px-3 py-1 text-[11px] text-slate-600">
+                      #{index + 1} {item.split("/").pop() || item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-900">Landing Distribution / H5 落地页与二维码</p>
-                  <p className="mt-1 text-xs leading-6 text-slate-500">运营填完 slug 或 code 后，系统会自动生成商品落地页路径、H5 访问链接与二维码预览，可直接用于朋友圈、私聊或线下物料。</p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500">保存商品后，服务端会自动生成落地页路径、短链短码与 `/s/:code` 分发短链。二维码预览默认绑定短链，便于运营直接投放与后续替换正式域名。</p>
                 </div>
                 <QrCode className="h-5 w-5 text-slate-500" />
               </div>
@@ -635,9 +740,9 @@ export default function AdminProductsWorkbench(props: {
                     <input value={landingPath} readOnly placeholder="/product/void-b03" className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
                   </label>
                   <label className="block">
-                    <span className="text-sm font-medium text-slate-700">H5 分发链接</span>
+                    <span className="text-sm font-medium text-slate-700">H5 原始链接</span>
                     <div className="mt-2 flex gap-3">
-                      <input value={landingUrl} readOnly placeholder="填写 slug 后自动生成" className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
+                      <input value={landingUrl} readOnly placeholder="保存后自动生成" className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
                       {landingUrl ? (
                         <a href={landingUrl} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 transition hover:border-slate-300 hover:text-slate-950">
                           <ExternalLink className="h-4 w-4" />
@@ -645,18 +750,33 @@ export default function AdminProductsWorkbench(props: {
                       ) : null}
                     </div>
                   </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">服务端短码</span>
+                    <input value={formState.shortCode} readOnly placeholder="保存后由服务端生成" className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-700">正式分发短链</span>
+                    <div className="mt-2 flex gap-3">
+                      <input value={shortUrl} readOnly placeholder="保存后自动生成 /s/:code" className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
+                      {shortUrl ? (
+                        <a href={shortUrl} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-slate-700 transition hover:border-slate-300 hover:text-slate-950">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </label>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  {landingUrl ? (
+                  {shortUrl ? (
                     <div className="space-y-3">
-                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(landingUrl)}`} alt="商品落地页二维码" className="w-full rounded-2xl border border-slate-100" />
-                      <p className="text-xs leading-6 text-slate-500">二维码实时根据当前商品 slug 生成。正式发布后可直接用于 H5 商品页分发。</p>
+                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(shortUrl)}`} alt="商品分发短链二维码" className="w-full rounded-2xl border border-slate-100" />
+                      <p className="text-xs leading-6 text-slate-500">二维码当前绑定服务端短链。若后续切正式域名，只需保持短链路由可用即可延续线下物料投放。</p>
                     </div>
                   ) : (
                     <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-slate-200 text-center text-xs leading-6 text-slate-400">
-                      先填写 slug 或产品代号，
+                      先保存一次商品，
                       <br />
-                      再自动生成二维码。
+                      再自动生成短链二维码。
                     </div>
                   )}
                 </div>

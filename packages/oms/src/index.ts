@@ -8,6 +8,7 @@ import {
   orderItems,
   orders,
   payments,
+  productSkus,
 } from "../../database/schema";
 import { priceOrderItems, type CustomerType } from "../../pim/src/index";
 
@@ -511,6 +512,39 @@ export async function createOrder(args: {
 
   const result = await args.db.transaction(async (tx) => {
     const orderNo = buildOrderNo(args.brandId);
+    const skuIds = pricing.pricedItems.map((priced) => priced.sku.id);
+    const skuRows = await tx
+      .select()
+      .from(productSkus)
+      .where(and(eq(productSkus.brandId, args.brandId), inArray(productSkus.id, skuIds)));
+    const skuStockById = new Map(skuRows.map((sku) => [sku.id, sku]));
+
+    for (const priced of pricing.pricedItems) {
+      const matchedSku = skuStockById.get(priced.sku.id);
+      if (!matchedSku) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `SKU ${priced.sku.id} 不存在或不属于当前品牌。`,
+        });
+      }
+      if (matchedSku.stockQty < priced.item.quantity) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${priced.product.name} 库存不足，当前可售 ${matchedSku.stockQty}，请求 ${priced.item.quantity}。`,
+        });
+      }
+    }
+
+    for (const priced of pricing.pricedItems) {
+      const matchedSku = skuStockById.get(priced.sku.id)!;
+      await tx
+        .update(productSkus)
+        .set({
+          stockQty: matchedSku.stockQty - priced.item.quantity,
+        })
+        .where(and(eq(productSkus.id, priced.sku.id), eq(productSkus.brandId, args.brandId)));
+    }
+
     const createdOrder = await tx
       .insert(orders)
       .values({

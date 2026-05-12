@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
 import { registerStorageProxy } from "./storageProxy";
+import { registerShortlinkRoute } from "../shortlink";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isBundledRuntime = path.basename(currentDir) === "dist";
@@ -36,12 +37,13 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  const [{ registerOAuthRoutes }, { appRouter }, { createContext }, { serveStatic, setupVite }] =
+  const [{ registerOAuthRoutes }, { appRouter }, { createContext }, { serveStatic, setupVite }, { getManagedProductByShortCode }] =
     await Promise.all([
       import("./oauth"),
       import("../routers"),
       import("./context"),
       import("./vite"),
+      import("../db"),
     ]);
 
   const app = express();
@@ -58,6 +60,8 @@ async function startServer() {
       createContext,
     })
   );
+
+  registerShortlinkRoute(app, getManagedProductByShortCode);
 
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

@@ -3307,7 +3307,7 @@ function normalizeManagedProductStatus(input?: string | null): ManagedProductSta
   return "draft";
 }
 
-function slugifyManagedProduct(input: string): string {
+function slugifyManagedProduct(input: string) {
   const normalized = input
     .trim()
     .toLowerCase()
@@ -3318,7 +3318,81 @@ function slugifyManagedProduct(input: string): string {
   return normalized || `product-${Date.now()}`;
 }
 
+const PRODUCT_META_SPEC_KEYS = {
+  taobaoUrl: "__retail_taobao_url",
+  tmallUrl: "__retail_tmall_url",
+  miniProgramPath: "__retail_mini_program_path",
+  wechatQrUrl: "__retail_wechat_qr_url",
+  alipayQrUrl: "__retail_alipay_qr_url",
+  detailImageUrls: "__retail_detail_image_urls",
+  paymentMode: "__retail_payment_mode",
+  landingPath: "__retail_landing_path",
+  shortCode: "__retail_short_code",
+  shortUrl: "__retail_short_url",
+} as const;
+
+const DISTRIBUTION_META_KEYS = new Set<string>(Object.values(PRODUCT_META_SPEC_KEYS));
+
+function normalizeRetailDetailImageUrls(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter((item) => item.startsWith("http://") || item.startsWith("https://") || item.startsWith("/manus-storage/"))
+    .join("\n");
+}
+
+function normalizePaymentMode(value: string | undefined) {
+  return value === "production_ready" || value === "production_live" ? value : "sandbox";
+}
+
+function buildManagedProductShortCode(params: { brandId: number; brandCode: string; slug: string; code: string }) {
+  const brandSegment = params.brandCode.replace(/[^a-z0-9]+/g, "").slice(0, 5) || `b${params.brandId}`;
+  const slugSegment = params.slug.replace(/[^a-z0-9]+/g, "").slice(0, 10) || params.code.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 10);
+  return `${brandSegment}-${slugSegment}`;
+}
+
+function normalizeManagedProductRetailSpecs(params: {
+  specs: ManagedProductSpec[];
+  brandId: number;
+  brandCode: string;
+  slug: string;
+  code: string;
+}) {
+  const cleanSpecs: ManagedProductSpec[] = [];
+  const meta = new Map<string, string>();
+
+  for (const spec of params.specs) {
+    if (DISTRIBUTION_META_KEYS.has(spec.key)) {
+      meta.set(spec.key, spec.value.trim());
+      continue;
+    }
+    cleanSpecs.push(spec);
+  }
+
+  const detailImageUrls = normalizeRetailDetailImageUrls(meta.get(PRODUCT_META_SPEC_KEYS.detailImageUrls) ?? "");
+  const paymentMode = normalizePaymentMode(meta.get(PRODUCT_META_SPEC_KEYS.paymentMode));
+  const landingPath = `/product/${params.slug}`;
+  const shortCode = buildManagedProductShortCode(params);
+  const shortUrl = `/s/${shortCode}`;
+
+  const normalizedMetaEntries: ManagedProductSpec[] = [
+    { key: PRODUCT_META_SPEC_KEYS.taobaoUrl, value: meta.get(PRODUCT_META_SPEC_KEYS.taobaoUrl)?.trim() ?? "" },
+    { key: PRODUCT_META_SPEC_KEYS.tmallUrl, value: meta.get(PRODUCT_META_SPEC_KEYS.tmallUrl)?.trim() ?? "" },
+    { key: PRODUCT_META_SPEC_KEYS.miniProgramPath, value: meta.get(PRODUCT_META_SPEC_KEYS.miniProgramPath)?.trim() ?? "" },
+    { key: PRODUCT_META_SPEC_KEYS.wechatQrUrl, value: meta.get(PRODUCT_META_SPEC_KEYS.wechatQrUrl)?.trim() ?? "" },
+    { key: PRODUCT_META_SPEC_KEYS.alipayQrUrl, value: meta.get(PRODUCT_META_SPEC_KEYS.alipayQrUrl)?.trim() ?? "" },
+    { key: PRODUCT_META_SPEC_KEYS.detailImageUrls, value: detailImageUrls },
+    { key: PRODUCT_META_SPEC_KEYS.paymentMode, value: paymentMode },
+    { key: PRODUCT_META_SPEC_KEYS.landingPath, value: landingPath },
+    { key: PRODUCT_META_SPEC_KEYS.shortCode, value: shortCode },
+    { key: PRODUCT_META_SPEC_KEYS.shortUrl, value: shortUrl },
+  ].filter((entry) => entry.value);
+
+  return [...cleanSpecs, ...normalizedMetaEntries];
+}
+
 function toManagedProductRecord(params: {
+
   id: number;
   brandId: number;
   brandCode: string;
@@ -3535,7 +3609,13 @@ export async function upsertManagedProduct(input: ManagedProductUpsertInput): Pr
   }
 
   const normalizedSlug = slugifyManagedProduct(input.slug?.trim() || normalizedCode || normalizedName);
-  const normalizedSpecs = normalizeManagedProductSpecs(input.specs);
+  const normalizedSpecs = normalizeManagedProductRetailSpecs({
+    specs: normalizeManagedProductSpecs(input.specs),
+    brandId: brandRecord.id,
+    brandCode: brandRecord.code,
+    slug: normalizedSlug,
+    code: normalizedCode,
+  });
   const productValues = {
     brandId: brandRecord.id,
     code: normalizedCode,

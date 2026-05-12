@@ -70,7 +70,7 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).not.toContain("shadow-");
   });
 
-  it("渲染中文单品档案、静奢参数索引、外部入口桥接层与升级后的私域通讯频道", () => {
+  it("渲染中文单品档案、静奢参数索引、购买理由/陈列打法模块、服务承诺与升级后的私域通讯频道", () => {
     setLocation("/object/void-b03");
     const showroomHtml = renderToStaticMarkup(<ShowroomPage />);
     const detailHtml = renderToStaticMarkup(<ProductDetailPage id="void-b03" />);
@@ -86,8 +86,12 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(detailHtml).toContain("Archive Source");
     expect(detailHtml).toContain("Quiet Spec");
     expect(detailHtml).toContain("硫化氢解构率");
+    expect(detailHtml).toContain("购买理由");
+    expect(detailHtml).toContain("陈列打法");
     expect(detailHtml).toContain("企业微信顾问");
     expect(detailHtml).toContain("小程序节点预留");
+    expect(detailHtml).toContain("发售状态");
+    expect(detailHtml).toContain("成交桥接");
     expect(detailHtml).toContain("Private Access");
     expect(showroomHtml).not.toContain("rounded-full");
     expect(showroomHtml).not.toContain("backdrop-blur");
@@ -142,6 +146,13 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("Detail Frame 01");
   });
 
+  it("在商品未挂载详情长图时不渲染沉浸式详情浏览区块", () => {
+    const html = renderToStaticMarkup(<ProductDetailPage id="void-b03" product={{ ...SHOWROOM_PRODUCTS[0], detailImages: [] }} />);
+
+    expect(html).not.toContain("Rich Content / 商品详情长图");
+    expect(html).not.toContain("Detail Frame 01");
+  });
+
   it("暴露新的合规提示与对象查询 helper", () => {
     expect(COMPLIANCE_MESSAGE).toContain("交易通道（WeChat / Alipay）合规接入中");
     expect(getShowroomProductById("fc-le")?.code).toBe("FC-LE");
@@ -154,6 +165,7 @@ describe("web storefront sprint 3 中文化重构", () => {
 
     expect(html).toContain("iCloush Digital Platform");
     expect(html).toContain("统一数字底座");
+    expect(html).toContain("先让客户被品牌吸引，再让商品被看见，最后让成交与咨询自然发生。");
     expect(html).toContain("环洗朵科技");
     expect(html).toContain("浣星司 / ASTRO");
     expect(html).toContain('href="/lab"');
@@ -161,6 +173,7 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain('href="/astro"');
     expect(html).toContain('href="/care"');
     expect(html).toContain('href="/shop"');
+    expect(html).toContain("品牌官网、展厅与商城在同一入口收口");
   });
 
   it("恢复浣星司 `/astro` 图像展厅首页，采用黑场 scroll-snap、高清商品图展陈与生态桥接语义", () => {

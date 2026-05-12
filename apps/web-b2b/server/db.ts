@@ -19,7 +19,7 @@ import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-export type PlatformSiteKey = "shop" | "lab" | "tech" | "care";
+export type PlatformSiteKey = "shop" | "lab" | "tech" | "astro" | "care";
 
 export type PlatformSiteSummary = {
   siteKey: PlatformSiteKey;
@@ -1555,6 +1555,7 @@ const DEFAULT_SITE_BRAND_CODE: Record<PlatformSiteKey, string> = {
   shop: "icloush-lab",
   lab: "icloush-lab",
   tech: "huanxiduo",
+  astro: "astro",
   care: "icloush-care",
 };
 
@@ -1952,6 +1953,10 @@ export async function upsertSiteContactConfig(input: {
     throw new Error(`未找到品牌 ${brandCode}，无法保存站点联系配置。`);
   }
 
+  if (input.siteKey === "astro") {
+    throw new Error("ASTRO 站点联系配置暂未接入数据库落库，请先使用前台静态配置。");
+  }
+
   const values = {
     brandId: brandRecord.id,
     siteKey: input.siteKey,
@@ -2195,14 +2200,24 @@ export async function replaceSiteSolutionModules(input: {
     throw new Error(`未找到品牌 ${brandCode}，无法保存站点解决方案。`);
   }
 
+  if (input.siteKey === "astro") {
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "fallback",
+      items: [],
+    } satisfies SiteSolutionModuleSnapshot;
+  }
+
+  const siteKey = input.siteKey;
+
   await db.transaction(async (tx) => {
-    await tx.delete(siteSolutionModules).where(and(eq(siteSolutionModules.brandId, brandRecord.id), eq(siteSolutionModules.siteKey, input.siteKey)));
+    await tx.delete(siteSolutionModules).where(and(eq(siteSolutionModules.brandId, brandRecord.id), eq(siteSolutionModules.siteKey, siteKey)));
 
     if (input.items.length > 0) {
       await tx.insert(siteSolutionModules).values(
         input.items.map((item, index) => ({
           brandId: brandRecord.id,
-          siteKey: input.siteKey,
+          siteKey,
           title: item.title.trim(),
           summary: item.summary.trim(),
           audience: normalizeNullableText(item.audience),
@@ -2334,14 +2349,24 @@ export async function replaceSiteClientLogos(input: {
     throw new Error(`未找到品牌 ${brandCode}，无法保存客户 Logo 墙。`);
   }
 
+  if (input.siteKey === "astro") {
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "fallback",
+      items: [],
+    } satisfies SiteClientLogoSnapshot;
+  }
+
+  const siteKey = input.siteKey;
+
   await db.transaction(async (tx) => {
-    await tx.delete(siteClientLogos).where(and(eq(siteClientLogos.brandId, brandRecord.id), eq(siteClientLogos.siteKey, input.siteKey)));
+    await tx.delete(siteClientLogos).where(and(eq(siteClientLogos.brandId, brandRecord.id), eq(siteClientLogos.siteKey, siteKey)));
 
     if (input.items.length > 0) {
       await tx.insert(siteClientLogos).values(
         input.items.map((item, index) => ({
           brandId: brandRecord.id,
-          siteKey: input.siteKey,
+          siteKey,
           clientName: item.clientName.trim(),
           logoText: item.logoText.trim(),
           tagline: normalizeNullableText(item.tagline),
@@ -2395,14 +2420,24 @@ export async function replaceSiteCaseStudies(input: {
     throw new Error(`未找到品牌 ${brandCode}，无法保存站点案例。`);
   }
 
+  if (input.siteKey === "astro") {
+    return {
+      generatedAt: new Date().toISOString(),
+      source: "fallback",
+      items: [],
+    } satisfies SiteCaseStudySnapshot;
+  }
+
+  const siteKey = input.siteKey;
+
   await db.transaction(async (tx) => {
-    await tx.delete(siteCaseStudies).where(and(eq(siteCaseStudies.brandId, brandRecord.id), eq(siteCaseStudies.siteKey, input.siteKey)));
+    await tx.delete(siteCaseStudies).where(and(eq(siteCaseStudies.brandId, brandRecord.id), eq(siteCaseStudies.siteKey, siteKey)));
 
     if (input.items.length > 0) {
       await tx.insert(siteCaseStudies).values(
         input.items.map((item, index) => ({
           brandId: brandRecord.id,
-          siteKey: input.siteKey,
+          siteKey,
           title: item.title.trim(),
           subtitle: normalizeNullableText(item.subtitle),
           summary: item.summary.trim(),
@@ -3423,6 +3458,10 @@ export async function listManagedProducts(params?: {
   };
 }
 
+const PRODUCT_META_SPEC_KEYS = {
+  shortCode: "__retail_short_code",
+} as const;
+
 export async function getManagedProductDetail(params: {
   id?: number;
   code?: string;
@@ -3444,6 +3483,26 @@ export async function getManagedProductDetail(params: {
           : params.slug
             ? record.slug === params.slug.trim().toLowerCase()
             : false,
+    ) ?? null
+  );
+}
+
+export async function getManagedProductByShortCode(shortCode: string) {
+  const normalizedShortCode = shortCode.trim().toLowerCase();
+  if (!normalizedShortCode) {
+    return null;
+  }
+
+  const snapshot = await listManagedProducts({
+    series: "all",
+    status: "all",
+  });
+
+  return (
+    snapshot.products.find((record) =>
+      record.specs.some(
+        (spec) => spec.key === PRODUCT_META_SPEC_KEYS.shortCode && spec.value.trim().toLowerCase() === normalizedShortCode,
+      ),
     ) ?? null
   );
 }

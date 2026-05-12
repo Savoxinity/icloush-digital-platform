@@ -298,9 +298,105 @@ function mapRetailGatewayToProvider(gateway: z.infer<typeof retailGatewaySchema>
   return gateway === "alipay_openapi" ? "alipay" : "wechat_jsapi";
 }
 
+type RetailPaymentMode = "sandbox" | "production_ready" | "production_live";
+
+const RETAIL_PAYMENT_MODE_SPEC_KEY = "__retail_payment_mode";
+
 function buildRetailNotifyUrl(origin: string | null | undefined, gateway: z.infer<typeof retailGatewaySchema>) {
   const base = origin?.replace(/\/+$/, "") || "https://preview.icloush.lab";
   return `${base}/api/orders/retail/callback/${gateway}`;
+}
+
+function extractRetailPaymentMode(specs: Array<{ key: string; value: string }>): RetailPaymentMode {
+  const matched = specs.find((item) => item.key === RETAIL_PAYMENT_MODE_SPEC_KEY)?.value?.trim();
+  return matched === "production_live" || matched === "production_ready" ? matched : "sandbox";
+}
+
+async function resolveRetailOrderPaymentMode(params: {
+  brandId: number;
+  items: Array<{ productId: number; skuId: number; quantity: number }>;
+}) {
+  const products = await Promise.all(
+    params.items.map((item) => getManagedProductDetail({ id: item.productId, brandId: params.brandId })),
+  );
+  const modes = products.map((product) => extractRetailPaymentMode(product?.specs ?? []));
+  if (modes.includes("production_live")) {
+    return "production_live" as const;
+  }
+  if (modes.includes("production_ready")) {
+    return "production_ready" as const;
+  }
+  return "sandbox" as const;
+}
+
+function buildRetailGatewayRequirements(gateway: z.infer<typeof retailGatewaySchema>) {
+  return gateway === "wechat_pay_v3"
+    ? [
+        "WECHAT_PAY_MCHID",
+        "WECHAT_PAY_APPID",
+        "WECHAT_PAY_SERIAL_NO",
+        "WECHAT_PAY_PRIVATE_KEY",
+        "WECHAT_PAY_API_V3_KEY",
+        "WECHAT_PAY_PLATFORM_CERT_PATH_OR_PUBLIC_KEY",
+      ]
+    : ["ALIPAY_APP_ID", "ALIPAY_PRIVATE_KEY", "ALIPAY_PUBLIC_KEY", "ALIPAY_NOTIFY_URL", "ALIPAY_SIGN_TYPE"];
+}
+
+function buildSandboxGatewayResult(params: {
+  gateway: z.infer<typeof retailGatewaySchema>;
+  brandId: number;
+  orderId: number;
+  orderNo: string;
+  amount: number;
+  currency: string;
+}) {
+  return {
+    gateway: params.gateway,
+    stage: "processing" as const,
+    providerOrderId: `sandbox-${params.orderNo}`,
+    clientPayload: {
+      mode: "sandbox",
+      orderNo: params.orderNo,
+      expectedSettlementMs: 6000,
+    },
+    requiredConfigs: [],
+    requestSnapshot: {
+      brandId: params.brandId,
+      orderId: params.orderId,
+      orderNo: params.orderNo,
+      amount: params.amount,
+      currency: params.currency,
+    },
+    notes: ["当前商品处于 SANDBOX 模式，系统不会访问正式支付网关，并会在约 6 秒后自动回写支付成功。"],
+  };
+}
+
+function buildProductionReadyGatewayResult(params: {
+  gateway: z.infer<typeof retailGatewaySchema>;
+  brandId: number;
+  orderId: number;
+  orderNo: string;
+  amount: number;
+  currency: string;
+}) {
+  return {
+    gateway: params.gateway,
+    stage: "ready_for_sdk" as const,
+    providerOrderId: null,
+    clientPayload: {
+      mode: "production_ready",
+      nextStep: "等待备案、证书与正式支付参数注入后切换到 production_live",
+    },
+    requiredConfigs: buildRetailGatewayRequirements(params.gateway),
+    requestSnapshot: {
+      brandId: params.brandId,
+      orderId: params.orderId,
+      orderNo: params.orderNo,
+      amount: params.amount,
+      currency: params.currency,
+    },
+    notes: ["当前商品已切到 PRODUCTION READY：下单不会自动沙盒结算，系统保留正式支付所需配置清单与联调状态。"],
+  };
 }
 
 const retailRouter = router({
@@ -322,53 +418,78 @@ const retailRouter = router({
   }),
   createRetailOrder: protectedProcedure.input(retailCreateOrderSchema).mutation(async ({ ctx, input }) => {
     const db = requireDb(await getDb());
-      const created = await createOrder({
-        db,
-        brandId: input.brandId,
-        userId: ctx.user.id,
-        customerType: "b2c",
-        note: input.note ?? null,
-        items: input.items,
-        payment: {
-          provider: mapRetailGatewayToProvider(input.gateway),
-          paymentScenario: "full_payment",
-        },
-        sandbox: {
-          autoSettle: true,
-          delayMs: 6_000,
-          outcome: "successful",
-        },
-      });
-
-
-    const gateway = await createPaymentOrder({
-      gateway: input.gateway,
+    const paymentMode = await resolveRetailOrderPaymentMode({
       brandId: input.brandId,
-      orderId: created.order.id,
-      orderNo: created.order.orderNo,
-      amount: created.order.payableAmount,
-      currency: created.order.currency,
-      description: `iCloush LAB. ${created.items.map((item) => item.product.name).join(" / ")}`.slice(0, 120),
-      notifyUrl: buildRetailNotifyUrl(input.origin, input.gateway),
-      returnUrl: input.returnUrl ?? null,
-      metadata: {
-        paymentId: created.payment.id,
-        userId: ctx.user.id,
-        channel: "web-b2b-retail",
+      items: input.items,
+    });
+    const created = await createOrder({
+      db,
+      brandId: input.brandId,
+      userId: ctx.user.id,
+      customerType: "b2c",
+      note: input.note ?? null,
+      items: input.items,
+      payment: {
+        provider: mapRetailGatewayToProvider(input.gateway),
+        paymentScenario: paymentMode === "production_ready" ? "offline_review" : "full_payment",
+      },
+      sandbox: {
+        autoSettle: paymentMode === "sandbox",
+        delayMs: 6_000,
+        outcome: "successful",
       },
     });
+
+    const paymentDescription = `iCloush LAB. ${created.items.map((item) => item.product.name).join(" / ")}`.slice(0, 120);
+    const gateway =
+      paymentMode === "sandbox"
+        ? buildSandboxGatewayResult({
+            gateway: input.gateway,
+            brandId: input.brandId,
+            orderId: created.order.id,
+            orderNo: created.order.orderNo,
+            amount: created.order.payableAmount,
+            currency: created.order.currency,
+          })
+        : paymentMode === "production_ready"
+          ? buildProductionReadyGatewayResult({
+              gateway: input.gateway,
+              brandId: input.brandId,
+              orderId: created.order.id,
+              orderNo: created.order.orderNo,
+              amount: created.order.payableAmount,
+              currency: created.order.currency,
+            })
+          : await createPaymentOrder({
+              gateway: input.gateway,
+              brandId: input.brandId,
+              orderId: created.order.id,
+              orderNo: created.order.orderNo,
+              amount: created.order.payableAmount,
+              currency: created.order.currency,
+              description: paymentDescription,
+              notifyUrl: buildRetailNotifyUrl(input.origin, input.gateway),
+              returnUrl: input.returnUrl ?? null,
+              metadata: {
+                paymentId: created.payment.id,
+                userId: ctx.user.id,
+                channel: "web-b2b-retail",
+                paymentMode,
+              },
+            });
 
     return {
       tenant: { brandId: input.brandId },
       order: created.order,
       items: created.items,
       payment: created.payment,
+      paymentMode,
       gateway,
       paymentPolling: {
         orderId: created.order.id,
         orderNo: created.order.orderNo,
-        recommendedIntervalMs: 2000,
-        sandboxExpectedSettlementMs: 6000,
+        recommendedIntervalMs: paymentMode === "sandbox" ? 2000 : 5000,
+        sandboxExpectedSettlementMs: paymentMode === "sandbox" ? 6000 : null,
       },
     };
   }),

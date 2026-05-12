@@ -1131,6 +1131,11 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("全部系列");
     expect(html).toContain("ACTIVE");
     expect(html).toContain("Product Form");
+    expect(html).toContain("Rich Content / 详情长图发布");
+    expect(html).toContain("批量上传详情图");
+    expect(html).toContain("Landing Distribution / H5 落地页与二维码");
+    expect(html).toContain("服务端短码");
+    expect(html).toContain("正式分发短链");
     expect(html).toContain("Retail Bridge / 外部入口与二维码");
     expect(html).toContain("淘宝短链");
     expect(html).toContain("小程序路径");

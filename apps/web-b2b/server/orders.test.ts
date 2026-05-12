@@ -1,11 +1,14 @@
 import * as omsModule from "../../../packages/oms/src/index";
+import * as paymentsModule from "../../../packages/payments/src/index";
 import type { TrpcContext } from "./_core/context";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDbMock = vi.hoisted(() => vi.fn(async () => ({}) as never));
+const getManagedProductDetailMock = vi.hoisted(() => vi.fn(async () => ({ id: 101, specs: [] }) as never));
 
 vi.mock("./db", () => ({
   getDb: getDbMock,
+  getManagedProductDetail: getManagedProductDetailMock,
 }));
 
 import { appRouter } from "./routers";
@@ -47,6 +50,8 @@ function createContext(user: AuthenticatedUser): TrpcContext {
 describe("admin orders router", () => {
   beforeEach(() => {
     getDbMock.mockClear();
+    getManagedProductDetailMock.mockReset();
+    getManagedProductDetailMock.mockResolvedValue({ id: 101, specs: [] } as never);
     vi.restoreAllMocks();
   });
 
@@ -257,5 +262,125 @@ describe("admin orders router", () => {
       }),
     );
     expect(result.receipt.reviewStatus).toBe("approved");
+  });
+
+  it("creates retail order in sandbox mode without touching formal gateway", async () => {
+    getManagedProductDetailMock.mockResolvedValue({
+      id: 501,
+      specs: [{ key: "__retail_payment_mode", value: "sandbox" }],
+    } as never);
+    const createOrderSpy = vi.spyOn(omsModule, "createOrder").mockResolvedValue({
+      order: { id: 7001, orderNo: "ORD-RET-SANDBOX", payableAmount: 1280, currency: "CNY" },
+      items: [{ product: { name: "Sandbox 样品" }, item: { quantity: 1 }, sku: { id: 601 } }],
+      payment: { id: 9001, provider: "wechat_jsapi" },
+    } as never);
+    const gatewaySpy = vi.spyOn(paymentsModule, "createPaymentOrder").mockResolvedValue({
+      gateway: "wechat_pay_v3",
+      stage: "pending_configuration",
+      providerOrderId: null,
+      clientPayload: null,
+      requiredConfigs: [],
+      requestSnapshot: {},
+      notes: [],
+    });
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
+    const result = await caller.retail.createRetailOrder({
+      brandId: 2,
+      items: [{ productId: 501, skuId: 601, quantity: 1 }],
+      gateway: "wechat_pay_v3",
+      origin: "https://example.com",
+    });
+
+    expect(createOrderSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sandbox: expect.objectContaining({ autoSettle: true }),
+        payment: expect.objectContaining({ paymentScenario: "full_payment" }),
+      }),
+    );
+    expect(gatewaySpy).not.toHaveBeenCalled();
+    expect(result.paymentMode).toBe("sandbox");
+    expect(result.gateway.stage).toBe("processing");
+    expect(result.paymentPolling.sandboxExpectedSettlementMs).toBe(6000);
+  });
+
+  it("creates retail order in production_ready mode without sandbox auto settle", async () => {
+    getManagedProductDetailMock.mockResolvedValue({
+      id: 502,
+      specs: [{ key: "__retail_payment_mode", value: "production_ready" }],
+    } as never);
+    const createOrderSpy = vi.spyOn(omsModule, "createOrder").mockResolvedValue({
+      order: { id: 7002, orderNo: "ORD-RET-READY", payableAmount: 2680, currency: "CNY" },
+      items: [{ product: { name: "Ready 样品" }, item: { quantity: 1 }, sku: { id: 602 } }],
+      payment: { id: 9002, provider: "wechat_jsapi" },
+    } as never);
+    const gatewaySpy = vi.spyOn(paymentsModule, "createPaymentOrder").mockResolvedValue({
+      gateway: "wechat_pay_v3",
+      stage: "pending_configuration",
+      providerOrderId: null,
+      clientPayload: null,
+      requiredConfigs: [],
+      requestSnapshot: {},
+      notes: [],
+    });
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
+    const result = await caller.retail.createRetailOrder({
+      brandId: 2,
+      items: [{ productId: 502, skuId: 602, quantity: 1 }],
+      gateway: "wechat_pay_v3",
+      origin: "https://example.com",
+    });
+
+    expect(createOrderSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sandbox: expect.objectContaining({ autoSettle: false }),
+        payment: expect.objectContaining({ paymentScenario: "offline_review" }),
+      }),
+    );
+    expect(gatewaySpy).not.toHaveBeenCalled();
+    expect(result.paymentMode).toBe("production_ready");
+    expect(result.gateway.stage).toBe("ready_for_sdk");
+    expect(result.paymentPolling.sandboxExpectedSettlementMs).toBeNull();
+  });
+
+  it("creates retail order in production_live mode and calls payment gateway abstraction", async () => {
+    getManagedProductDetailMock.mockResolvedValue({
+      id: 503,
+      specs: [{ key: "__retail_payment_mode", value: "production_live" }],
+    } as never);
+    vi.spyOn(omsModule, "createOrder").mockResolvedValue({
+      order: { id: 7003, orderNo: "ORD-RET-LIVE", payableAmount: 3680, currency: "CNY" },
+      items: [{ product: { name: "Live 样品" }, item: { quantity: 1 }, sku: { id: 603 } }],
+      payment: { id: 9003, provider: "wechat_jsapi" },
+    } as never);
+    const gatewaySpy = vi.spyOn(paymentsModule, "createPaymentOrder").mockResolvedValue({
+      gateway: "wechat_pay_v3",
+      stage: "pending_configuration",
+      providerOrderId: null,
+      clientPayload: null,
+      requiredConfigs: ["WECHAT_PAY_MCHID"],
+      requestSnapshot: { orderNo: "ORD-RET-LIVE" },
+      notes: ["正式支付配置待补齐"],
+    });
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
+    const result = await caller.retail.createRetailOrder({
+      brandId: 2,
+      items: [{ productId: 503, skuId: 603, quantity: 1 }],
+      gateway: "wechat_pay_v3",
+      origin: "https://example.com",
+      returnUrl: "https://example.com/order-result",
+    });
+
+    expect(gatewaySpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 2,
+        orderNo: "ORD-RET-LIVE",
+        metadata: expect.objectContaining({ paymentMode: "production_live" }),
+      }),
+    );
+    expect(result.paymentMode).toBe("production_live");
+    expect(result.gateway.stage).toBe("pending_configuration");
   });
 });

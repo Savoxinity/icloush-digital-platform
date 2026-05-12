@@ -3736,6 +3736,22 @@ export function AdminContent() {
     () => availableBrands.find((brand) => brand.id === activeBrandId) ?? null,
     [activeBrandId, availableBrands],
   );
+  const activeSiteKey = useMemo<PlatformSiteKey>(() => {
+    const code = selectedBrand?.code?.trim().toLowerCase();
+    if (code === "huanxiduo" || code === "tech" || code === "icloush-tech") {
+      return "tech";
+    }
+    if (code === "astro" || code === "icloush-astro") {
+      return "astro";
+    }
+    if (code === "icloush-care" || code === "care") {
+      return "care";
+    }
+    if (code === "shop") {
+      return "shop";
+    }
+    return "lab";
+  }, [selectedBrand?.code]);
 
   const shouldLoadOrderInsights = (isOverviewSection || isOrdersSection) && Boolean(activeBrandId);
   const shouldLoadAdminOperations = Boolean(activeBrandId);
@@ -3753,19 +3769,19 @@ export function AdminContent() {
   const contentSnapshot = adminOperations?.content;
   const seoSnapshot = adminOperations?.seo;
   const labContactConfigQuery = trpc.site.contactConfig.useQuery(
-    { siteKey: "lab", contactScene: "business" },
+    { siteKey: activeSiteKey, contactScene: activeSiteKey === "care" ? "consulting" : "business" },
     { enabled: isContentSection },
   );
   const techSolutionModulesQuery = trpc.site.solutionModules.useQuery(
-    { siteKey: "tech", limit: 6 },
+    { siteKey: activeSiteKey, limit: 6 },
     { enabled: isContentSection },
   );
   const techCaseStudiesQuery = trpc.site.caseStudies.useQuery(
-    { siteKey: "tech", limit: 6 },
+    { siteKey: activeSiteKey, limit: 6 },
     { enabled: isContentSection },
   );
   const techClientLogosQuery = trpc.site.clientLogos.useQuery(
-    { siteKey: "tech", limit: 8 },
+    { siteKey: activeSiteKey, limit: 8 },
     { enabled: isContentSection },
   );
   const [labContactDraft, setLabContactDraft] = useState<LabContactDraft>({

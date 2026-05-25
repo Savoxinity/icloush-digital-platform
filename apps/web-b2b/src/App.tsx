@@ -15,6 +15,8 @@ export type ShowroomProduct = {
   id: string;
   code: string;
   name: string;
+  brandId?: number;
+  brandName: string;
   subtitle: string;
   series: ProductSeries;
   price: number;
@@ -49,6 +51,7 @@ export type RetailSkuOption = {
   label: string;
   price: number;
   note: string;
+  brandId?: number;
   backendProductId?: number;
   backendSkuId?: number | null;
   minOrderQty?: number | null;
@@ -72,6 +75,7 @@ type RetailCartItem = {
   skuLabel: string;
   price: number;
   quantity: number;
+  brandId?: number;
   backendProductId?: number;
   backendSkuId?: number | null;
   minOrderQty?: number | null;
@@ -208,6 +212,8 @@ export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
 
 type ManagedProductQueryRecord = {
   id: number;
+  brandId?: number;
+  brandName?: string | null;
   code: string;
   name: string;
   slug: string;
@@ -316,6 +322,8 @@ export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, 
     id: product.slug || product.code.toLowerCase(),
     code: product.code,
     name: product.name,
+    brandId: product.brandId,
+    brandName: product.brandName || "iCloush",
     subtitle: product.subtitle || `${getSeriesLabel(series)} / 零售展陈对象`,
     series,
     price: typeof product.price === "number" ? product.price : 0,
@@ -418,6 +426,7 @@ function getRetailSkuOptions(product: ShowroomProduct): RetailSkuOption[] {
         label: product.defaultSkuLabel || product.size || "标准规格",
         price: product.price,
         note: product.defaultSkuCode ? `已映射后台 SKU / ${product.defaultSkuCode}` : "已映射后台 SKU，可直接进入零售下单链路。",
+        brandId: product.brandId,
         backendProductId: product.managedProductId,
         backendSkuId: product.defaultSkuId,
         minOrderQty: product.minOrderQty ?? 1,
@@ -1421,30 +1430,37 @@ function InteractiveCartDock(props: {
 }) {
   const [open, setOpen] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [activeOrder, setActiveOrder] = useState<{ orderId: number; orderNo: string } | null>(null);
+  const [activeOrder, setActiveOrder] = useState<{ orderId: number; orderNo: string; brandId: number } | null>(null);
   const [transactionSignalOpen, setTransactionSignalOpen] = useState(false);
   const [transactionSignalOrderNo, setTransactionSignalOrderNo] = useState<string | null>(null);
   const [typedSignalBody, setTypedSignalBody] = useState("");
   const authQuery = trpc.auth.me.useQuery();
   const createRetailOrder = trpc.retail.createRetailOrder.useMutation({
-    onSuccess(data) {
+    onSuccess(data, variables) {
       setCheckoutError(null);
-      setActiveOrder({ orderId: data.order.id, orderNo: data.order.orderNo });
+      setActiveOrder({ orderId: data.order.id, orderNo: data.order.orderNo, brandId: variables.brandId });
     },
     onError(error) {
       setCheckoutError(error.message);
     },
   });
   const retailOrderStatus = trpc.retail.retailOrderStatus.useQuery(
-    activeOrder ? { brandId: 2, orderId: activeOrder.orderId } : { brandId: 2, orderId: 1 },
+    activeOrder ? { brandId: activeOrder.brandId, orderId: activeOrder.orderId } : { brandId: 0, orderId: 1 },
     {
       enabled: Boolean(activeOrder),
       refetchInterval: getRetailOrderStatusRefetchInterval,
     },
   );
+  const checkoutBrandIds = Array.from(
+    new Set(props.cart.items.map((item) => item.brandId).filter((brandId): brandId is number => typeof brandId === "number")),
+  );
+  const checkoutBrandId = checkoutBrandIds.length === 1 ? checkoutBrandIds[0] : null;
   const canSubmitRetailOrder =
     props.cart.items.length > 0 &&
-    props.cart.items.every((item) => typeof item.backendProductId === "number" && typeof item.backendSkuId === "number");
+    checkoutBrandId !== null &&
+    props.cart.items.every(
+      (item) => typeof item.backendProductId === "number" && typeof item.backendSkuId === "number" && item.brandId === checkoutBrandId,
+    );
   const transactionSignalBody = useMemo(() => buildTransactionSignalBody(transactionSignalOrderNo), [transactionSignalOrderNo]);
 
   useEffect(() => {
@@ -1488,7 +1504,11 @@ function InteractiveCartDock(props: {
     }
 
     if (!canSubmitRetailOrder) {
-      setCheckoutError("购物袋中仍存在仅用于展陈的占位 SKU。请优先选择已映射后台商品池的对象后再下单。");
+      setCheckoutError(
+        checkoutBrandIds.length > 1
+          ? "当前购物袋混入了多个品牌的商品。请先按单一品牌结算，避免库存与订单串台。"
+          : "购物袋中仍存在仅用于展陈的占位 SKU。请优先选择已映射后台商品池的对象后再下单。",
+      );
       return;
     }
 
@@ -1499,7 +1519,7 @@ function InteractiveCartDock(props: {
 
     setCheckoutError(null);
     createRetailOrder.mutate({
-      brandId: 2,
+      brandId: checkoutBrandId as number,
       gateway: "wechat_pay_v3",
       origin: window.location.origin,
       returnUrl: `${window.location.origin}/showroom`,
@@ -2160,7 +2180,12 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
             </figure>
 
             <div className="flex flex-col justify-end">
-              <p className="font-mono text-[10px] uppercase tracking-[0.56em] text-[#7f7f7f]">{product.code}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.56em] text-[#7f7f7f]">{product.code}</p>
+                <span className="inline-flex border border-[#1b1b1b] bg-[#050505] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.28em] text-[#b7aea2]">
+                  {product.brandName}
+                </span>
+              </div>
               <h1 className="mt-6 max-w-[8ch] font-zh-sans text-[2.8rem] font-light uppercase tracking-[0.18em] text-[#f3efe6] md:text-[4.6rem] md:tracking-[0.22em]">{product.name}</h1>
               <p className="mt-8 max-w-2xl font-zh-serif text-base leading-9 text-[#a89f94] md:text-lg">{product.heroLine}</p>
               <div className="mt-10 grid gap-4 border-t border-[#151515] pt-6 sm:grid-cols-3">

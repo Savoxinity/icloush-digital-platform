@@ -1,0 +1,9 @@
+{
+  "query": "SELECT id, code, name, status FROM brands ORDER BY id;\nSELECT id, brandId, code, name, slug, status FROM products ORDER BY id DESC LIMIT 10;\nSELECT id, brandId, productId, skuCode, stockQty, status FROM productSkus ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 1ZKxnnqSSfUxbYE.cd97b0e89358 --database aZoDCL9bVdu9QfgMPCYxQJ --execute SELECT id, code, name, status FROM brands ORDER BY id;\nSELECT id, brandId, code, name, slug, status FROM products ORDER BY id DESC LIMIT 10;\nSELECT id, brandId, productId, skuCode, stockQty, status FROM productSkus ORDER BY id DESC LIMIT 10;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2358
+}

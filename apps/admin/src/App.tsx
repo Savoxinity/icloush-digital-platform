@@ -4343,7 +4343,12 @@ export function AdminContent() {
       ) : null}
 
       {isProductsSection ? (
-        <AdminProductsWorkbench activeBrandId={activeBrandId} selectedBrandName={selectedBrand?.name ?? adminOperations?.scope.brandName ?? null} />
+        <AdminProductsWorkbench
+          activeBrandId={activeBrandId}
+          selectedBrandName={selectedBrand?.name ?? adminOperations?.scope.brandName ?? null}
+          brandOptions={availableBrands}
+          onBrandChange={setSelectedBrandId}
+        />
       ) : null}
 
       {isCustomersSection ? (

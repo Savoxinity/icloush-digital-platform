@@ -383,4 +383,45 @@ describe("admin orders router", () => {
     expect(result.paymentMode).toBe("production_live");
     expect(result.gateway.stage).toBe("pending_configuration");
   });
+
+  it("passes Huanxiduo brand context into retail order creation for the sample shelf flow", async () => {
+    getManagedProductDetailMock.mockResolvedValue({
+      id: 601,
+      brandId: 1,
+      brandName: "环洗朵科技",
+      specs: [{ key: "__retail_payment_mode", value: "sandbox" }],
+    } as never);
+    const createOrderSpy = vi.spyOn(omsModule, "createOrder").mockResolvedValue({
+      order: { id: 7101, orderNo: "ORD-HXD-SANDBOX", payableAmount: 680, currency: "CNY" },
+      items: [{ product: { name: "环洗朵高浓缩洁净剂" }, item: { quantity: 1 }, sku: { id: 1601 } }],
+      payment: { id: 9101, provider: "wechat_jsapi" },
+    } as never);
+    const gatewaySpy = vi.spyOn(paymentsModule, "createPaymentOrder").mockResolvedValue({
+      gateway: "wechat_pay_v3",
+      stage: "pending_configuration",
+      providerOrderId: null,
+      clientPayload: null,
+      requiredConfigs: [],
+      requestSnapshot: { orderNo: "ORD-HXD-SANDBOX" },
+      notes: [],
+    });
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
+    const result = await caller.retail.createRetailOrder({
+      brandId: 1,
+      items: [{ productId: 601, skuId: 1601, quantity: 1 }],
+      gateway: "wechat_pay_v3",
+      origin: "https://example.com",
+    });
+
+    expect(createOrderSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 1,
+        sandbox: expect.objectContaining({ autoSettle: true }),
+      }),
+    );
+    expect(gatewaySpy).not.toHaveBeenCalled();
+    expect(result.order.orderNo).toBe("ORD-HXD-SANDBOX");
+    expect(result.paymentMode).toBe("sandbox");
+  });
 });

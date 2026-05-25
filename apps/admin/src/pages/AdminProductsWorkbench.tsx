@@ -37,6 +37,13 @@ type ManagedProductFormState = {
   specs: ManagedProductSpec[];
 };
 
+type AdminBrandOption = {
+  id: number;
+  code: string;
+  name: string;
+  shortName?: string | null;
+};
+
 const emptyFormState = (brandId: number | null): ManagedProductFormState => ({
   brandId,
   code: "",
@@ -225,8 +232,10 @@ async function fileToBase64(file: File) {
 export default function AdminProductsWorkbench(props: {
   activeBrandId: number | null;
   selectedBrandName?: string | null;
+  brandOptions?: AdminBrandOption[];
+  onBrandChange?: (brandId: number) => void;
 }) {
-  const { activeBrandId, selectedBrandName } = props;
+  const { activeBrandId, selectedBrandName, brandOptions = [], onBrandChange } = props;
   const utils = trpc.useUtils();
   const [seriesFilter, setSeriesFilter] = useState<ProductSeriesFilter>("all");
   const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
@@ -234,8 +243,11 @@ export default function AdminProductsWorkbench(props: {
 
   useEffect(() => {
     setFormState((current) => {
-      if (current.id) {
+      if (current.id && current.brandId === activeBrandId) {
         return current;
+      }
+      if (current.id && current.brandId !== activeBrandId) {
+        return emptyFormState(activeBrandId);
       }
       return {
         ...current,
@@ -277,6 +289,10 @@ export default function AdminProductsWorkbench(props: {
   });
 
   const products = useMemo(() => managedProductsQuery.data?.products ?? [], [managedProductsQuery.data]);
+  const selectedBrandOption = useMemo(
+    () => brandOptions.find((item) => item.id === (formState.brandId ?? activeBrandId)) ?? null,
+    [activeBrandId, brandOptions, formState.brandId],
+  );
 
   const totalSpecs = useMemo(
     () => formState.specs.filter((item) => item.key.trim() && item.value.trim()).length,
@@ -368,14 +384,15 @@ export default function AdminProductsWorkbench(props: {
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !activeBrandId) {
+    const resolvedBrandId = formState.brandId ?? activeBrandId;
+    if (!file || !resolvedBrandId) {
       return;
     }
 
     try {
       const base64Data = await fileToBase64(file);
       const payload = await uploadProductImageMutation.mutateAsync({
-        brandId: activeBrandId,
+        brandId: resolvedBrandId,
         fileName: file.name,
         contentType: file.type || "application/octet-stream",
         base64Data,
@@ -396,7 +413,8 @@ export default function AdminProductsWorkbench(props: {
 
   const handleDetailUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
-    if (files.length === 0 || !activeBrandId) {
+    const resolvedBrandId = formState.brandId ?? activeBrandId;
+    if (files.length === 0 || !resolvedBrandId) {
       return;
     }
 
@@ -405,7 +423,7 @@ export default function AdminProductsWorkbench(props: {
       for (const file of files.slice(0, 8)) {
         const base64Data = await fileToBase64(file);
         const payload = await uploadProductImageMutation.mutateAsync({
-          brandId: activeBrandId,
+          brandId: resolvedBrandId,
           fileName: file.name,
           contentType: file.type || "application/octet-stream",
           base64Data,
@@ -425,7 +443,9 @@ export default function AdminProductsWorkbench(props: {
   };
 
   const submitProduct = () => {
-    if (!activeBrandId) {
+    const resolvedBrandId = formState.brandId ?? activeBrandId;
+
+    if (!resolvedBrandId) {
       sonnerToast.error("请先选择品牌，再录入商品。");
       return;
     }
@@ -443,7 +463,7 @@ export default function AdminProductsWorkbench(props: {
 
     upsertProductMutation.mutate({
       id: formState.id,
-      brandId: activeBrandId,
+      brandId: resolvedBrandId,
       code: formState.code,
       name: formState.name,
       slug: formState.slug || undefined,
@@ -609,6 +629,9 @@ export default function AdminProductsWorkbench(props: {
               <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
                 {formState.id ? "编辑商品" : "录入测试商品"}
               </h3>
+              <p className="mt-2 text-sm leading-7 text-slate-500">
+                商品保存时会严格落到当前品牌上下文，避免跨品牌串台。当前归属：{selectedBrandOption?.name ?? selectedBrandName ?? "待选择品牌"}。
+              </p>
             </div>
             <button
               type="button"
@@ -618,6 +641,46 @@ export default function AdminProductsWorkbench(props: {
               <Plus className="h-4 w-4" />
               新建
             </button>
+          </div>
+
+          <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-900">品牌归属 / Brand Ownership</p>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
+                  运营在这里明确指定商品归属品牌；商品保存、图片上传、前台 `/shop` 货架与 PDP 查询都会沿用同一品牌上下文。
+                </p>
+              </div>
+              <div className="rounded-full bg-white px-4 py-2 text-xs tracking-[0.22em] text-slate-500">
+                BRAND ID · {formState.brandId ?? activeBrandId ?? "--"}
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
+              <label className="block">
+                <span className="text-sm font-medium text-slate-700">归属品牌</span>
+                <select
+                  value={formState.brandId ?? ""}
+                  onChange={(event) => {
+                    const nextBrandId = Number(event.target.value);
+                    setFormState((current) => ({ ...current, brandId: nextBrandId }));
+                    onBrandChange?.(nextBrandId);
+                  }}
+                  className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                >
+                  <option value="" disabled>
+                    请选择品牌
+                  </option>
+                  {brandOptions.map((brand) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-600">
+                当前品牌说明：{selectedBrandOption?.shortName ?? selectedBrandOption?.name ?? selectedBrandName ?? "待同步品牌信息"}。如果要切换到“环洗朵”或 “iCloush LAB.” 等其他品牌，请先在此处切换后再录入商品。
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-4">

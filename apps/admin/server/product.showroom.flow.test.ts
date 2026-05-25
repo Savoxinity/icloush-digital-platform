@@ -22,6 +22,12 @@ const sharedProducts: Array<{
 
 let nextId = 3000;
 
+const BRAND_LOOKUP = {
+  1: { code: "huanxiduo", name: "环洗朵科技" },
+  2: { code: "icloush-lab", name: "iCloush LAB." },
+  3: { code: "icloush-care", name: "iCloush Care" },
+} as const;
+
 function applyFilters(
   filters: { brandId?: number; series?: "AP" | "FC" | "all"; status?: "draft" | "active" | "archived" | "all" } = {},
 ) {
@@ -41,8 +47,12 @@ function buildSnapshot(
     generatedAt: new Date("2026-04-18T19:20:00.000Z").toISOString(),
     source: "database" as const,
     brandId: filters.brandId ?? products[0]?.brandId ?? null,
-    brandCode: products[0]?.brandCode ?? "icloush-lab",
-    brandName: products[0]?.brandName ?? "iCloush LAB.",
+    brandCode:
+      products[0]?.brandCode
+      ?? (typeof filters.brandId === "number" ? BRAND_LOOKUP[filters.brandId as keyof typeof BRAND_LOOKUP]?.code ?? "icloush-lab" : "icloush-lab"),
+    brandName:
+      products[0]?.brandName
+      ?? (typeof filters.brandId === "number" ? BRAND_LOOKUP[filters.brandId as keyof typeof BRAND_LOOKUP]?.name ?? "iCloush LAB." : "iCloush LAB."),
     filters: {
       series: filters.series ?? "all",
       status: filters.status ?? "all",
@@ -73,11 +83,12 @@ async function mockedUpsertProduct(input: {
     { key: "__retail_short_code", value: shortCode },
     { key: "__retail_short_url", value: `/s/${shortCode}` },
   ];
+  const brandMeta = BRAND_LOOKUP[input.brandId as keyof typeof BRAND_LOOKUP] ?? BRAND_LOOKUP[2];
   const normalized = {
     id: input.id ?? nextId++,
     brandId: input.brandId,
-    brandCode: "icloush-lab",
-    brandName: "iCloush LAB.",
+    brandCode: brandMeta.code,
+    brandName: brandMeta.name,
     code: input.code.trim().toUpperCase(),
     name: input.name.trim(),
     slug,
@@ -253,6 +264,70 @@ describe("Sprint 3 product create-then-render flow", () => {
     expect(pdpHtml).toContain("pages/retail/detail?sku=TEST-X01");
     expect(pdpHtml).toContain("https://cdn.example.com/test-x01-wechat-qr.png");
     expect(pdpHtml).toContain("EXTERNAL ACCESS / 外部入口");
+  });
+
+  it("renders a Huanxiduo sample product from admin publish flow into the brand shelf and PDP", async () => {
+    const adminCaller = adminAppRouter.createCaller({
+      req: {} as never,
+      res: {} as never,
+      user: { id: 1, role: "admin", globalRole: "admin" } as never,
+    });
+    const webCaller = webB2BAppRouter.createCaller({
+      req: {} as never,
+      res: {} as never,
+      user: null,
+    });
+
+    const receipt = await adminCaller.admin.upsertProduct({
+      brandId: 1,
+      code: "HXD-LINEN-01",
+      name: "环洗朵高浓缩洁净剂",
+      slug: "huanxiduo-linen-01",
+      series: "AP",
+      price: 680,
+      status: "active",
+      imageUrl: "/manus-storage/icloush/huanxiduo-linen-01.png",
+      subtitle: "Huanxiduo sample shelf item / MVP proof",
+      description: "该条目用于证明环洗朵商品可从 Admin 上架后进入前端货架与 PDP。",
+      unit: "桶",
+      specs: [
+        { key: "适用场景", value: "酒店布草洗护" },
+        { key: "起订量", value: "6 桶" },
+        { key: "__retail_wechat_qr_url", value: "https://cdn.example.com/hxd-linen-01-wechat-qr.png" },
+      ],
+    });
+
+    expect(receipt.tenant.brandId).toBe(1);
+    expect(receipt.product.brandName).toBe("环洗朵科技");
+
+    const showroomSnapshot = await webCaller.retail.galleryObjects({
+      brandId: 1,
+      series: "all",
+      status: "all",
+    });
+    expect(showroomSnapshot.brandId).toBe(1);
+    expect(showroomSnapshot.brandCode).toBe("huanxiduo");
+    expect(showroomSnapshot.products.some((product) => product.code === "HXD-LINEN-01")).toBe(true);
+
+    const detail = await webCaller.retail.objectDetail({ slug: "huanxiduo-linen-01", brandId: 1 });
+    expect(detail.brandId).toBe(1);
+    expect(detail.brandName).toBe("环洗朵科技");
+
+    const showroomProduct = mapManagedProductToShowroom(detail as never, 0, "database");
+    setLocation("/shop");
+    const shelfHtml = renderToStaticMarkup(
+      React.createElement(ShowroomPage, {
+        products: [showroomProduct],
+        sourceLabel: "DATABASE",
+      }),
+    );
+    const pdpHtml = renderToStaticMarkup(React.createElement(ProductDetailPage, { id: "huanxiduo-linen-01", product: showroomProduct }));
+
+    expect(shelfHtml).toContain("环洗朵高浓缩洁净剂");
+    expect(shelfHtml).toContain("/object/huanxiduo-linen-01");
+    expect(pdpHtml).toContain("环洗朵科技");
+    expect(pdpHtml).toContain("酒店布草洗护");
+    expect(pdpHtml).toContain("https://cdn.example.com/hxd-linen-01-wechat-qr.png");
   });
 
   it("resolves persisted short code to PDP route and falls back to gallery when missing", async () => {

@@ -1,16 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { orders, payments } from "../../../packages/database/schema";
+import { orders, paymentCallbackLogs, payments } from "../../../packages/database/schema";
 import {
+  advanceOrderToProcessing,
+  completeOrder,
   scheduleSandboxOrderPaymentSettlement,
   settleSandboxOrderPayment,
+  shipOrder,
 } from "../../../packages/oms/src/index";
 
 type MutableOrderState = {
   id: number;
   brandId: number;
-  status: "pending_payment" | "paid" | "closed" | "cancelled";
+  status: "pending_payment" | "paid" | "processing" | "shipped" | "completed" | "closed" | "cancelled";
   paymentStatus: "unpaid" | "paid";
+  fulfillmentStatus: "unfulfilled" | "processing" | "shipped" | "delivered";
+  note: string | null;
   updatedAt: Date;
 };
 
@@ -30,12 +35,15 @@ function createSandboxDbFixture() {
   const state: {
     order: MutableOrderState;
     payment: MutablePaymentState;
+    callbackLogs: Array<Record<string, unknown>>;
   } = {
     order: {
       id: 101,
       brandId: 2,
       status: "pending_payment",
       paymentStatus: "unpaid",
+      fulfillmentStatus: "unfulfilled",
+      note: null,
       updatedAt: new Date("2026-04-19T00:00:00.000Z"),
     },
     payment: {
@@ -49,6 +57,7 @@ function createSandboxDbFixture() {
       createdAt: new Date("2026-04-19T00:00:00.000Z"),
       updatedAt: new Date("2026-04-19T00:00:00.000Z"),
     },
+    callbackLogs: [],
   };
 
   const db: any = {
@@ -100,6 +109,16 @@ function createSandboxDbFixture() {
         },
       };
     },
+    insert(table: unknown) {
+      return {
+        values(values: Record<string, unknown>) {
+          if (table === paymentCallbackLogs) {
+            state.callbackLogs.push(values);
+          }
+          return Promise.resolve();
+        },
+      };
+    },
     transaction<T>(fn: (tx: any) => Promise<T>) {
       return fn(db);
     },
@@ -134,6 +153,16 @@ describe("oms sandbox settlement", () => {
     expect(state.order.paymentStatus).toBe("paid");
     expect(state.payment.status).toBe("paid");
     expect(state.payment.metaJson).toMatchObject({ sandboxOutcome: "successful" });
+    expect(state.callbackLogs).toHaveLength(1);
+    expect(state.callbackLogs[0]).toMatchObject({
+      brandId: 2,
+      paymentId: 202,
+      orderId: 101,
+      provider: "wechat_jsapi",
+      callbackType: "payment_notify",
+      signatureStatus: "skipped",
+      processStatus: "processed",
+    });
   });
 
   it("auto-settles sandbox orders after the configured delay", async () => {
@@ -158,5 +187,57 @@ describe("oms sandbox settlement", () => {
     expect(state.order.paymentStatus).toBe("unpaid");
     expect(state.payment.status).toBe("cancelled");
     expect(state.payment.metaJson).toMatchObject({ sandboxOutcome: "closed" });
+    expect(state.callbackLogs).toHaveLength(1);
+    expect(state.callbackLogs[0]).toMatchObject({
+      brandId: 2,
+      paymentId: 202,
+      orderId: 101,
+      provider: "wechat_jsapi",
+      callbackType: "payment_notify",
+      signatureStatus: "skipped",
+      processStatus: "processed",
+    });
+  });
+
+  it("advances paid sandbox orders through processing, shipped, and completed states", async () => {
+    const { db, state } = createSandboxDbFixture();
+
+    await settleSandboxOrderPayment({
+      db,
+      brandId: 2,
+      orderId: 101,
+      paymentId: 202,
+      outcome: "successful",
+    });
+
+    const processingResult = await advanceOrderToProcessing({
+      db,
+      brandId: 2,
+      orderId: 101,
+    });
+
+    expect(processingResult.order.status).toBe("processing");
+    expect(state.order.fulfillmentStatus).toBe("processing");
+
+    const shippedResult = await shipOrder({
+      db,
+      brandId: 2,
+      orderId: 101,
+      trackingNo: "MOCK-TRACK-101",
+    });
+
+    expect(shippedResult.order.status).toBe("shipped");
+    expect(shippedResult.trackingNo).toBe("MOCK-TRACK-101");
+    expect(state.order.fulfillmentStatus).toBe("shipped");
+    expect(state.order.note).toContain("虚拟物流单号：MOCK-TRACK-101");
+
+    const completedResult = await completeOrder({
+      db,
+      brandId: 2,
+      orderId: 101,
+    });
+
+    expect(completedResult.order.status).toBe("completed");
+    expect(state.order.fulfillmentStatus).toBe("delivered");
   });
 });

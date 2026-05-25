@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -10,6 +10,8 @@ import {
   productSkus,
   products,
   siteCaseStudies,
+  skuTierPrices,
+  subscriptionPlans,
   siteClientLogos,
   siteContactConfigs,
   siteSolutionModules,
@@ -3165,6 +3167,38 @@ export type ManagedProductSpec = {
   value: string;
 };
 
+export type ManagedProductType = "physical" | "service" | "rental" | "subscription";
+
+export type ManagedProductTierPrice = {
+  id?: number;
+  minQty: number;
+  maxQty: number | null;
+  price: number;
+  customerType: "b2b" | "b2c" | "all";
+};
+
+export type ManagedProductSku = {
+  id?: number;
+  skuCode: string;
+  specName: string | null;
+  packSize: string | null;
+  basePrice: number;
+  marketPrice: number | null;
+  stockQty: number;
+  minOrderQty: number;
+  status: "active" | "inactive";
+  tierPrices: ManagedProductTierPrice[];
+};
+
+export type ManagedSubscriptionPlan = {
+  id?: number;
+  name: string;
+  billingCycle: "weekly" | "monthly" | "quarterly";
+  deliveryRule: string | null;
+  price: number;
+  status: "active" | "inactive";
+};
+
 export type ManagedProductRecord = {
   id: number;
   brandId: number;
@@ -3174,12 +3208,15 @@ export type ManagedProductRecord = {
   name: string;
   slug: string;
   series: ManagedProductSeries | null;
+  productType: ManagedProductType;
   price: number | null;
   status: string;
   imageUrl: string | null;
   subtitle: string | null;
   description: string | null;
   specs: ManagedProductSpec[];
+  skus: ManagedProductSku[];
+  subscriptionPlans: ManagedSubscriptionPlan[];
   updatedAt: string | null;
 };
 
@@ -3203,6 +3240,7 @@ export type ManagedProductUpsertInput = {
   name: string;
   slug?: string | null;
   series?: ManagedProductSeries | null;
+  productType?: ManagedProductType | null;
   price?: number | null;
   status?: ManagedProductStatus | null;
   imageUrl?: string | null;
@@ -3210,6 +3248,8 @@ export type ManagedProductUpsertInput = {
   description?: string | null;
   unit?: string | null;
   specs?: ManagedProductSpec[] | null;
+  skus?: ManagedProductSku[] | null;
+  subscriptionPlans?: ManagedSubscriptionPlan[] | null;
 };
 
 export type ManagedProductUpsertReceipt = {
@@ -3243,6 +3283,8 @@ const SPRINT3_FALLBACK_MANAGED_PRODUCTS: ManagedProductRecord[] = [
       { key: "核心成分", value: "冷凝植物复合因子" },
       { key: "适用场景", value: "高端酒店客房与封闭织物空间" },
     ],
+    skus: [],
+    subscriptionPlans: [],
     updatedAt: new Date("2026-04-18T18:00:00.000Z").toISOString(),
   },
   {
@@ -3264,6 +3306,8 @@ const SPRINT3_FALLBACK_MANAGED_PRODUCTS: ManagedProductRecord[] = [
       { key: "核心成分", value: "纤维微胶囊" },
       { key: "适用场景", value: "高端布草与奢护织物" },
     ],
+    skus: [],
+    subscriptionPlans: [],
     updatedAt: new Date("2026-04-18T18:05:00.000Z").toISOString(),
   },
 ];
@@ -3299,12 +3343,141 @@ function normalizeManagedProductSeries(input?: string | null): ManagedProductSer
   return input === "AP" || input === "FC" ? input : null;
 }
 
+function normalizeManagedProductType(input?: string | null): ManagedProductType {
+  if (input === "service" || input === "rental" || input === "subscription") {
+    return input;
+  }
+
+  return "physical";
+}
+
 function normalizeManagedProductStatus(input?: string | null): ManagedProductStatus {
   if (input === "active" || input === "archived") {
     return input;
   }
 
   return "draft";
+}
+
+function normalizeManagedProductTierPrices(input: unknown): ManagedProductTierPrice[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const candidate = entry as Record<string, unknown>;
+      const minQty = typeof candidate.minQty === "number" && Number.isFinite(candidate.minQty)
+        ? Math.max(Math.round(candidate.minQty), 1)
+        : 1;
+      const maxQty = typeof candidate.maxQty === "number" && Number.isFinite(candidate.maxQty)
+        ? Math.max(Math.round(candidate.maxQty), minQty)
+        : null;
+      const price = typeof candidate.price === "number" && Number.isFinite(candidate.price)
+        ? Math.max(Math.round(candidate.price), 0)
+        : null;
+      if (price === null) {
+        return null;
+      }
+
+      return {
+        id: typeof candidate.id === "number" && Number.isFinite(candidate.id) ? Math.round(candidate.id) : undefined,
+        minQty,
+        maxQty,
+        price,
+        customerType: candidate.customerType === "b2b" || candidate.customerType === "b2c" || candidate.customerType === "all"
+          ? candidate.customerType
+          : "all",
+      } satisfies ManagedProductTierPrice;
+    })
+    .filter((entry): entry is ManagedProductTierPrice => Boolean(entry))
+    .sort((left, right) => left.minQty - right.minQty || (left.maxQty ?? Number.MAX_SAFE_INTEGER) - (right.maxQty ?? Number.MAX_SAFE_INTEGER));
+}
+
+function normalizeManagedProductSkus(input: unknown): ManagedProductSku[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const candidate = entry as Record<string, unknown>;
+      const skuCode = typeof candidate.skuCode === "string" ? candidate.skuCode.trim().toUpperCase() : "";
+      const basePrice = typeof candidate.basePrice === "number" && Number.isFinite(candidate.basePrice)
+        ? Math.max(Math.round(candidate.basePrice), 0)
+        : null;
+      if (!skuCode || basePrice === null) {
+        return null;
+      }
+
+      const specName = typeof candidate.specName === "string" && candidate.specName.trim() ? candidate.specName.trim() : null;
+      const packSize = typeof candidate.packSize === "string" && candidate.packSize.trim() ? candidate.packSize.trim() : null;
+      const marketPrice = typeof candidate.marketPrice === "number" && Number.isFinite(candidate.marketPrice)
+        ? Math.max(Math.round(candidate.marketPrice), 0)
+        : null;
+      const stockQty = typeof candidate.stockQty === "number" && Number.isFinite(candidate.stockQty)
+        ? Math.max(Math.round(candidate.stockQty), 0)
+        : 0;
+      const minOrderQty = typeof candidate.minOrderQty === "number" && Number.isFinite(candidate.minOrderQty)
+        ? Math.max(Math.round(candidate.minOrderQty), 1)
+        : 1;
+
+      return {
+        id: typeof candidate.id === "number" && Number.isFinite(candidate.id) ? Math.round(candidate.id) : undefined,
+        skuCode,
+        specName,
+        packSize,
+        basePrice,
+        marketPrice,
+        stockQty,
+        minOrderQty,
+        status: candidate.status === "inactive" ? "inactive" : "active",
+        tierPrices: normalizeManagedProductTierPrices(candidate.tierPrices),
+      } satisfies ManagedProductSku;
+    })
+    .filter((entry): entry is ManagedProductSku => Boolean(entry));
+}
+
+function normalizeManagedSubscriptionPlans(input: unknown): ManagedSubscriptionPlan[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const candidate = entry as Record<string, unknown>;
+      const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+      const price = typeof candidate.price === "number" && Number.isFinite(candidate.price)
+        ? Math.max(Math.round(candidate.price), 0)
+        : null;
+      if (!name || price === null) {
+        return null;
+      }
+
+      return {
+        id: typeof candidate.id === "number" && Number.isFinite(candidate.id) ? Math.round(candidate.id) : undefined,
+        name,
+        billingCycle: candidate.billingCycle === "weekly" || candidate.billingCycle === "quarterly" || candidate.billingCycle === "monthly"
+          ? candidate.billingCycle
+          : "monthly",
+        deliveryRule: typeof candidate.deliveryRule === "string" && candidate.deliveryRule.trim() ? candidate.deliveryRule.trim() : null,
+        price,
+        status: candidate.status === "inactive" ? "inactive" : "active",
+      } satisfies ManagedSubscriptionPlan;
+    })
+    .filter((entry): entry is ManagedSubscriptionPlan => Boolean(entry));
 }
 
 function slugifyManagedProduct(input: string) {
@@ -3401,12 +3574,15 @@ function toManagedProductRecord(params: {
   name: string;
   slug: string;
   series: string | null;
+  productType: string | null;
   price: number | null;
   status: string;
   imageUrl: string | null;
   subtitle: string | null;
   description: string | null;
   specs: unknown;
+  skus?: ManagedProductSku[];
+  subscriptionPlans?: ManagedSubscriptionPlan[];
   updatedAt: Date | string | null;
 }): ManagedProductRecord {
   const fallbackCode = params.code?.trim() || params.slug.toUpperCase().replace(/-/g, "-");
@@ -3419,12 +3595,15 @@ function toManagedProductRecord(params: {
     name: params.name,
     slug: params.slug,
     series: normalizeManagedProductSeries(params.series),
+    productType: normalizeManagedProductType(params.productType),
     price: typeof params.price === "number" && Number.isFinite(params.price) ? params.price : null,
     status: params.status,
     imageUrl: normalizeNullableText(params.imageUrl),
     subtitle: normalizeNullableText(params.subtitle),
     description: normalizeNullableText(params.description),
     specs: normalizeManagedProductSpecs(params.specs),
+    skus: params.skus ?? [],
+    subscriptionPlans: params.subscriptionPlans ?? [],
     updatedAt: params.updatedAt ? new Date(params.updatedAt).toISOString() : null,
   };
 }
@@ -3457,6 +3636,148 @@ async function resolveManagedProductBrand(brandId: number) {
     .limit(1);
 
   return brandRecords[0] ?? null;
+}
+
+async function loadManagedProductChildren(params: { brandId?: number; productIds: number[] }) {
+  if (params.productIds.length === 0) {
+    return {
+      skuMap: new Map<number, ManagedProductSku[]>(),
+      subscriptionPlanMap: new Map<number, ManagedSubscriptionPlan[]>(),
+    };
+  }
+
+  const db = await getDb();
+  if (!db) {
+    return {
+      skuMap: new Map<number, ManagedProductSku[]>(),
+      subscriptionPlanMap: new Map<number, ManagedSubscriptionPlan[]>(),
+    };
+  }
+
+  const skuRows = params.brandId
+    ? await db
+        .select({
+          id: productSkus.id,
+          productId: productSkus.productId,
+          skuCode: productSkus.skuCode,
+          specName: productSkus.specName,
+          packSize: productSkus.packSize,
+          basePrice: productSkus.basePrice,
+          marketPrice: productSkus.marketPrice,
+          stockQty: productSkus.stockQty,
+          minOrderQty: productSkus.minOrderQty,
+          status: productSkus.status,
+        })
+        .from(productSkus)
+        .where(and(eq(productSkus.brandId, params.brandId), inArray(productSkus.productId, params.productIds)))
+    : await db
+        .select({
+          id: productSkus.id,
+          productId: productSkus.productId,
+          skuCode: productSkus.skuCode,
+          specName: productSkus.specName,
+          packSize: productSkus.packSize,
+          basePrice: productSkus.basePrice,
+          marketPrice: productSkus.marketPrice,
+          stockQty: productSkus.stockQty,
+          minOrderQty: productSkus.minOrderQty,
+          status: productSkus.status,
+        })
+        .from(productSkus)
+        .where(inArray(productSkus.productId, params.productIds));
+
+  const skuIds = skuRows.map((row) => row.id);
+  const tierRows = skuIds.length === 0
+    ? []
+    : params.brandId
+      ? await db
+          .select({
+            id: skuTierPrices.id,
+            skuId: skuTierPrices.skuId,
+            minQty: skuTierPrices.minQty,
+            maxQty: skuTierPrices.maxQty,
+            price: skuTierPrices.price,
+            customerType: skuTierPrices.customerType,
+          })
+          .from(skuTierPrices)
+          .where(and(eq(skuTierPrices.brandId, params.brandId), inArray(skuTierPrices.skuId, skuIds)))
+      : await db
+          .select({
+            id: skuTierPrices.id,
+            skuId: skuTierPrices.skuId,
+            minQty: skuTierPrices.minQty,
+            maxQty: skuTierPrices.maxQty,
+            price: skuTierPrices.price,
+            customerType: skuTierPrices.customerType,
+          })
+          .from(skuTierPrices)
+          .where(inArray(skuTierPrices.skuId, skuIds));
+
+  const tierMap = new Map<number, ManagedProductTierPrice[]>();
+  for (const tierRow of tierRows) {
+    const normalizedTier = normalizeManagedProductTierPrices([tierRow])[0];
+    if (!normalizedTier) {
+      continue;
+    }
+    const tiers = tierMap.get(tierRow.skuId) ?? [];
+    tiers.push(normalizedTier);
+    tierMap.set(tierRow.skuId, tiers);
+  }
+
+  const skuMap = new Map<number, ManagedProductSku[]>();
+  for (const skuRow of skuRows) {
+    const normalizedSku = normalizeManagedProductSkus([
+      {
+        ...skuRow,
+        tierPrices: tierMap.get(skuRow.id) ?? [],
+      },
+    ])[0];
+    if (!normalizedSku) {
+      continue;
+    }
+    const productSkusForProduct = skuMap.get(skuRow.productId) ?? [];
+    productSkusForProduct.push(normalizedSku);
+    skuMap.set(skuRow.productId, productSkusForProduct);
+  }
+
+  const subscriptionPlanRows = params.brandId
+    ? await db
+        .select({
+          id: subscriptionPlans.id,
+          productId: subscriptionPlans.productId,
+          name: subscriptionPlans.name,
+          billingCycle: subscriptionPlans.billingCycle,
+          deliveryRule: subscriptionPlans.deliveryRule,
+          price: subscriptionPlans.price,
+          status: subscriptionPlans.status,
+        })
+        .from(subscriptionPlans)
+        .where(and(eq(subscriptionPlans.brandId, params.brandId), inArray(subscriptionPlans.productId, params.productIds)))
+    : await db
+        .select({
+          id: subscriptionPlans.id,
+          productId: subscriptionPlans.productId,
+          name: subscriptionPlans.name,
+          billingCycle: subscriptionPlans.billingCycle,
+          deliveryRule: subscriptionPlans.deliveryRule,
+          price: subscriptionPlans.price,
+          status: subscriptionPlans.status,
+        })
+        .from(subscriptionPlans)
+        .where(inArray(subscriptionPlans.productId, params.productIds));
+
+  const subscriptionPlanMap = new Map<number, ManagedSubscriptionPlan[]>();
+  for (const planRow of subscriptionPlanRows) {
+    const normalizedPlan = normalizeManagedSubscriptionPlans([planRow])[0];
+    if (!normalizedPlan) {
+      continue;
+    }
+    const plans = subscriptionPlanMap.get(planRow.productId) ?? [];
+    plans.push(normalizedPlan);
+    subscriptionPlanMap.set(planRow.productId, plans);
+  }
+
+  return { skuMap, subscriptionPlanMap };
 }
 
 export async function listManagedProducts(params?: {
@@ -3511,6 +3832,7 @@ export async function listManagedProducts(params?: {
       slug: products.slug,
       series: products.series,
       price: products.price,
+      productType: products.productType,
       status: products.status,
       imageUrl: products.imageUrl,
       subtitle: products.subtitle,
@@ -3522,8 +3844,13 @@ export async function listManagedProducts(params?: {
     .orderBy(desc(products.updatedAt))
     .limit(240);
 
+  const childRecords = await loadManagedProductChildren({
+    brandId: params?.brandId,
+    productIds: productRecords.map((record) => record.id),
+  });
+
   const scopedRecords = productRecords
-    .filter((record) => (params?.brandId ? record.brandId === params.brandId : true))
+    .filter((record) => (params?.brandId ? record.brandId === params?.brandId : true))
     .map((record) => {
       const brand = brandMap.get(record.brandId);
       return toManagedProductRecord({
@@ -3535,15 +3862,19 @@ export async function listManagedProducts(params?: {
         name: record.name,
         slug: record.slug,
         series: record.series,
+        productType: record.productType,
         price: record.price,
         status: record.status,
         imageUrl: record.imageUrl,
         subtitle: record.subtitle,
         description: record.description,
         specs: record.specs,
+        skus: childRecords.skuMap.get(record.id) ?? [],
+        subscriptionPlans: childRecords.subscriptionPlanMap.get(record.id) ?? [],
         updatedAt: record.updatedAt,
       });
     });
+
 
   const filteredRecords = applyManagedProductFilters(scopedRecords, filters);
   const activeBrand = filteredRecords[0] ?? scopedRecords[0] ?? null;
@@ -3629,27 +3960,123 @@ export async function upsertManagedProduct(input: ManagedProductUpsertInput): Pr
     description: normalizeNullableText(input.description),
     unit: normalizeNullableText(input.unit) ?? "件",
     specs: normalizedSpecs.length > 0 ? normalizedSpecs : null,
-    productType: "physical" as const,
+    productType: normalizeManagedProductType(input.productType),
     updatedAt: new Date(),
   };
+  const normalizedSkus = normalizeManagedProductSkus(input.skus);
+  const normalizedSubscriptionPlans = normalizeManagedSubscriptionPlans(input.subscriptionPlans);
 
   let targetId = input.id;
-  if (typeof input.id === "number") {
-    const existing = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(and(eq(products.id, input.id), eq(products.brandId, brandRecord.id)))
-      .limit(1);
+  await db.transaction(async (tx) => {
+    if (typeof input.id === "number") {
+      const existing = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.id, input.id), eq(products.brandId, brandRecord.id)))
+        .limit(1);
 
-    if (!existing[0]) {
-      throw new Error(`未找到品牌 ${brandRecord.name} 下的商品 #${input.id}。`);
+      if (!existing[0]) {
+        throw new Error(`未找到品牌 ${brandRecord.name} 下的商品 #${input.id}。`);
+      }
+
+      await tx.update(products).set(productValues).where(eq(products.id, input.id));
+      targetId = input.id;
+    } else {
+      const insertResult = await tx.insert(products).values(productValues);
+      targetId = Number((insertResult as { insertId?: number }).insertId ?? 0) || undefined;
     }
 
-    await db.update(products).set(productValues).where(eq(products.id, input.id));
-  } else {
-    const insertResult = await db.insert(products).values(productValues);
-    targetId = Number((insertResult as { insertId?: number }).insertId ?? 0) || undefined;
-  }
+    if (typeof targetId !== "number") {
+      throw new Error("商品保存成功，但未能生成有效的商品主键。");
+    }
+
+    const existingSkuRecords = await tx
+      .select({ id: productSkus.id })
+      .from(productSkus)
+      .where(and(eq(productSkus.productId, targetId), eq(productSkus.brandId, brandRecord.id)));
+    const existingSkuIds = existingSkuRecords.map((record) => record.id);
+
+    if (existingSkuIds.length > 0) {
+      await tx.delete(skuTierPrices).where(and(eq(skuTierPrices.brandId, brandRecord.id), inArray(skuTierPrices.skuId, existingSkuIds)));
+    }
+
+    await tx.delete(productSkus).where(and(eq(productSkus.productId, targetId), eq(productSkus.brandId, brandRecord.id)));
+
+    if (normalizedSkus.length > 0) {
+      await tx.insert(productSkus).values(
+        normalizedSkus.map((sku) => ({
+          brandId: brandRecord.id,
+          productId: targetId,
+          skuCode: sku.skuCode,
+          specName: sku.specName,
+          packSize: sku.packSize,
+          basePrice: sku.basePrice,
+          marketPrice: sku.marketPrice,
+          stockQty: sku.stockQty,
+          minOrderQty: sku.minOrderQty,
+          status: sku.status,
+        })),
+      );
+
+      const persistedSkuRows = await tx
+        .select({
+          id: productSkus.id,
+          skuCode: productSkus.skuCode,
+        })
+        .from(productSkus)
+        .where(and(eq(productSkus.productId, targetId), eq(productSkus.brandId, brandRecord.id)));
+      const persistedSkuIdByCode = new Map(persistedSkuRows.map((record) => [record.skuCode, record.id]));
+
+      const tierValues = normalizedSkus.reduce<
+        Array<{
+          brandId: number;
+          skuId: number;
+          minQty: number;
+          maxQty: number | null;
+          price: number;
+          customerType: "b2b" | "b2c" | "all";
+        }>
+      >((rows, sku) => {
+        const skuId = persistedSkuIdByCode.get(sku.skuCode);
+        if (!skuId) {
+          return rows;
+        }
+
+        for (const tier of sku.tierPrices) {
+          rows.push({
+            brandId: brandRecord.id,
+            skuId,
+            minQty: tier.minQty,
+            maxQty: tier.maxQty,
+            price: tier.price,
+            customerType: tier.customerType,
+          });
+        }
+
+        return rows;
+      }, []);
+
+      if (tierValues.length > 0) {
+        await tx.insert(skuTierPrices).values(tierValues);
+      }
+    }
+
+    await tx.delete(subscriptionPlans).where(and(eq(subscriptionPlans.productId, targetId), eq(subscriptionPlans.brandId, brandRecord.id)));
+
+    if (normalizedSubscriptionPlans.length > 0) {
+      await tx.insert(subscriptionPlans).values(
+        normalizedSubscriptionPlans.map((plan) => ({
+          brandId: brandRecord.id,
+          productId: targetId,
+          name: plan.name,
+          billingCycle: plan.billingCycle,
+          deliveryRule: plan.deliveryRule,
+          price: plan.price,
+          status: plan.status,
+        })),
+      );
+    }
+  });
 
   const product = await getManagedProductDetail({ id: targetId, brandId: brandRecord.id, code: normalizedCode, slug: normalizedSlug });
   if (!product) {

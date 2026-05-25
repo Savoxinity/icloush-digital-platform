@@ -39,6 +39,11 @@ describe("api-gateway helper integration", () => {
       code: "BAD_REQUEST",
       message: "缺少租户上下文。请在请求头传入 x-brand-id / brand_id，或通过已绑定域名访问。",
     });
+
+    await expect(caller.products.list({})).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "缺少租户上下文。请在请求头传入 x-brand-id / brand_id，或通过已绑定域名访问。",
+    });
   });
 
   it("queries order list through OMS with tenant brand context", async () => {

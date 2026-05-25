@@ -890,6 +890,7 @@ type OrderSummaryRecord = {
   paymentStatus: string;
   fulfillmentStatus: string;
   payableAmount: number;
+  note?: string | null;
   itemPreview?: Array<{
     productName: string;
     skuLabel?: string | null;
@@ -965,6 +966,15 @@ function getFulfillmentStatusLabel(status?: string | null) {
 
 function getReviewStatusLabel(status?: string | null) {
   return status ? reviewStatusLabelMap[status] ?? status : "待确认";
+}
+
+function extractTrackingNo(note?: string | null) {
+  if (!note) {
+    return null;
+  }
+
+  const matched = note.match(/虚拟物流单号：([^\n]+)/);
+  return matched?.[1]?.trim() || null;
 }
 
 const enterpriseApplicationStatusLabelMap: Record<string, string> = {
@@ -3725,18 +3735,20 @@ export function AdminContent() {
                 description: "当前后台已从单一订单页升级为统一运营控制台，可串联商城、官网、客户与增长模块，为后续 Sprint 接入真实数据预留清晰入口。",
               };
 
+  const { user } = useAuth();
   const brandsQuery = trpc.brands.list.useQuery();
   const availableBrands = (brandsQuery.data ?? []) as BrandOption[];
   const [selectedBrandId, setSelectedBrandId] = useState<number | null>(null);
   const utils = trpc.useUtils();
+  const canUseGlobalAdminView = user?.globalRole === "super_admin";
 
   useEffect(() => {
-    if (!selectedBrandId && availableBrands.length > 0) {
+    if (!canUseGlobalAdminView && !selectedBrandId && availableBrands.length > 0) {
       setSelectedBrandId(availableBrands[0].id);
     }
-  }, [availableBrands, selectedBrandId]);
+  }, [availableBrands, canUseGlobalAdminView, selectedBrandId]);
 
-  const activeBrandId = selectedBrandId ?? availableBrands[0]?.id ?? null;
+  const activeBrandId = selectedBrandId ?? (canUseGlobalAdminView ? null : availableBrands[0]?.id ?? null);
   const scopedOrderBrandId = activeBrandId ?? 0;
   const selectedBrand = useMemo(
     () => availableBrands.find((brand) => brand.id === activeBrandId) ?? null,
@@ -3760,7 +3772,7 @@ export function AdminContent() {
   }, [selectedBrand?.code]);
 
   const shouldLoadOrderInsights = (isOverviewSection || isOrdersSection) && Boolean(activeBrandId);
-  const shouldLoadAdminOperations = Boolean(activeBrandId);
+  const shouldLoadAdminOperations = canUseGlobalAdminView || Boolean(activeBrandId);
 
   const adminOperationsQuery = trpc.admin.operations.useQuery(
     activeBrandId ? { brandId: activeBrandId } : {},
@@ -3776,19 +3788,19 @@ export function AdminContent() {
   const seoSnapshot = adminOperations?.seo;
   const labContactConfigQuery = trpc.site.contactConfig.useQuery(
     { siteKey: activeSiteKey, contactScene: activeSiteKey === "care" ? "consulting" : "business" },
-    { enabled: isContentSection },
+    { enabled: isContentSection && Boolean(activeBrandId) },
   );
   const techSolutionModulesQuery = trpc.site.solutionModules.useQuery(
     { siteKey: activeSiteKey, limit: 6 },
-    { enabled: isContentSection },
+    { enabled: isContentSection && Boolean(activeBrandId) },
   );
   const techCaseStudiesQuery = trpc.site.caseStudies.useQuery(
     { siteKey: activeSiteKey, limit: 6 },
-    { enabled: isContentSection },
+    { enabled: isContentSection && Boolean(activeBrandId) },
   );
   const techClientLogosQuery = trpc.site.clientLogos.useQuery(
     { siteKey: activeSiteKey, limit: 8 },
-    { enabled: isContentSection },
+    { enabled: isContentSection && Boolean(activeBrandId) },
   );
   const [labContactDraft, setLabContactDraft] = useState<LabContactDraft>({
     headline: "",
@@ -3931,11 +3943,53 @@ export function AdminContent() {
   );
 
   const [lastReviewMessage, setLastReviewMessage] = useState<string | null>(null);
+  const [shipmentDrafts, setShipmentDrafts] = useState<Record<number, string>>({});
+
+  const invalidateOrderViews = async () => {
+    await Promise.all([utils.orders.list.invalidate(), utils.orders.reviewQueue.invalidate()]);
+  };
 
   const reviewPaymentMutation = trpc.orders.reviewPayment.useMutation({
     onSuccess: async () => {
-      await Promise.all([utils.orders.list.invalidate(), utils.orders.reviewQueue.invalidate()]);
+      await invalidateOrderViews();
       sonnerToast("审核结果已回写，订单与审核队列已刷新。");
+    },
+  });
+
+  const advanceToProcessingMutation = trpc.orders.advanceToProcessing.useMutation({
+    onSuccess: async (_result, variables) => {
+      await invalidateOrderViews();
+      setLastReviewMessage(`${variables.orderId} 对应订单已推进到处理中，后台可继续录入虚拟物流单号。`);
+      sonnerToast("订单已推进到处理中。");
+    },
+    onError: error => {
+      sonnerToast(error.message || "推进处理中失败，请稍后重试。");
+    },
+  });
+
+  const shipOrderMutation = trpc.orders.shipOrder.useMutation({
+    onSuccess: async (result, variables) => {
+      await invalidateOrderViews();
+      setShipmentDrafts((current) => ({
+        ...current,
+        [variables.orderId]: "",
+      }));
+      setLastReviewMessage(`${result.order.orderNo} 已录入虚拟物流单号 ${variables.trackingNo} 并推进到已发货。`);
+      sonnerToast("订单已发货，客户中心会同步显示已发货状态。");
+    },
+    onError: error => {
+      sonnerToast(error.message || "发货失败，请稍后重试。");
+    },
+  });
+
+  const completeOrderMutation = trpc.orders.completeOrder.useMutation({
+    onSuccess: async (result) => {
+      await invalidateOrderViews();
+      setLastReviewMessage(`${result.order.orderNo} 已推进到已完成，客户侧将同步看到签收完成状态。`);
+      sonnerToast("订单已完成。");
+    },
+    onError: error => {
+      sonnerToast(error.message || "完成订单失败，请稍后重试。");
     },
   });
 
@@ -4191,18 +4245,21 @@ export function AdminContent() {
             <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">多租户上下文</p>
               <p className="mt-3 text-xl font-semibold tracking-tight text-slate-950">
-                {selectedBrand?.name ?? "正在同步品牌清单"}
+                {adminOperations?.scope.brandName ?? selectedBrand?.name ?? "正在同步品牌清单"}
               </p>
               <p className="mt-3 text-sm leading-7 text-slate-600">
-                后台当前通过统一控制台管理商城与三个品牌门户；产品、订单、客户、内容与 SEO 面板均已切换到同一品牌上下文的真实运营快照。
+                {adminOperations?.scope.isGlobal
+                  ? "当前为超级管理员全局视角，可先俯瞰四个品牌的总盘，再切回单一品牌工作台查看商品、订单、客户、内容与 SEO 的隔离数据。"
+                  : "后台当前通过统一控制台管理商城与品牌门户；商品、订单、客户、内容与 SEO 面板均已切换到同一品牌上下文的真实运营快照。"}
               </p>
               <label className="mt-5 block text-sm text-slate-500">
                 当前品牌
                 <select
                   className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
                   value={activeBrandId ?? ""}
-                  onChange={(event) => setSelectedBrandId(Number(event.target.value))}
+                  onChange={(event) => setSelectedBrandId(event.target.value ? Number(event.target.value) : null)}
                 >
+                  {canUseGlobalAdminView ? <option value="">全部品牌（超级管理员）</option> : null}
                   {availableBrands.map((brand) => (
                     <option key={brand.id} value={brand.id}>
                       {brand.name}
@@ -5511,15 +5568,112 @@ export function AdminContent() {
                 ) : orderRecords.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-600">当前品牌暂无订单记录。</div>
                 ) : (
-                  orderRecords.map((order) => (
-                    <div key={order.id} className="rounded-3xl bg-slate-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-medium text-slate-950">{order.orderNo}</p>
-                        <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{order.status}</span>
+                  orderRecords.map((order) => {
+                    const trackingNo = extractTrackingNo(order.note);
+                    const shipmentDraft = shipmentDrafts[order.id] ?? trackingNo ?? `MOCK-${order.id}`;
+                    const actionPending =
+                      advanceToProcessingMutation.isPending || shipOrderMutation.isPending || completeOrderMutation.isPending;
+
+                    return (
+                      <div key={order.id} className="rounded-3xl bg-slate-50 p-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div>
+                            <p className="font-medium text-slate-950">{order.orderNo}</p>
+                            <p className="mt-2 text-sm text-slate-600">{summarizeOrderItems(order)}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{getOrderStatusLabel(order.status)}</span>
+                            <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{getFulfillmentStatusLabel(order.fulfillmentStatus)}</span>
+                            <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-600">{getPaymentStatusLabel(order.paymentStatus)}</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                          <div>
+                            <p className="text-sm text-slate-500">订单金额</p>
+                            <p className="mt-1 font-medium text-slate-950">{formatCurrencyFen(order.payableAmount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-slate-500">回单审核</p>
+                            <p className="mt-1 font-medium text-slate-950">{getReviewStatusLabel(order.latestReceipt?.reviewStatus)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-slate-500">虚拟物流单号</p>
+                            <p className="mt-1 font-medium text-slate-950">{trackingNo ?? "待录入"}</p>
+                          </div>
+                        </div>
+                        {order.status === "paid" ? (
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              disabled={actionPending || !activeBrandId}
+                              className="inline-flex h-10 items-center justify-center rounded-full bg-slate-950 px-4 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-300"
+                              onClick={() => {
+                                if (!activeBrandId) return;
+                                advanceToProcessingMutation.mutate({
+                                  brandId: activeBrandId,
+                                  orderId: order.id,
+                                });
+                              }}
+                            >
+                              推进到处理中
+                            </button>
+                          </div>
+                        ) : null}
+                        {order.status === "processing" ? (
+                          <div className="mt-4 space-y-3">
+                            <label className="block space-y-2 text-sm text-slate-600">
+                              <span className="font-medium text-slate-900">录入虚拟物流单号</span>
+                              <input
+                                value={shipmentDraft}
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setShipmentDrafts((current) => ({
+                                    ...current,
+                                    [order.id]: nextValue,
+                                  }));
+                                }}
+                                placeholder="例如 MOCK-2026-0001"
+                                className="h-11 w-full rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={actionPending || !activeBrandId || !shipmentDraft.trim()}
+                              className="inline-flex h-10 items-center justify-center rounded-full bg-slate-950 px-4 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:bg-slate-300"
+                              onClick={() => {
+                                if (!activeBrandId || !shipmentDraft.trim()) return;
+                                shipOrderMutation.mutate({
+                                  brandId: activeBrandId,
+                                  orderId: order.id,
+                                  trackingNo: shipmentDraft.trim(),
+                                });
+                              }}
+                            >
+                              确认发货
+                            </button>
+                          </div>
+                        ) : null}
+                        {order.status === "shipped" ? (
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              disabled={actionPending || !activeBrandId}
+                              className="inline-flex h-10 items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                              onClick={() => {
+                                if (!activeBrandId) return;
+                                completeOrderMutation.mutate({
+                                  brandId: activeBrandId,
+                                  orderId: order.id,
+                                });
+                              }}
+                            >
+                              完成订单
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">{summarizeOrderItems(order)}</p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

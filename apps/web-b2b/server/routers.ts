@@ -128,7 +128,7 @@ const retailOrderItemSchema = z.object({
   quantity: z.number().int().min(1).max(99),
 });
 const retailCreateOrderSchema = z.object({
-  brandId: z.number().int().positive().default(2),
+  brandId: z.number().int().positive(),
   items: z.array(retailOrderItemSchema).min(1).max(20),
   gateway: retailGatewaySchema.default("wechat_pay_v3"),
   note: z.string().trim().max(500).nullish(),
@@ -137,7 +137,7 @@ const retailCreateOrderSchema = z.object({
 });
 const retailOrderStatusSchema = z
   .object({
-    brandId: z.number().int().positive().default(2),
+    brandId: z.number().int().positive(),
     orderId: z.number().int().positive().optional(),
     orderNo: z.string().trim().min(1).optional(),
   })
@@ -440,7 +440,11 @@ const retailRouter = router({
       },
     });
 
-    const paymentDescription = `iCloush LAB. ${created.items.map((item) => item.product.name).join(" / ")}`.slice(0, 120);
+    const paymentBrandLabel =
+      fallbackBrands.find((brand) => brand.id === input.brandId)?.shortName ??
+      fallbackBrands.find((brand) => brand.id === input.brandId)?.name ??
+      `Brand ${input.brandId}`;
+    const paymentDescription = `${paymentBrandLabel} ${created.items.map((item) => item.product.name).join(" / ")}`.slice(0, 120);
     const gateway =
       paymentMode === "sandbox"
         ? buildSandboxGatewayResult({

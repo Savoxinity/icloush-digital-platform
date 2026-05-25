@@ -2,10 +2,13 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { brands } from "../../../packages/database/schema";
 import {
+  advanceOrderToProcessing,
+  completeOrder,
   getOrderDetail,
   listOrderReviewQueue,
   listOrders,
   reviewOrderPayment,
+  shipOrder,
 } from "../../../packages/oms/src/index";
 import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -99,6 +102,15 @@ const reviewPaymentSchema = z.object({
   reviewNote: z.string().trim().max(500).nullish(),
 });
 
+const orderLifecycleSchema = z.object({
+  brandId: z.number().int().positive(),
+  orderId: z.number().int().positive(),
+});
+
+const shipOrderSchema = orderLifecycleSchema.extend({
+  trackingNo: z.string().trim().min(1).max(120),
+});
+
 const adminOperationsSchema = z.object({
   brandId: z.number().int().positive().optional(),
 });
@@ -108,6 +120,34 @@ const managedProductStatusSchema = z.enum(["draft", "active", "archived"]);
 const managedProductSpecSchema = z.object({
   key: z.string().trim().min(1).max(80),
   value: z.string().trim().min(1).max(240),
+});
+const managedSkuStatusSchema = z.enum(["active", "inactive"]);
+const managedTierPriceSchema = z.object({
+  id: z.number().int().positive().optional(),
+  minQty: z.number().int().min(1).max(999999),
+  maxQty: z.number().int().min(1).max(999999).nullish(),
+  price: z.number().int().min(0).max(100000000),
+  customerType: z.enum(["b2b", "b2c", "all"]).default("all"),
+});
+const managedProductSkuSchema = z.object({
+  id: z.number().int().positive().optional(),
+  skuCode: z.string().trim().min(1).max(100),
+  specName: z.string().trim().max(255).nullish(),
+  packSize: z.string().trim().max(100).nullish(),
+  basePrice: z.number().int().min(0).max(100000000),
+  marketPrice: z.number().int().min(0).max(100000000).nullish(),
+  stockQty: z.number().int().min(0).max(1000000).nullish(),
+  minOrderQty: z.number().int().min(1).max(100000).nullish(),
+  status: managedSkuStatusSchema.nullish(),
+  tierPrices: z.array(managedTierPriceSchema).max(12).nullish(),
+});
+const managedSubscriptionPlanSchema = z.object({
+  id: z.number().int().positive().optional(),
+  name: z.string().trim().min(1).max(255),
+  billingCycle: z.enum(["weekly", "monthly", "quarterly"]),
+  deliveryRule: z.string().trim().max(255).nullish(),
+  price: z.number().int().min(0).max(100000000),
+  status: managedSkuStatusSchema.nullish(),
 });
 const managedProductListSchema = z.object({
   brandId: z.number().int().positive().optional(),
@@ -132,6 +172,7 @@ const managedProductUpsertSchema = z.object({
   name: z.string().trim().min(2).max(255),
   slug: z.string().trim().max(255).nullish(),
   series: managedProductSeriesSchema.nullish(),
+  productType: z.enum(["physical", "service", "rental", "subscription"]).nullish(),
   price: z.number().int().min(0).max(100000000).nullish(),
   status: managedProductStatusSchema.nullish(),
   imageUrl: z.string().trim().max(4000).nullish(),
@@ -139,6 +180,8 @@ const managedProductUpsertSchema = z.object({
   description: z.string().trim().max(4000).nullish(),
   unit: z.string().trim().max(64).nullish(),
   specs: z.array(managedProductSpecSchema).max(20).nullish(),
+  skus: z.array(managedProductSkuSchema).max(16).nullish(),
+  subscriptionPlans: z.array(managedSubscriptionPlanSchema).max(12).nullish(),
 });
 const managedProductImageUploadSchema = z.object({
   brandId: z.number().int().positive(),
@@ -577,6 +620,46 @@ export const appRouter = router({
         approved: input.approved,
         reviewedBy: ctx.user.id,
         reviewNote: input.reviewNote ?? null,
+      });
+
+      return {
+        tenant: { brandId: input.brandId },
+        ...result,
+      };
+    }),
+    advanceToProcessing: adminProcedure.input(orderLifecycleSchema).mutation(async ({ input }) => {
+      const db = requireDb(await getDb());
+      const result = await advanceOrderToProcessing({
+        db,
+        brandId: input.brandId,
+        orderId: input.orderId,
+      });
+
+      return {
+        tenant: { brandId: input.brandId },
+        ...result,
+      };
+    }),
+    shipOrder: adminProcedure.input(shipOrderSchema).mutation(async ({ input }) => {
+      const db = requireDb(await getDb());
+      const result = await shipOrder({
+        db,
+        brandId: input.brandId,
+        orderId: input.orderId,
+        trackingNo: input.trackingNo,
+      });
+
+      return {
+        tenant: { brandId: input.brandId },
+        ...result,
+      };
+    }),
+    completeOrder: adminProcedure.input(orderLifecycleSchema).mutation(async ({ input }) => {
+      const db = requireDb(await getDb());
+      const result = await completeOrder({
+        db,
+        brandId: input.brandId,
+        orderId: input.orderId,
       });
 
       return {

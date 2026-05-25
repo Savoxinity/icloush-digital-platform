@@ -13,6 +13,8 @@ import {
   siteClientLogos,
   siteContactConfigs,
   siteSolutionModules,
+  skuTierPrices,
+  subscriptionPlans,
   users,
 } from "../../../packages/database/schema";
 import { ENV } from "./_core/env";
@@ -91,6 +93,10 @@ export type PublicCatalogProduct = {
   specLabel: string;
   minimumOrderLabel: string;
   leadTimeLabel: string;
+  tierPriceLabel: string | null;
+  tierPriceCount: number;
+  subscriptionLabel: string | null;
+  subscriptionPlanCount: number;
   badges: readonly string[];
 };
 
@@ -997,7 +1003,7 @@ export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
   }
 
   try {
-    const [brandRecords, categoryRecords, productRecords, skuRecords] = await Promise.all([
+    const [brandRecords, categoryRecords, productRecords, skuRecords, tierPriceRecords, subscriptionPlanRecords] = await Promise.all([
       db
         .select({
           id: brands.id,
@@ -1034,6 +1040,7 @@ export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
         .limit(240),
       db
         .select({
+          id: productSkus.id,
           productId: productSkus.productId,
           basePrice: productSkus.basePrice,
           specName: productSkus.specName,
@@ -1045,6 +1052,27 @@ export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
         })
         .from(productSkus)
         .orderBy(desc(productSkus.updatedAt))
+        .limit(360),
+      db
+        .select({
+          skuId: skuTierPrices.skuId,
+          minQty: skuTierPrices.minQty,
+          maxQty: skuTierPrices.maxQty,
+          price: skuTierPrices.price,
+          customerType: skuTierPrices.customerType,
+        })
+        .from(skuTierPrices)
+        .limit(720),
+      db
+        .select({
+          productId: subscriptionPlans.productId,
+          name: subscriptionPlans.name,
+          billingCycle: subscriptionPlans.billingCycle,
+          deliveryRule: subscriptionPlans.deliveryRule,
+          price: subscriptionPlans.price,
+          status: subscriptionPlans.status,
+        })
+        .from(subscriptionPlans)
         .limit(360),
     ]);
 
@@ -1070,6 +1098,21 @@ export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
         continue;
       }
       skuMap.set(sku.productId, sku);
+    }
+    const tierPriceMap = new Map<number, Array<(typeof tierPriceRecords)[number]>>();
+    for (const tier of tierPriceRecords) {
+      const entries = tierPriceMap.get(tier.skuId) ?? [];
+      entries.push(tier);
+      tierPriceMap.set(tier.skuId, entries);
+    }
+    const subscriptionPlanMap = new Map<number, Array<(typeof subscriptionPlanRecords)[number]>>();
+    for (const plan of subscriptionPlanRecords) {
+      if (plan.status !== "active") {
+        continue;
+      }
+      const entries = subscriptionPlanMap.get(plan.productId) ?? [];
+      entries.push(plan);
+      subscriptionPlanMap.set(plan.productId, entries);
     }
 
     const categorizedCounts = new Map<number, number>();
@@ -1122,6 +1165,23 @@ export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
             : (sku?.stockQty ?? 0) > 0
               ? "库存可售，预计 3-5 个工作日发货"
               : "排产与物流时效需业务确认";
+        const tierPrices = sku?.id ? tierPriceMap.get(sku.id) ?? [] : [];
+        const preferredTier = [...tierPrices].sort((left, right) => left.price - right.price || right.minQty - left.minQty)[0] ?? null;
+        const primarySubscriptionPlan = (subscriptionPlanMap.get(record.id) ?? []).sort((left, right) => left.price - right.price)[0] ?? null;
+        const subscriptionCycleLabel =
+          primarySubscriptionPlan?.billingCycle === "weekly"
+            ? "按周"
+            : primarySubscriptionPlan?.billingCycle === "quarterly"
+              ? "按季"
+              : primarySubscriptionPlan
+                ? "按月"
+                : null;
+        const tierPriceLabel = preferredTier
+          ? `阶梯价低至 ${formatMoneyLabel(preferredTier.price, record.unit)} · ${preferredTier.minQty}${record.unit?.trim() || "件"}起`
+          : null;
+        const subscriptionLabel = primarySubscriptionPlan
+          ? `${primarySubscriptionPlan.name} · ${subscriptionCycleLabel} ${formatMoneyLabel(primarySubscriptionPlan.price, null)}`
+          : null;
 
         return {
           id: record.id,
@@ -1144,6 +1204,10 @@ export async function getPublicCatalog(): Promise<PublicCatalogSnapshot> {
           specLabel,
           minimumOrderLabel,
           leadTimeLabel,
+          tierPriceLabel,
+          tierPriceCount: tierPrices.length,
+          subscriptionLabel,
+          subscriptionPlanCount: subscriptionPlanMap.get(record.id)?.length ?? 0,
           badges: buildCatalogBadges({
             productType: record.productType,
             brandName: brand?.name ?? "未命名品牌",
@@ -3162,6 +3226,7 @@ export type ManagedProductRecord = {
   name: string;
   slug: string;
   series: ManagedProductSeries | null;
+  productType?: string | null;
   price: number | null;
   status: string;
   imageUrl: string | null;
@@ -3172,6 +3237,10 @@ export type ManagedProductRecord = {
   defaultSkuCode: string | null;
   defaultSkuLabel: string | null;
   minOrderQty: number | null;
+  tierPriceLabel?: string | null;
+  tierPriceCount?: number;
+  subscriptionLabel?: string | null;
+  subscriptionPlanCount?: number;
   updatedAt: string | null;
 };
 
@@ -3281,6 +3350,7 @@ function toManagedProductRecord(params: {
   name: string;
   slug: string;
   series: string | null;
+  productType?: string | null;
   price: number | null;
   status: string;
   imageUrl: string | null;
@@ -3291,6 +3361,10 @@ function toManagedProductRecord(params: {
   defaultSkuCode?: string | null;
   defaultSkuLabel?: string | null;
   minOrderQty?: number | null;
+  tierPriceLabel?: string | null;
+  tierPriceCount?: number;
+  subscriptionLabel?: string | null;
+  subscriptionPlanCount?: number;
   updatedAt: Date | string | null;
 }): ManagedProductRecord {
   return {
@@ -3302,6 +3376,7 @@ function toManagedProductRecord(params: {
     name: params.name,
     slug: params.slug,
     series: normalizeManagedProductSeries(params.series),
+    productType: normalizeNullableText(params.productType),
     price: typeof params.price === "number" && Number.isFinite(params.price) ? params.price : null,
     status: params.status,
     imageUrl: normalizeNullableText(params.imageUrl),
@@ -3312,6 +3387,10 @@ function toManagedProductRecord(params: {
     defaultSkuCode: normalizeNullableText(params.defaultSkuCode),
     defaultSkuLabel: normalizeNullableText(params.defaultSkuLabel),
     minOrderQty: typeof params.minOrderQty === "number" ? params.minOrderQty : null,
+    tierPriceLabel: normalizeNullableText(params.tierPriceLabel),
+    tierPriceCount: typeof params.tierPriceCount === "number" ? params.tierPriceCount : 0,
+    subscriptionLabel: normalizeNullableText(params.subscriptionLabel),
+    subscriptionPlanCount: typeof params.subscriptionPlanCount === "number" ? params.subscriptionPlanCount : 0,
     updatedAt: params.updatedAt ? new Date(params.updatedAt).toISOString() : null,
   };
 }
@@ -3392,6 +3471,40 @@ export async function listManagedProducts(params?: {
     }
     defaultSkuMap.set(sku.productId, sku);
   }
+  const tierPriceRecords = await db
+    .select({
+      skuId: skuTierPrices.skuId,
+      minQty: skuTierPrices.minQty,
+      price: skuTierPrices.price,
+      customerType: skuTierPrices.customerType,
+    })
+    .from(skuTierPrices)
+    .limit(720);
+  const tierPriceMap = new Map<number, Array<(typeof tierPriceRecords)[number]>>();
+  for (const tier of tierPriceRecords) {
+    const entries = tierPriceMap.get(tier.skuId) ?? [];
+    entries.push(tier);
+    tierPriceMap.set(tier.skuId, entries);
+  }
+  const subscriptionPlanRecords = await db
+    .select({
+      productId: subscriptionPlans.productId,
+      name: subscriptionPlans.name,
+      billingCycle: subscriptionPlans.billingCycle,
+      price: subscriptionPlans.price,
+      status: subscriptionPlans.status,
+    })
+    .from(subscriptionPlans)
+    .limit(360);
+  const subscriptionPlanMap = new Map<number, Array<(typeof subscriptionPlanRecords)[number]>>();
+  for (const plan of subscriptionPlanRecords) {
+    if (plan.status !== "active") {
+      continue;
+    }
+    const entries = subscriptionPlanMap.get(plan.productId) ?? [];
+    entries.push(plan);
+    subscriptionPlanMap.set(plan.productId, entries);
+  }
 
   const productRecords = await db
     .select({
@@ -3401,6 +3514,7 @@ export async function listManagedProducts(params?: {
       name: products.name,
       slug: products.slug,
       series: products.series,
+      productType: products.productType,
       price: products.price,
       status: products.status,
       imageUrl: products.imageUrl,
@@ -3418,6 +3532,17 @@ export async function listManagedProducts(params?: {
     .map((record) => {
       const brand = brandMap.get(record.brandId);
       const sku = defaultSkuMap.get(record.id);
+      const tierPrices = sku?.id ? tierPriceMap.get(sku.id) ?? [] : [];
+      const preferredTier = [...tierPrices].sort((left, right) => left.price - right.price || right.minQty - left.minQty)[0] ?? null;
+      const primarySubscriptionPlan = (subscriptionPlanMap.get(record.id) ?? []).sort((left, right) => left.price - right.price)[0] ?? null;
+      const subscriptionCycleLabel =
+        primarySubscriptionPlan?.billingCycle === "weekly"
+          ? "按周"
+          : primarySubscriptionPlan?.billingCycle === "quarterly"
+            ? "按季"
+            : primarySubscriptionPlan
+              ? "按月"
+              : null;
       return toManagedProductRecord({
         id: record.id,
         brandId: record.brandId,
@@ -3427,6 +3552,7 @@ export async function listManagedProducts(params?: {
         name: record.name,
         slug: record.slug,
         series: record.series,
+        productType: record.productType,
         price: record.price,
         status: record.status,
         imageUrl: record.imageUrl,
@@ -3437,6 +3563,10 @@ export async function listManagedProducts(params?: {
         defaultSkuCode: sku?.skuCode ?? null,
         defaultSkuLabel: sku?.packSize?.trim() || sku?.specName?.trim() || null,
         minOrderQty: sku?.minOrderQty ?? null,
+        tierPriceLabel: preferredTier ? `阶梯价低至 ${formatMoneyLabel(preferredTier.price, null)} · ${preferredTier.minQty}${record.price ? "件" : "份"}起` : null,
+        tierPriceCount: tierPrices.length,
+        subscriptionLabel: primarySubscriptionPlan ? `${primarySubscriptionPlan.name} · ${subscriptionCycleLabel} ${formatMoneyLabel(primarySubscriptionPlan.price, null)}` : null,
+        subscriptionPlanCount: subscriptionPlanMap.get(record.id)?.length ?? 0,
         updatedAt: record.updatedAt,
       });
     });

@@ -17,6 +17,7 @@ export type ShowroomProduct = {
   name: string;
   brandId?: number;
   brandName: string;
+  productType: "physical" | "service" | "rental" | "subscription";
   subtitle: string;
   series: ProductSeries;
   price: number;
@@ -43,6 +44,10 @@ export type ShowroomProduct = {
   defaultSkuCode?: string | null;
   defaultSkuLabel?: string | null;
   minOrderQty?: number | null;
+  tierPriceLabel?: string | null;
+  tierPriceCount?: number;
+  subscriptionLabel?: string | null;
+  subscriptionPlanCount?: number;
   imageUrl?: string | null;
 };
 
@@ -108,6 +113,7 @@ export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
     id: "void-b03",
     code: "VOID-B03",
     name: "大气重组基质",
+    productType: "physical",
     subtitle: "空气净域序列 / 零售展陈对象",
     series: "AP",
     price: 298,
@@ -134,6 +140,7 @@ export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
     id: "void-d05",
     code: "VOID-D05",
     name: "暗域除味母体",
+    productType: "physical",
     subtitle: "空气净域序列 / 深空吸积单元",
     series: "AP",
     price: 328,
@@ -160,6 +167,7 @@ export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
     id: "fc-le",
     code: "FC-LE",
     name: "织物精华乳",
+    productType: "physical",
     subtitle: "织物护理序列 / 无微胶囊静默核心",
     series: "FC",
     price: 268,
@@ -186,6 +194,7 @@ export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
     id: "fc-ic",
     code: "FC-IC",
     name: "内衣安净乳",
+    productType: "physical",
     subtitle: "织物护理序列 / 贴身洁净对象",
     series: "FC",
     price: 238,
@@ -218,6 +227,7 @@ type ManagedProductQueryRecord = {
   name: string;
   slug: string;
   series: ProductSeries | null;
+  productType?: string | null;
   price: number | null;
   status: string;
   imageUrl: string | null;
@@ -228,6 +238,10 @@ type ManagedProductQueryRecord = {
   defaultSkuCode?: string | null;
   defaultSkuLabel?: string | null;
   minOrderQty?: number | null;
+  tierPriceLabel?: string | null;
+  tierPriceCount?: number;
+  subscriptionLabel?: string | null;
+  subscriptionPlanCount?: number;
 };
 
 function formatCurrency(value: number) {
@@ -317,6 +331,10 @@ export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, 
   const extracted = extractRetailAccessFromSpecs(product.specs ?? []);
   const effectiveSpecs = extracted.cleanSpecs.length > 0 ? extracted.cleanSpecs : [{ key: "状态", value: product.status.toUpperCase() }];
   const specs = effectiveSpecs.slice(0, 4);
+  const commerceNotes = [
+    product.tierPriceLabel ? `阶梯定价：${product.tierPriceLabel}` : null,
+    product.subscriptionLabel ? `订阅方案：${product.subscriptionLabel}` : null,
+  ].filter((entry): entry is string => Boolean(entry));
 
   return {
     id: product.slug || product.code.toLowerCase(),
@@ -324,6 +342,10 @@ export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, 
     name: product.name,
     brandId: product.brandId,
     brandName: product.brandName || "iCloush",
+    productType:
+      product.productType === "service" || product.productType === "rental" || product.productType === "subscription"
+        ? product.productType
+        : "physical",
     subtitle: product.subtitle || `${getSeriesLabel(series)} / 零售展陈对象`,
     series,
     price: typeof product.price === "number" ? product.price : 0,
@@ -339,11 +361,20 @@ export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, 
             .join(" // ")
         : `${getSeriesLabel(series).toUpperCase()} // ${product.code} // ${product.status.toUpperCase()}`,
     discipline: series === "AP" ? "空气净域 · 零售展陈" : "织物护理 · 零售展陈",
-    overview: product.description || product.subtitle || "当前条目已进入真实商品池，可继续补充更具零售转化力的实验档案与顾问式陈列文案。",
+    overview:
+      [
+        product.description || product.subtitle || "当前条目已进入真实商品池，可继续补充更具零售转化力的实验档案与顾问式陈列文案。",
+        product.tierPriceLabel ? `当前已同步 ${product.tierPriceLabel}。` : null,
+        product.subscriptionLabel ? `当前已同步 ${product.subscriptionLabel}。` : null,
+      ]
+        .filter(Boolean)
+        .join(" "),
     notes:
-      effectiveSpecs.length > 0
-        ? effectiveSpecs.slice(0, 3).map((item) => `${normalizeStatLabel(item.key)}：${item.value}`)
-        : ["当前商品已从后台同步", "可继续补充 specs 参数", "PDP 会自动复用这些参数构建设备式数据面板"],
+      (
+        effectiveSpecs.length > 0
+          ? effectiveSpecs.slice(0, 3).map((item) => `${normalizeStatLabel(item.key)}：${item.value}`)
+          : ["当前商品已从后台同步", "可继续补充 specs 参数", "PDP 会自动复用这些参数构建设备式数据面板"]
+      ).concat(commerceNotes),
     stats: specs.map((item, itemIndex) => ({
       label: normalizeStatLabel(item.key),
       value: item.value,
@@ -357,6 +388,10 @@ export function mapManagedProductToShowroom(product: ManagedProductQueryRecord, 
     defaultSkuCode: product.defaultSkuCode ?? null,
     defaultSkuLabel: product.defaultSkuLabel ?? null,
     minOrderQty: product.minOrderQty ?? 1,
+    tierPriceLabel: product.tierPriceLabel ?? null,
+    tierPriceCount: product.tierPriceCount ?? 0,
+    subscriptionLabel: product.subscriptionLabel ?? null,
+    subscriptionPlanCount: product.subscriptionPlanCount ?? 0,
     imageUrl: product.imageUrl,
   };
 }
@@ -1860,22 +1895,24 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                           <button
                             type="button"
                             onClick={() =>
-                              cart.addItem({
-                                productId: product.id,
-                                productCode: product.code,
-                                productName: product.name,
-                                skuId: primarySku.id,
-                                skuLabel: primarySku.label,
-                                price: primarySku.price,
-                                quantity: Math.max(primarySku.minOrderQty ?? 1, 1),
-                                backendProductId: primarySku.backendProductId,
-                                backendSkuId: primarySku.backendSkuId,
-                                minOrderQty: primarySku.minOrderQty ?? 1,
-                              })
+                              product.productType === "physical"
+                                ? cart.addItem({
+                                    productId: product.id,
+                                    productCode: product.code,
+                                    productName: product.name,
+                                    skuId: primarySku.id,
+                                    skuLabel: primarySku.label,
+                                    price: primarySku.price,
+                                    quantity: Math.max(primarySku.minOrderQty ?? 1, 1),
+                                    backendProductId: primarySku.backendProductId,
+                                    backendSkuId: primarySku.backendSkuId,
+                                    minOrderQty: primarySku.minOrderQty ?? 1,
+                                  })
+                                : window.location.assign(`/object/${product.id}`)
                             }
                             className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#6f6f6f] transition hover:text-[#f3efe6]"
                           >
-                            Add to bag
+                            {product.productType === "physical" ? "Add to bag" : product.productType === "subscription" ? "View plan" : "Request plan"}
                           </button>
                         </div>
                       </div>
@@ -1968,22 +2005,24 @@ export function ShowroomPage(props?: { products?: ShowroomProduct[]; sourceLabel
                       <button
                         type="button"
                         onClick={() =>
-                          cart.addItem({
-                            productId: featured.id,
-                            productCode: featured.code,
-                            productName: featured.name,
-                            skuId: featuredSku.id,
-                            skuLabel: featuredSku.label,
-                            price: featuredSku.price,
-                            quantity: Math.max(featuredSku.minOrderQty ?? 1, 1),
-                            backendProductId: featuredSku.backendProductId,
-                            backendSkuId: featuredSku.backendSkuId,
-                            minOrderQty: featuredSku.minOrderQty ?? 1,
-                          })
+                          featured.productType === "physical"
+                            ? cart.addItem({
+                                productId: featured.id,
+                                productCode: featured.code,
+                                productName: featured.name,
+                                skuId: featuredSku.id,
+                                skuLabel: featuredSku.label,
+                                price: featuredSku.price,
+                                quantity: Math.max(featuredSku.minOrderQty ?? 1, 1),
+                                backendProductId: featuredSku.backendProductId,
+                                backendSkuId: featuredSku.backendSkuId,
+                                minOrderQty: featuredSku.minOrderQty ?? 1,
+                              })
+                            : window.location.assign(`/object/${featured.id}`)
                         }
                         className="font-mono text-[10px] uppercase tracking-[0.46em] text-[#9b9388] transition hover:text-[#f3efe6]"
                       >
-                        Add to bag
+                        {featured.productType === "physical" ? "Add to bag" : featured.productType === "subscription" ? "View plan" : "Request plan"}
                       </button>
                     </div>
                   </div>
@@ -2321,40 +2360,68 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
           <div className="border border-[#111111] bg-[#020202] p-6 md:p-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">Retail Access</p>
-                <h3 className="mt-3 font-zh-sans text-[2rem] font-light uppercase tracking-[0.16em] text-[#f3efe6] md:text-[2.6rem]">零售下单</h3>
+                <p className="font-mono text-[10px] uppercase tracking-[0.42em] text-[#7f7f7f]">{product.productType === "physical" ? "Retail Access" : product.productType === "subscription" ? "Subscription Access" : "Service Access"}</p>
+                <h3 className="mt-3 font-zh-sans text-[2rem] font-light uppercase tracking-[0.16em] text-[#f3efe6] md:text-[2.6rem]">{product.productType === "physical" ? "零售下单" : product.productType === "subscription" ? "订阅方案" : "服务方案"}</h3>
               </div>
               <p className="font-zh-sans text-[1.8rem] font-light leading-none tracking-[0.16em] text-[#f3efe6]">{formatCurrency(selectedSku?.price ?? product.price)}</p>
             </div>
-            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">先选择 SKU 并加入购物袋；当前页面已具备价格、SKU、详情长图、外部渠道与顾问式配额申请的完整陈列顺序，可先承接线上浏览与销售咨询，再随着支付与库存能力继续升级为完整商城成交页。</p>
-            <div className="mt-6">
-              <SkuSelector options={skuOptions} selectedSkuId={selectedSkuId} onSelect={setSelectedSkuId} />
-            </div>
-              <div className="mt-5 rounded-2xl border border-[#111111] bg-[#050505] px-4 py-4 font-mono text-[10px] uppercase tracking-[0.32em] text-[#8c8378]">
-                {paymentModeLabel}
+            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">{product.productType === "physical" ? "先选择 SKU 并加入购物袋；当前页面已具备价格、SKU、详情长图、外部渠道与顾问式配额申请的完整陈列顺序，可先承接线上浏览与销售咨询，再随着支付与库存能力继续升级为完整商城成交页。" : product.productType === "subscription" ? "该对象当前按订阅计划承接：本轮先把商品类型、品牌归属与前后端字段打通，后续会继续接入 subscriptionPlans、按月结算与设备免押租赁细则。" : "该对象当前按服务方案承接：展示价格用于建立预算感，成交动作先进入顾问式确认与配额申请，随后再补全标准化服务履约与订阅计划链路。"}</p>
+            {product.productType === "physical" ? (
+              <div className="mt-6">
+                <SkuSelector options={skuOptions} selectedSkuId={selectedSkuId} onSelect={setSelectedSkuId} />
               </div>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-[#111111] bg-[#050505] px-4 py-5 font-zh-serif text-sm leading-8 text-[#9b9388]">
+                {product.productType === "subscription"
+                  ? "当前商品将进一步绑定订阅计划、周期与履约规则；本页现阶段先承接品牌表达、预算锚点与方案咨询。"
+                  : "当前商品将进一步绑定服务包、交付节奏与顾问确认步骤；本页现阶段先承接需求沟通与方案咨询。"}
+              </div>
+            )}
+            {product.subscriptionLabel || product.tierPriceLabel ? (
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {product.subscriptionLabel ? (
+                  <div className="border border-[#111111] bg-[#050505] px-4 py-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#7f7f7f]">Subscription Snapshot</p>
+                    <p className="mt-3 font-zh-serif text-sm leading-8 text-[#f3efe6]">{product.subscriptionLabel}</p>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.28em] text-[#8c8378]">{product.subscriptionPlanCount && product.subscriptionPlanCount > 0 ? `${product.subscriptionPlanCount} Plans Linked` : "Plan Linked"}</p>
+                  </div>
+                ) : null}
+                {product.tierPriceLabel ? (
+                  <div className="border border-[#111111] bg-[#050505] px-4 py-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-[#7f7f7f]">Tier Pricing</p>
+                    <p className="mt-3 font-zh-serif text-sm leading-8 text-[#f3efe6]">{product.tierPriceLabel}</p>
+                    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.28em] text-[#8c8378]">{product.tierPriceCount && product.tierPriceCount > 0 ? `${product.tierPriceCount} Tiers Linked` : "Tier Ready"}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="mt-5 rounded-2xl border border-[#111111] bg-[#050505] px-4 py-4 font-mono text-[10px] uppercase tracking-[0.32em] text-[#8c8378]">
+              {paymentModeLabel}
+            </div>
               <div className="mt-6 flex flex-col gap-3 md:flex-row">
 
               <button
                 type="button"
                 onClick={() =>
-                  selectedSku &&
-                  cart.addItem({
-                    productId: product.id,
-                    productCode: product.code,
-                    productName: product.name,
-                    skuId: selectedSku.id,
-                    skuLabel: selectedSku.label,
-                    price: selectedSku.price,
-                    quantity: Math.max(selectedSku.minOrderQty ?? 1, 1),
-                    backendProductId: selectedSku.backendProductId,
-                    backendSkuId: selectedSku.backendSkuId,
-                    minOrderQty: selectedSku.minOrderQty ?? 1,
-                  })
+                  product.productType === "physical"
+                    ? selectedSku &&
+                      cart.addItem({
+                        productId: product.id,
+                        productCode: product.code,
+                        productName: product.name,
+                        skuId: selectedSku.id,
+                        skuLabel: selectedSku.label,
+                        price: selectedSku.price,
+                        quantity: Math.max(selectedSku.minOrderQty ?? 1, 1),
+                        backendProductId: selectedSku.backendProductId,
+                        backendSkuId: selectedSku.backendSkuId,
+                        minOrderQty: selectedSku.minOrderQty ?? 1,
+                      })
+                    : setDialogOpen(true)
                 }
                 className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]"
               >
-                Add to bag / 加入购物袋
+                {product.productType === "physical" ? "Add to bag / 加入购物袋" : product.productType === "subscription" ? "Request subscription / 申请订阅" : "Request consultation / 申请方案"}
               </button>
               <button type="button" onClick={() => setDialogOpen(true)} className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
                 Request allocation / 申请配额

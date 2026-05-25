@@ -258,4 +258,92 @@ describe("admin orders router", () => {
     );
     expect(result.receipt.reviewStatus).toBe("approved");
   });
+
+  it("advances paid orders to processing through OMS", async () => {
+    const advanceSpy = vi.spyOn(omsModule, "advanceOrderToProcessing").mockResolvedValue({
+      order: {
+        id: 501,
+        brandId: 1,
+        userId: 7,
+        orderNo: "ORD-FLOW-001",
+        status: "processing",
+        paymentStatus: "paid",
+        fulfillmentStatus: "processing",
+        currency: "CNY",
+        totalAmount: 268000,
+        payableAmount: 268000,
+      },
+    } as Awaited<ReturnType<typeof omsModule.advanceOrderToProcessing>>);
+
+    const caller = appRouter.createCaller(createContext(createUser({ globalRole: "admin" })));
+    const result = await caller.orders.advanceToProcessing({ brandId: 1, orderId: 501 });
+
+    expect(advanceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 1,
+        orderId: 501,
+      }),
+    );
+    expect(result.order.status).toBe("processing");
+  });
+
+  it("ships processing orders through OMS with tracking number", async () => {
+    const shipSpy = vi.spyOn(omsModule, "shipOrder").mockResolvedValue({
+      order: {
+        id: 601,
+        brandId: 1,
+        userId: 7,
+        orderNo: "ORD-SHIP-001",
+        status: "shipped",
+        paymentStatus: "paid",
+        fulfillmentStatus: "shipped",
+        currency: "CNY",
+        totalAmount: 168000,
+        payableAmount: 168000,
+        note: "虚拟物流单号：MOCK-601",
+      },
+      trackingNo: "MOCK-601",
+    } as Awaited<ReturnType<typeof omsModule.shipOrder>>);
+
+    const caller = appRouter.createCaller(createContext(createUser({ globalRole: "admin" })));
+    const result = await caller.orders.shipOrder({ brandId: 1, orderId: 601, trackingNo: "MOCK-601" });
+
+    expect(shipSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 1,
+        orderId: 601,
+        trackingNo: "MOCK-601",
+      }),
+    );
+    expect(result.trackingNo).toBe("MOCK-601");
+    expect(result.order.status).toBe("shipped");
+  });
+
+  it("completes shipped orders through OMS", async () => {
+    const completeSpy = vi.spyOn(omsModule, "completeOrder").mockResolvedValue({
+      order: {
+        id: 701,
+        brandId: 1,
+        userId: 7,
+        orderNo: "ORD-COMPLETE-001",
+        status: "completed",
+        paymentStatus: "paid",
+        fulfillmentStatus: "delivered",
+        currency: "CNY",
+        totalAmount: 168000,
+        payableAmount: 168000,
+      },
+    } as Awaited<ReturnType<typeof omsModule.completeOrder>>);
+
+    const caller = appRouter.createCaller(createContext(createUser({ globalRole: "admin" })));
+    const result = await caller.orders.completeOrder({ brandId: 1, orderId: 701 });
+
+    expect(completeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 1,
+        orderId: 701,
+      }),
+    );
+    expect(result.order.status).toBe("completed");
+  });
 });

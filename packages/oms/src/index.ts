@@ -7,6 +7,7 @@ import {
   brandMemberships,
   orderItems,
   orders,
+  paymentCallbackLogs,
   payments,
   productSkus,
 } from "../../database/schema";
@@ -44,6 +45,15 @@ const normalizeMetaJson = (value: unknown): Record<string, unknown> => {
     return value as Record<string, unknown>;
   }
   return {};
+};
+
+const appendOrderNote = (currentNote: string | null | undefined, lines: string[]) => {
+  const normalizedCurrent = currentNote?.trim() ?? "";
+  const normalizedLines = lines.map((line) => line.trim()).filter(Boolean);
+  if (normalizedLines.length === 0) {
+    return normalizedCurrent || null;
+  }
+  return [normalizedCurrent, ...normalizedLines].filter(Boolean).join("\n");
 };
 
 const buildSkuLabel = (specName?: string | null, packSize?: string | null) =>
@@ -117,17 +127,20 @@ export async function settleSandboxOrderPayment(args: {
   assertOrderStatusTransition(order.status as OrderStatus, nextOrderStatus);
 
   return args.db.transaction(async (tx) => {
+    const settledAt = new Date();
+    const settledAtIso = settledAt.toISOString();
+
     await tx
       .update(payments)
       .set({
         status: outcome === "successful" ? "paid" : "cancelled",
-        paidAt: outcome === "successful" ? new Date() : null,
+        paidAt: outcome === "successful" ? settledAt : null,
         metaJson: {
           ...normalizeMetaJson(payment.metaJson),
           sandboxOutcome: outcome,
-          sandboxSettledAt: new Date().toISOString(),
+          sandboxSettledAt: settledAtIso,
         },
-        updatedAt: new Date(),
+        updatedAt: settledAt,
       })
       .where(eq(payments.id, payment.id));
 
@@ -136,9 +149,40 @@ export async function settleSandboxOrderPayment(args: {
       .set({
         status: nextOrderStatus,
         paymentStatus: outcome === "successful" ? "paid" : "unpaid",
-        updatedAt: new Date(),
+        updatedAt: settledAt,
       })
       .where(eq(orders.id, order.id));
+
+    if (typeof (tx as { insert?: unknown }).insert === "function") {
+      await (tx as typeof args.db)
+        .insert(paymentCallbackLogs)
+        .values({
+          brandId: args.brandId,
+          paymentId: payment.id,
+          orderId: order.id,
+          provider: payment.provider,
+          callbackType: "payment_notify",
+          providerEventId: `sandbox:${args.brandId}:${order.id}:${payment.id}:${outcome}:${settledAt.getTime()}`,
+          providerTransactionId: `sandbox-${payment.id}-${outcome}`,
+          signatureStatus: "skipped",
+          processStatus: "processed",
+          payloadText: JSON.stringify({
+            sandbox: true,
+            outcome,
+            brandId: args.brandId,
+            orderId: order.id,
+            paymentId: payment.id,
+          }),
+          processResultJson: {
+            sandbox: true,
+            outcome,
+            nextOrderStatus,
+          },
+          processedAt: settledAt,
+          receivedAt: settledAt,
+          createdAt: settledAt,
+        });
+    }
 
     const [nextOrder] = await tx.select().from(orders).where(eq(orders.id, order.id)).limit(1);
     const [nextPayment] = await tx.select().from(payments).where(eq(payments.id, payment.id)).limit(1);
@@ -792,6 +836,147 @@ export async function reviewOrderPayment(args: {
         reviewedBy: args.reviewedBy ?? null,
         reviewNote: args.reviewNote ?? null,
       },
+    };
+  });
+}
+
+export async function advanceOrderToProcessing(args: {
+  db: DatabaseClient;
+  brandId: number;
+  orderId: number;
+}) {
+  const [order] = await args.db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, args.orderId), eq(orders.brandId, args.brandId)))
+    .limit(1);
+
+  if (!order) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "订单不存在。",
+    });
+  }
+
+  if (order.status !== "paid") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "仅已支付订单可推进到处理中。",
+    });
+  }
+
+  assertOrderStatusTransition(order.status as OrderStatus, "processing");
+
+  return args.db.transaction(async (tx) => {
+    await tx
+      .update(orders)
+      .set({
+        status: "processing",
+        fulfillmentStatus: "processing",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, order.id));
+
+    const orderRows = await tx.select().from(orders).where(eq(orders.id, order.id)).limit(1);
+    return {
+      order: orderRows[0],
+    };
+  });
+}
+
+export async function shipOrder(args: {
+  db: DatabaseClient;
+  brandId: number;
+  orderId: number;
+  trackingNo: string;
+}) {
+  const [order] = await args.db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, args.orderId), eq(orders.brandId, args.brandId)))
+    .limit(1);
+
+  if (!order) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "订单不存在。",
+    });
+  }
+
+  if (order.status !== "processing") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "仅处理中订单可执行发货。",
+    });
+  }
+
+  assertOrderStatusTransition(order.status as OrderStatus, "shipped");
+
+  const shippedAt = new Date();
+  const nextNote = appendOrderNote(order.note, [
+    `虚拟物流单号：${args.trackingNo}`,
+    `发货时间：${shippedAt.toISOString()}`,
+  ]);
+
+  return args.db.transaction(async (tx) => {
+    await tx
+      .update(orders)
+      .set({
+        status: "shipped",
+        fulfillmentStatus: "shipped",
+        note: nextNote,
+        updatedAt: shippedAt,
+      })
+      .where(eq(orders.id, order.id));
+
+    const orderRows = await tx.select().from(orders).where(eq(orders.id, order.id)).limit(1);
+    return {
+      order: orderRows[0],
+      trackingNo: args.trackingNo,
+    };
+  });
+}
+
+export async function completeOrder(args: {
+  db: DatabaseClient;
+  brandId: number;
+  orderId: number;
+}) {
+  const [order] = await args.db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.id, args.orderId), eq(orders.brandId, args.brandId)))
+    .limit(1);
+
+  if (!order) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "订单不存在。",
+    });
+  }
+
+  if (order.status !== "shipped") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "仅已发货订单可推进到已完成。",
+    });
+  }
+
+  assertOrderStatusTransition(order.status as OrderStatus, "completed");
+
+  return args.db.transaction(async (tx) => {
+    await tx
+      .update(orders)
+      .set({
+        status: "completed",
+        fulfillmentStatus: "delivered",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, order.id));
+
+    const orderRows = await tx.select().from(orders).where(eq(orders.id, order.id)).limit(1);
+    return {
+      order: orderRows[0],
     };
   });
 }

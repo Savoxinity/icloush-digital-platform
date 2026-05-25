@@ -4,13 +4,15 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+const mockAuthState = {
+  user: { id: 7, name: "测试管理员", globalRole: "admin" },
+  loading: false,
+  isAuthenticated: true,
+  logout: vi.fn(),
+};
+
 vi.mock("./_core/hooks/useAuth", () => ({
-  useAuth: () => ({
-    user: { id: 7, name: "测试管理员" },
-    loading: false,
-    isAuthenticated: true,
-    logout: vi.fn(),
-  }),
+  useAuth: () => mockAuthState,
 }));
 
 vi.mock("./lib/trpc", () => {
@@ -679,6 +681,24 @@ vi.mock("./lib/trpc", () => {
             isPending: false,
           }),
         },
+        advanceToProcessing: {
+          useMutation: () => ({
+            mutate: vi.fn(),
+            isPending: false,
+          }),
+        },
+        shipOrder: {
+          useMutation: () => ({
+            mutate: vi.fn(),
+            isPending: false,
+          }),
+        },
+        completeOrder: {
+          useMutation: () => ({
+            mutate: vi.fn(),
+            isPending: false,
+          }),
+        },
       },
       useUtils: () => ({
         admin: {
@@ -1121,6 +1141,24 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("产品管理");
     expect(html).toContain("客户管理");
     expect(html).toContain("SEO 配置");
+  });
+
+  it("shows all-brand option for super admin workspace switching", () => {
+    const previousUser = mockAuthState.user;
+    mockAuthState.user = {
+      ...previousUser,
+      globalRole: "super_admin",
+    };
+
+    try {
+      setPathname("/admin");
+      const html = renderToStaticMarkup(<AdminContent />);
+
+      expect(html).toContain("全部品牌（超级管理员）");
+      expect(html).toContain("当前品牌");
+    } finally {
+      mockAuthState.user = previousUser;
+    }
   });
 
   it("renders admin product console with real product snapshot", () => {

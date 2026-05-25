@@ -165,6 +165,56 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).not.toContain("Detail Frame 01");
   });
 
+  it("服务型商品在 PDP 中切换为方案承接语义而非实物加购", () => {
+    const html = renderToStaticMarkup(
+      <ProductDetailPage
+        id="care-service"
+        product={{
+          ...SHOWROOM_PRODUCTS[0],
+          id: "care-service",
+          code: "CARE-SVC-01",
+          name: "客房织物奢护服务",
+          productType: "service",
+          price: 2999,
+        }}
+      />,
+    );
+
+    expect(html).toContain("Service Access");
+    expect(html).toContain("服务方案");
+    expect(html).toContain("Request consultation / 申请方案");
+    expect(html).not.toContain("SKU OPTION");
+    expect(html).not.toContain("Add to bag / 加入购物袋");
+  });
+
+  it("订阅型商品在 PDP 中展示订阅摘要与阶梯价提示，承接多维商品模型", () => {
+    const html = renderToStaticMarkup(
+      <ProductDetailPage
+        id="hxdaas-plan"
+        product={{
+          ...SHOWROOM_PRODUCTS[0],
+          id: "hxdaas-plan",
+          code: "HXD-DAAS-01",
+          name: "环洗朵 DaaS 月度焕新计划",
+          productType: "subscription",
+          price: 1299,
+          subscriptionLabel: "月度焕新计划 · 按月 ¥1299",
+          subscriptionPlanCount: 2,
+          tierPriceLabel: "阶梯价低至 ¥1099 · 12件起",
+          tierPriceCount: 2,
+        }}
+      />,
+    );
+
+    expect(html).toContain("Subscription Access");
+    expect(html).toContain("订阅方案");
+    expect(html).toContain("月度焕新计划");
+    expect(html).toContain("按月");
+    expect(html).toContain("阶梯价低至 ¥1099 · 12件起");
+    expect(html).toContain("Request subscription / 申请订阅");
+    expect(html).not.toContain("Add to bag / 加入购物袋");
+  });
+
   it("暴露新的合规提示与对象查询 helper", () => {
     expect(COMPLIANCE_MESSAGE).toContain("交易通道（WeChat / Alipay）合规接入中");
     expect(getShowroomProductById("fc-le")?.code).toBe("FC-LE");

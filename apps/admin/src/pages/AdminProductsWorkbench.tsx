@@ -11,6 +11,36 @@ type ManagedProductSpec = {
   value: string;
 };
 
+type ManagedProductTierPriceForm = {
+  id?: number;
+  minQty: string;
+  maxQty: string;
+  price: string;
+  customerType: "b2b" | "b2c" | "all";
+};
+
+type ManagedProductSkuForm = {
+  id?: number;
+  skuCode: string;
+  specName: string;
+  packSize: string;
+  basePrice: string;
+  marketPrice: string;
+  stockQty: string;
+  minOrderQty: string;
+  status: "active" | "inactive";
+  tierPrices: ManagedProductTierPriceForm[];
+};
+
+type ManagedSubscriptionPlanForm = {
+  id?: number;
+  name: string;
+  billingCycle: "weekly" | "monthly" | "quarterly";
+  deliveryRule: string;
+  price: string;
+  status: "active" | "inactive";
+};
+
 type ManagedProductFormState = {
   id?: number;
   brandId: number | null;
@@ -18,6 +48,7 @@ type ManagedProductFormState = {
   name: string;
   slug: string;
   series: "AP" | "FC" | "";
+  productType: "physical" | "service" | "rental" | "subscription";
   price: string;
   status: "draft" | "active" | "archived";
   imageUrl: string;
@@ -35,6 +66,8 @@ type ManagedProductFormState = {
   shortUrl: string;
   paymentMode: "sandbox" | "production_ready" | "production_live";
   specs: ManagedProductSpec[];
+  skus: ManagedProductSkuForm[];
+  subscriptionPlans: ManagedSubscriptionPlanForm[];
 };
 
 type AdminBrandOption = {
@@ -44,12 +77,40 @@ type AdminBrandOption = {
   shortName?: string | null;
 };
 
+const emptyTierPriceForm = (): ManagedProductTierPriceForm => ({
+  minQty: "1",
+  maxQty: "",
+  price: "",
+  customerType: "all",
+});
+
+const emptySkuForm = (): ManagedProductSkuForm => ({
+  skuCode: "",
+  specName: "",
+  packSize: "",
+  basePrice: "",
+  marketPrice: "",
+  stockQty: "0",
+  minOrderQty: "1",
+  status: "active",
+  tierPrices: [],
+});
+
+const emptySubscriptionPlanForm = (): ManagedSubscriptionPlanForm => ({
+  name: "",
+  billingCycle: "monthly",
+  deliveryRule: "",
+  price: "",
+  status: "active",
+});
+
 const emptyFormState = (brandId: number | null): ManagedProductFormState => ({
   brandId,
   code: "",
   name: "",
   slug: "",
   series: "AP",
+  productType: "physical",
   price: "",
   status: "draft",
   imageUrl: "",
@@ -70,6 +131,8 @@ const emptyFormState = (brandId: number | null): ManagedProductFormState => ({
     { key: "核心成分", value: "" },
     { key: "适用场景", value: "" },
   ],
+  skus: [],
+  subscriptionPlans: [],
 });
 
 function statusLabel(status: string) {
@@ -343,12 +406,39 @@ export default function AdminProductsWorkbench(props: {
     name: string;
     slug: string;
     series: "AP" | "FC" | null;
+    productType: "physical" | "service" | "rental" | "subscription" | string;
     price: number | null;
     status: string;
     imageUrl: string | null;
     subtitle: string | null;
     description: string | null;
     specs: ManagedProductSpec[];
+    skus?: Array<{
+      id?: number;
+      skuCode: string;
+      specName?: string | null;
+      packSize?: string | null;
+      basePrice: number;
+      marketPrice?: number | null;
+      stockQty?: number | null;
+      minOrderQty?: number | null;
+      status?: "active" | "inactive" | string | null;
+      tierPrices?: Array<{
+        id?: number;
+        minQty: number;
+        maxQty?: number | null;
+        price: number;
+        customerType?: "b2b" | "b2c" | "all" | string | null;
+      }>;
+    }>;
+    subscriptionPlans?: Array<{
+      id?: number;
+      name: string;
+      billingCycle?: "weekly" | "monthly" | "quarterly" | string | null;
+      deliveryRule?: string | null;
+      price: number;
+      status?: "active" | "inactive" | string | null;
+    }>;
   }) => {
     const retailMeta = extractRetailMeta(product.specs);
     setFormState({
@@ -358,6 +448,7 @@ export default function AdminProductsWorkbench(props: {
       name: product.name,
       slug: product.slug,
       series: product.series ?? "AP",
+      productType: product.productType === "service" || product.productType === "rental" || product.productType === "subscription" ? product.productType : "physical",
       price: typeof product.price === "number" ? String(product.price) : "",
       status: product.status === "active" || product.status === "archived" ? product.status : "draft",
       imageUrl: product.imageUrl ?? "",
@@ -375,6 +466,32 @@ export default function AdminProductsWorkbench(props: {
       shortUrl: retailMeta.meta.shortUrl,
       paymentMode: retailMeta.meta.paymentMode,
       specs: retailMeta.cleanSpecs.length > 0 ? retailMeta.cleanSpecs : [{ key: "核心成分", value: "" }],
+      skus: (product.skus ?? []).map((sku) => ({
+        id: sku.id,
+        skuCode: sku.skuCode,
+        specName: sku.specName ?? "",
+        packSize: sku.packSize ?? "",
+        basePrice: String(sku.basePrice ?? ""),
+        marketPrice: typeof sku.marketPrice === "number" ? String(sku.marketPrice) : "",
+        stockQty: typeof sku.stockQty === "number" ? String(sku.stockQty) : "0",
+        minOrderQty: typeof sku.minOrderQty === "number" ? String(sku.minOrderQty) : "1",
+        status: sku.status === "inactive" ? "inactive" : "active",
+        tierPrices: (sku.tierPrices ?? []).map((tier) => ({
+          id: tier.id,
+          minQty: String(tier.minQty ?? 1),
+          maxQty: typeof tier.maxQty === "number" ? String(tier.maxQty) : "",
+          price: String(tier.price ?? ""),
+          customerType: tier.customerType === "b2b" || tier.customerType === "b2c" ? tier.customerType : "all",
+        })),
+      })),
+      subscriptionPlans: (product.subscriptionPlans ?? []).map((plan) => ({
+        id: plan.id,
+        name: plan.name,
+        billingCycle: plan.billingCycle === "weekly" || plan.billingCycle === "quarterly" ? plan.billingCycle : "monthly",
+        deliveryRule: plan.deliveryRule ?? "",
+        price: String(plan.price ?? ""),
+        status: plan.status === "inactive" ? "inactive" : "active",
+      })),
     });
   };
 
@@ -461,6 +578,40 @@ export default function AdminProductsWorkbench(props: {
       return;
     }
 
+    const normalizedSkus = formState.skus
+      .filter((sku) => sku.skuCode.trim())
+      .map((sku) => ({
+        id: sku.id,
+        skuCode: sku.skuCode.trim(),
+        specName: sku.specName.trim() || null,
+        packSize: sku.packSize.trim() || null,
+        basePrice: sku.basePrice.trim() ? Number(sku.basePrice) : formState.price.trim() ? Number(formState.price) : 0,
+        marketPrice: sku.marketPrice.trim() ? Number(sku.marketPrice) : null,
+        stockQty: sku.stockQty.trim() ? Number(sku.stockQty) : 0,
+        minOrderQty: sku.minOrderQty.trim() ? Number(sku.minOrderQty) : 1,
+        status: sku.status,
+        tierPrices: sku.tierPrices
+          .filter((tier) => tier.price.trim())
+          .map((tier) => ({
+            id: tier.id,
+            minQty: tier.minQty.trim() ? Number(tier.minQty) : 1,
+            maxQty: tier.maxQty.trim() ? Number(tier.maxQty) : null,
+            price: Number(tier.price),
+            customerType: tier.customerType,
+          })),
+      }));
+
+    const normalizedSubscriptionPlans = formState.subscriptionPlans
+      .filter((plan) => plan.name.trim())
+      .map((plan) => ({
+        id: plan.id,
+        name: plan.name.trim(),
+        billingCycle: plan.billingCycle,
+        deliveryRule: plan.deliveryRule.trim() || null,
+        price: plan.price.trim() ? Number(plan.price) : 0,
+        status: plan.status,
+      }));
+
     upsertProductMutation.mutate({
       id: formState.id,
       brandId: resolvedBrandId,
@@ -468,6 +619,7 @@ export default function AdminProductsWorkbench(props: {
       name: formState.name,
       slug: formState.slug || undefined,
       series: formState.series || null,
+      productType: formState.productType,
       price: formState.price.trim() ? Number(formState.price) : null,
       status: formState.status,
       imageUrl: formState.imageUrl || null,
@@ -483,6 +635,8 @@ export default function AdminProductsWorkbench(props: {
         detailImageUrls: formState.detailImageUrls,
         paymentMode: formState.paymentMode,
       }),
+      skus: normalizedSkus,
+      subscriptionPlans: normalizedSubscriptionPlans,
     });
   };
 
@@ -702,7 +856,7 @@ export default function AdminProductsWorkbench(props: {
                 className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
               />
             </label>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <label className="block">
                 <span className="text-sm font-medium text-slate-700">系列</span>
                 <select
@@ -715,11 +869,30 @@ export default function AdminProductsWorkbench(props: {
                 </select>
               </label>
               <label className="block">
+                <span className="text-sm font-medium text-slate-700">商品类型</span>
+                <select
+                  value={formState.productType}
+                  onChange={(event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      productType: event.target.value as ManagedProductFormState["productType"],
+                      unit: event.target.value === "service" ? "项目" : event.target.value === "subscription" ? "月" : current.unit || "件",
+                    }))
+                  }
+                  className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                >
+                  <option value="physical">实物零售 / Physical</option>
+                  <option value="service">服务方案 / Service</option>
+                  <option value="rental">租赁方案 / Rental</option>
+                  <option value="subscription">订阅计划 / Subscription</option>
+                </select>
+              </label>
+              <label className="block">
                 <span className="text-sm font-medium text-slate-700">价格</span>
                 <input
                   value={formState.price}
                   onChange={(event) => setFormState((current) => ({ ...current, price: event.target.value.replace(/[^0-9]/g, "") }))}
-                  placeholder="1280"
+                  placeholder={formState.productType === "subscription" ? "例如：299（按月）" : "1280"}
                   className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
                 />
               </label>
@@ -736,6 +909,504 @@ export default function AdminProductsWorkbench(props: {
                 </select>
               </label>
             </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+              当前商品模型：
+              <span className="font-medium text-slate-900">
+                {formState.productType === "physical"
+                  ? "实物零售"
+                  : formState.productType === "service"
+                    ? "服务方案"
+                    : formState.productType === "rental"
+                      ? "设备租赁"
+                      : "订阅计划"}
+              </span>
+              。当前已开始支持 SKU、订阅计划与阶梯价字段落库；下一步会继续补齐更完整的会员价与专用运营面板。
+            </div>
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">SKU & Tier Pricing / 规格、库存与阶梯价</p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500">
+                    为实物零售、租赁或需要分层报价的商品维护 SKU、库存与阶梯定价。服务型商品可保留为空，仅依赖下方订阅/方案模块。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormState((current) => ({
+                      ...current,
+                      skus: [...current.skus, emptySkuForm()],
+                    }))
+                  }
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                >
+                  <Plus className="h-4 w-4" />
+                  新增 SKU
+                </button>
+              </div>
+              {formState.skus.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm leading-7 text-slate-500">
+                  还没有 SKU。若该商品需要库存、规格或会员阶梯价，请先新增至少一个 SKU。
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {formState.skus.map((sku, skuIndex) => (
+                    <div key={`${sku.id ?? "draft"}-${skuIndex}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">SKU #{skuIndex + 1}</p>
+                          <p className="mt-1 text-xs leading-6 text-slate-500">每个 SKU 都可以继续维护不同数量阶梯对应的散客 / B 端价格。</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormState((current) => ({
+                              ...current,
+                              skus: current.skus.filter((_, index) => index !== skuIndex),
+                            }))
+                          }
+                          className="inline-flex h-9 items-center gap-2 rounded-full border border-rose-200 px-3 text-xs text-rose-600 transition hover:bg-rose-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          删除 SKU
+                        </button>
+                      </div>
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">SKU 代号</span>
+                          <input
+                            value={sku.skuCode}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, skuCode: event.target.value.toUpperCase() } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="HXD-LINEN-01"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">规格名</span>
+                          <input
+                            value={sku.specName}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, specName: event.target.value } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="标准装 / 500ml"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">包装规格</span>
+                          <input
+                            value={sku.packSize}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, packSize: event.target.value } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="12 瓶 / 箱"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">SKU 状态</span>
+                          <select
+                            value={sku.status}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, status: event.target.value as ManagedProductSkuForm["status"] } : item,
+                                ),
+                              }))
+                            }
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          >
+                            <option value="active">ACTIVE</option>
+                            <option value="inactive">INACTIVE</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">基础售价</span>
+                          <input
+                            value={sku.basePrice}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, basePrice: event.target.value.replace(/[^0-9]/g, "") } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="1280"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">吊牌价 / 市场价</span>
+                          <input
+                            value={sku.marketPrice}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, marketPrice: event.target.value.replace(/[^0-9]/g, "") } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="1680"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">库存</span>
+                          <input
+                            value={sku.stockQty}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, stockQty: event.target.value.replace(/[^0-9]/g, "") } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="100"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">最小起订量</span>
+                          <input
+                            value={sku.minOrderQty}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex ? { ...item, minOrderQty: event.target.value.replace(/[^0-9]/g, "") } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="1"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">Tier Prices / 阶梯价</p>
+                            <p className="mt-1 text-xs leading-6 text-slate-500">例如散客零售价、酒店集采价、批量采购价，都可以挂在同一个 SKU 下。</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormState((current) => ({
+                                ...current,
+                                skus: current.skus.map((item, index) =>
+                                  index === skuIndex
+                                    ? {
+                                        ...item,
+                                        tierPrices: [...item.tierPrices, emptyTierPriceForm()],
+                                      }
+                                    : item,
+                                ),
+                              }))
+                            }
+                            className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                          >
+                            <Plus className="h-4 w-4" />
+                            新增阶梯价
+                          </button>
+                        </div>
+                        {sku.tierPrices.length === 0 ? (
+                          <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-xs leading-6 text-slate-500">
+                            暂未录入阶梯价，前台将默认使用 SKU 基础售价。
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-3">
+                            {sku.tierPrices.map((tier, tierIndex) => (
+                              <div key={`${tier.id ?? "draft"}-${tierIndex}`} className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:grid-cols-[0.8fr_0.8fr_0.9fr_1fr_auto]">
+                                <label className="block">
+                                  <span className="text-xs font-medium text-slate-600">起始数量</span>
+                                  <input
+                                    value={tier.minQty}
+                                    onChange={(event) =>
+                                      setFormState((current) => ({
+                                        ...current,
+                                        skus: current.skus.map((item, index) =>
+                                          index === skuIndex
+                                            ? {
+                                                ...item,
+                                                tierPrices: item.tierPrices.map((tierItem, innerIndex) =>
+                                                  innerIndex === tierIndex ? { ...tierItem, minQty: event.target.value.replace(/[^0-9]/g, "") } : tierItem,
+                                                ),
+                                              }
+                                            : item,
+                                        ),
+                                      }))
+                                    }
+                                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="text-xs font-medium text-slate-600">截止数量</span>
+                                  <input
+                                    value={tier.maxQty}
+                                    onChange={(event) =>
+                                      setFormState((current) => ({
+                                        ...current,
+                                        skus: current.skus.map((item, index) =>
+                                          index === skuIndex
+                                            ? {
+                                                ...item,
+                                                tierPrices: item.tierPrices.map((tierItem, innerIndex) =>
+                                                  innerIndex === tierIndex ? { ...tierItem, maxQty: event.target.value.replace(/[^0-9]/g, "") } : tierItem,
+                                                ),
+                                              }
+                                            : item,
+                                        ),
+                                      }))
+                                    }
+                                    placeholder="留空表示无上限"
+                                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="text-xs font-medium text-slate-600">阶梯价</span>
+                                  <input
+                                    value={tier.price}
+                                    onChange={(event) =>
+                                      setFormState((current) => ({
+                                        ...current,
+                                        skus: current.skus.map((item, index) =>
+                                          index === skuIndex
+                                            ? {
+                                                ...item,
+                                                tierPrices: item.tierPrices.map((tierItem, innerIndex) =>
+                                                  innerIndex === tierIndex ? { ...tierItem, price: event.target.value.replace(/[^0-9]/g, "") } : tierItem,
+                                                ),
+                                              }
+                                            : item,
+                                        ),
+                                      }))
+                                    }
+                                    placeholder="980"
+                                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="text-xs font-medium text-slate-600">客户类型</span>
+                                  <select
+                                    value={tier.customerType}
+                                    onChange={(event) =>
+                                      setFormState((current) => ({
+                                        ...current,
+                                        skus: current.skus.map((item, index) =>
+                                          index === skuIndex
+                                            ? {
+                                                ...item,
+                                                tierPrices: item.tierPrices.map((tierItem, innerIndex) =>
+                                                  innerIndex === tierIndex
+                                                    ? { ...tierItem, customerType: event.target.value as ManagedProductTierPriceForm["customerType"] }
+                                                    : tierItem,
+                                                ),
+                                              }
+                                            : item,
+                                        ),
+                                      }))
+                                    }
+                                    className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                                  >
+                                    <option value="all">ALL</option>
+                                    <option value="b2c">B2C</option>
+                                    <option value="b2b">B2B</option>
+                                  </select>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setFormState((current) => ({
+                                      ...current,
+                                      skus: current.skus.map((item, index) =>
+                                        index === skuIndex
+                                          ? {
+                                              ...item,
+                                              tierPrices: item.tierPrices.filter((_, innerIndex) => innerIndex !== tierIndex),
+                                            }
+                                          : item,
+                                      ),
+                                    }))
+                                  }
+                                  className="mt-6 inline-flex h-10 items-center justify-center rounded-full border border-rose-200 px-3 text-xs text-rose-600 transition hover:bg-rose-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Subscription Plans / 服务订阅与周期计划</p>
+                  <p className="mt-1 text-xs leading-6 text-slate-500">
+                    面向环洗朵 DaaS、香氛 FaaS 等服务 / 订阅模型，支持按周、按月、按季度配置方案价格与履约说明。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormState((current) => ({
+                      ...current,
+                      subscriptionPlans: [...current.subscriptionPlans, emptySubscriptionPlanForm()],
+                    }))
+                  }
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm text-slate-700 transition hover:border-slate-300 hover:text-slate-950"
+                >
+                  <Plus className="h-4 w-4" />
+                  新增订阅计划
+                </button>
+              </div>
+              {formState.subscriptionPlans.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm leading-7 text-slate-500">
+                  当前没有订阅计划。如果该商品属于月结、租赁或持续服务方案，可在此补录专属计划。
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {formState.subscriptionPlans.map((plan, planIndex) => (
+                    <div key={`${plan.id ?? "draft"}-${planIndex}`} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">计划 #{planIndex + 1}</p>
+                          <p className="mt-1 text-xs leading-6 text-slate-500">支持写入计费周期、履约方式与价格，用于后续沙盒订单和服务型商品流转。</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormState((current) => ({
+                              ...current,
+                              subscriptionPlans: current.subscriptionPlans.filter((_, index) => index !== planIndex),
+                            }))
+                          }
+                          className="inline-flex h-9 items-center gap-2 rounded-full border border-rose-200 px-3 text-xs text-rose-600 transition hover:bg-rose-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          删除计划
+                        </button>
+                      </div>
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                        <label className="block xl:col-span-2">
+                          <span className="text-sm font-medium text-slate-700">计划名称</span>
+                          <input
+                            value={plan.name}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                subscriptionPlans: current.subscriptionPlans.map((item, index) =>
+                                  index === planIndex ? { ...item, name: event.target.value } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="环洗朵月度洁净维保计划"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">计费周期</span>
+                          <select
+                            value={plan.billingCycle}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                subscriptionPlans: current.subscriptionPlans.map((item, index) =>
+                                  index === planIndex ? { ...item, billingCycle: event.target.value as ManagedSubscriptionPlanForm["billingCycle"] } : item,
+                                ),
+                              }))
+                            }
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          >
+                            <option value="weekly">按周 / Weekly</option>
+                            <option value="monthly">按月 / Monthly</option>
+                            <option value="quarterly">按季度 / Quarterly</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">计划价格</span>
+                          <input
+                            value={plan.price}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                subscriptionPlans: current.subscriptionPlans.map((item, index) =>
+                                  index === planIndex ? { ...item, price: event.target.value.replace(/[^0-9]/g, "") } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="299"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-slate-700">状态</span>
+                          <select
+                            value={plan.status}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                subscriptionPlans: current.subscriptionPlans.map((item, index) =>
+                                  index === planIndex ? { ...item, status: event.target.value as ManagedSubscriptionPlanForm["status"] } : item,
+                                ),
+                              }))
+                            }
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          >
+                            <option value="active">ACTIVE</option>
+                            <option value="inactive">INACTIVE</option>
+                          </select>
+                        </label>
+                        <label className="block md:col-span-2 xl:col-span-5">
+                          <span className="text-sm font-medium text-slate-700">履约说明 / Delivery Rule</span>
+                          <input
+                            value={plan.deliveryRule}
+                            onChange={(event) =>
+                              setFormState((current) => ({
+                                ...current,
+                                subscriptionPlans: current.subscriptionPlans.map((item, index) =>
+                                  index === planIndex ? { ...item, deliveryRule: event.target.value } : item,
+                                ),
+                              }))
+                            }
+                            placeholder="按月上门维保 1 次，设备免押租赁，耗材按季度补给"
+                            className="mt-2 block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <label className="block">
               <span className="text-sm font-medium text-slate-700">副标题</span>
               <input
@@ -1009,7 +1680,7 @@ export default function AdminProductsWorkbench(props: {
             <button
               type="button"
               onClick={submitProduct}
-              disabled={upsertProductMutation.isPending || !activeBrandId}
+              disabled={upsertProductMutation.isPending || !(formState.brandId ?? activeBrandId)}
               className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {upsertProductMutation.isPending ? "保存中..." : formState.id ? "更新商品" : "录入测试商品"}

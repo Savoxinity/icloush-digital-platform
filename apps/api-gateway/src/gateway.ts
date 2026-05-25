@@ -7,11 +7,14 @@ import { z } from "zod";
 import { notifyOwner } from "../../admin/server/_core/notification";
 import { brands } from "../../../packages/database/schema";
 import {
+  advanceOrderToProcessing,
+  completeOrder,
   createOrder,
   getOrderDetail,
   listOrderReviewQueue,
   listOrders,
   reviewOrderPayment,
+  shipOrder,
 } from "../../../packages/oms/src/index";
 import {
   getBankTransferAccountInfo,
@@ -426,6 +429,65 @@ export const appRouter = router({
           })),
           payment: created.payment,
           paymentIntent,
+        };
+      }),
+
+    advanceToProcessing: connectedDbProcedure
+      .input(
+        z.object({
+          orderId: z.coerce.number().int().positive(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const result = await advanceOrderToProcessing({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          orderId: input.orderId,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          ...result,
+        };
+      }),
+
+    shipOrder: connectedDbProcedure
+      .input(
+        z.object({
+          orderId: z.coerce.number().int().positive(),
+          trackingNo: z.string().trim().min(1).max(120),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const result = await shipOrder({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          orderId: input.orderId,
+          trackingNo: input.trackingNo,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          ...result,
+        };
+      }),
+
+    completeOrder: connectedDbProcedure
+      .input(
+        z.object({
+          orderId: z.coerce.number().int().positive(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const result = await completeOrder({
+          db: ctx.db,
+          brandId: ctx.tenant.brandId,
+          orderId: input.orderId,
+        });
+
+        return {
+          tenant: ctx.tenant,
+          ...result,
         };
       }),
   }),

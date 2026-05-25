@@ -108,6 +108,106 @@ export const COMPLIANCE_MESSAGE =
 const BACKUP_CHANNEL_MESSAGE =
   "在交易通道开放前，备用通讯频道将承接顾问式转化、企业微信深聊与小程序节点导流，缩短高端零售客户的决策链路。";
 
+type ManagedBrandSiteKey = "lab" | "tech" | "astro" | "care";
+
+export const BRAND_SITE_RUNTIMES: Record<ManagedBrandSiteKey, {
+  brandCode: string;
+  brandName: string;
+  shortName: string;
+  themeAccent: string;
+  logoText: string;
+  entryPath: string;
+  defaultHeadline: string;
+  defaultDescription: string;
+}> = {
+  lab: {
+    brandCode: "icloush-lab",
+    brandName: "iCloush LAB.",
+    shortName: "LAB",
+    themeAccent: "#f3efe6",
+    logoText: "LAB.",
+    entryPath: "/h5/lab",
+    defaultHeadline: "iCloush LAB. 零售堡垒入口",
+    defaultDescription: "站点加载时先收口 LAB 的品牌识别、主视觉节奏与联系配置，再承接 showroom 与对象详情页的高张力零售浏览。",
+  },
+  tech: {
+    brandCode: "huanxiduo",
+    brandName: "环洗朵科技",
+    shortName: "环洗朵",
+    themeAccent: "#0b5fff",
+    logoText: "HUANXIDUO",
+    entryPath: "/h5/tech",
+    defaultHeadline: "次时代清洁解决方案",
+    defaultDescription: "站点加载时按品牌拉起技术叙事、样板申请路径与联系配置，使工业解决方案页真正成为独立 H5 入口。",
+  },
+  astro: {
+    brandCode: "astro",
+    brandName: "浣星司 / ASTRO",
+    shortName: "ASTRO",
+    themeAccent: "#d7c7ff",
+    logoText: "ASTRO",
+    entryPath: "/h5/astro",
+    defaultHeadline: "Tempting Objects / 黑场图像展厅",
+    defaultDescription: "站点加载时优先拉起浣星司的品牌语义、黑场图像节奏与咨询配置，让独立 H5 入口先承担停留与浏览。",
+  },
+  care: {
+    brandCode: "icloush-care",
+    brandName: "iCloush Care",
+    shortName: "Care",
+    themeAccent: "#111111",
+    logoText: "CARE",
+    entryPath: "/h5/care",
+    defaultHeadline: "酒店奢护服务品牌页",
+    defaultDescription: "站点加载时优先接入服务咨询文案、联系动作与品牌识别，让 Care 从介绍页升级为独立服务型 H5 触点。",
+  },
+};
+
+function useBrandSiteRuntime(siteKey: ManagedBrandSiteKey) {
+  const runtime = BRAND_SITE_RUNTIMES[siteKey];
+  const contactQuery = trpc.site.contactConfig.useQuery({
+    siteKey,
+    brandCode: runtime.brandCode,
+  });
+  const headline = contactQuery.data?.headline?.trim() || runtime.defaultHeadline;
+  const description = contactQuery.data?.description?.trim() || runtime.defaultDescription;
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const previousTitle = document.title;
+    const previousAccent = document.documentElement.style.getPropertyValue("--brand-site-accent");
+    const previousBrandSite = document.body.dataset.brandSite;
+
+    document.title = `${runtime.brandName} · ${headline}`;
+    document.documentElement.style.setProperty("--brand-site-accent", runtime.themeAccent);
+    document.body.dataset.brandSite = runtime.brandCode;
+
+    return () => {
+      document.title = previousTitle;
+      if (previousAccent) {
+        document.documentElement.style.setProperty("--brand-site-accent", previousAccent);
+      } else {
+        document.documentElement.style.removeProperty("--brand-site-accent");
+      }
+      if (previousBrandSite) {
+        document.body.dataset.brandSite = previousBrandSite;
+      } else {
+        delete document.body.dataset.brandSite;
+      }
+    };
+  }, [headline, runtime.brandCode, runtime.brandName, runtime.themeAccent]);
+
+  return {
+    runtime,
+    headline,
+    description,
+    contactConfig: contactQuery.data,
+    isLoadingContactConfig: contactQuery.isLoading,
+  };
+}
+
 export const SHOWROOM_PRODUCTS: ShowroomProduct[] = [
   {
     id: "void-b03",
@@ -918,6 +1018,7 @@ export function MonolithicHeroPage({ featured }: { featured: ShowroomProduct }) 
 }
 
 function ConnectedMonolithicHeroPage() {
+  useBrandSiteRuntime("lab");
   const showroomQuery = trpc.retail.galleryObjects.useQuery({});
   const products = useMemo(() => {
     const queryProducts = showroomQuery.data?.products ?? [];
@@ -1014,6 +1115,11 @@ const ASTRO_PRODUCT_DROPS = [
     description: "当用户从浣星司展厅产生购买兴趣后，允许其继续进入统一商城货架，完成更多对象比较与咨询转化。",
   },
 ] as const;
+
+function ConnectedAstroPage() {
+  useBrandSiteRuntime("astro");
+  return <AstroPage />;
+}
 
 export function AstroPage() {
   return (
@@ -2870,7 +2976,18 @@ function IndustrialSignalField({ posterUrl }: { posterUrl: string }) {
   );
 }
 
-export function HuanxiduoTechPage() {
+function ConnectedHuanxiduoTechPage() {
+  const { description, headline } = useBrandSiteRuntime("tech");
+  return <HuanxiduoTechPage headline={headline} description={description} />;
+}
+
+export function HuanxiduoTechPage({
+  headline = "次时代清洁解决方案",
+  description = "把实验室液滴微距、工业参数板和整屏硬切滚动拼成一块发布终端。画面先建立压迫，参数再建立信任，最后才让样板申请与采购入口接管转化。",
+}: {
+  headline?: string;
+  description?: string;
+} = {}) {
   const navigationItems = [
     ["#technology", "洁净科技"],
     ["#solutions", "解决方案"],
@@ -2940,10 +3057,10 @@ export function HuanxiduoTechPage() {
                 环洗朵科技
               </h1>
               <p className="mt-5 max-w-3xl text-xl font-medium tracking-[-0.05em] text-white/88 md:text-4xl">
-                次时代清洁解决方案
+                {headline}
               </p>
               <p className="mt-8 max-w-2xl text-sm leading-9 text-white/58 md:text-base">
-                把实验室液滴微距、工业参数板和整屏硬切滚动拼成一块发布终端。画面先建立压迫，参数再建立信任，最后才让样板申请与采购入口接管转化。
+                {description}
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] uppercase tracking-[0.32em] text-white/38 md:text-[11px]">
@@ -3195,7 +3312,18 @@ export function HuanxiduoTechPage() {
   );
 }
 
-export function CareBrandPage() {
+function ConnectedCareBrandPage() {
+  const { description, headline } = useBrandSiteRuntime("care");
+  return <CareBrandPage headline={headline} description={description} />;
+}
+
+export function CareBrandPage({
+  headline = "酒店奢护服务品牌页",
+  description = "`/care` 不再只是品牌入口占位，而是用来承接酒店奢护服务咨询、试样申请与服务说明的正式页面。它与 `/tech` 的工业解决方案、`/shop` 的商品货架形成互补：前者讲方法，后者讲商品，这里讲持续服务与合作关系。",
+}: {
+  headline?: string;
+  description?: string;
+} = {}) {
   const serviceModules = [
     {
       title: "客房织物奢护",
@@ -3223,9 +3351,9 @@ export function CareBrandPage() {
           <p className="text-[11px] uppercase tracking-[0.32em] text-slate-500">Care Brand / Service Touchpoint</p>
           <div className="mt-4 grid gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-end">
             <div>
-              <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">酒店奢护服务品牌页</h1>
+              <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">{headline}</h1>
               <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
-                `/care` 不再只是品牌入口占位，而是用来承接酒店奢护服务咨询、试样申请与服务说明的正式页面。它与 `/tech` 的工业解决方案、`/shop` 的商品货架形成互补：前者讲方法，后者讲商品，这里讲持续服务与合作关系。
+                {description}
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link href="/tech" className="inline-flex h-12 items-center justify-center rounded-full bg-slate-950 px-6 text-sm font-medium text-white">查看解决方案母站</Link>
@@ -3367,10 +3495,14 @@ export default function App() {
     <Switch>
       <Route path="/" component={PlatformEcosystemPage} />
       <Route path="/lab" component={ConnectedMonolithicHeroPage} />
+      <Route path="/h5/lab" component={ConnectedMonolithicHeroPage} />
       <Route path="/shop" component={ConnectedShowroomPage} />
-      <Route path="/tech" component={HuanxiduoTechPage} />
-      <Route path="/astro" component={AstroPage} />
-      <Route path="/care" component={CareBrandPage} />
+      <Route path="/tech" component={ConnectedHuanxiduoTechPage} />
+      <Route path="/h5/tech" component={ConnectedHuanxiduoTechPage} />
+      <Route path="/astro" component={ConnectedAstroPage} />
+      <Route path="/h5/astro" component={ConnectedAstroPage} />
+      <Route path="/care" component={ConnectedCareBrandPage} />
+      <Route path="/h5/care" component={ConnectedCareBrandPage} />
       <Route path="/gallery" component={ConnectedShowroomPage} />
       <Route path="/showroom" component={ConnectedShowroomPage} />
       <Route path="/object/:id">{(params) => <ConnectedProductDetailPage id={params.id} />}</Route>

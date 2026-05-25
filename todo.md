@@ -293,10 +293,10 @@
 - [ ] 里程碑 2：激活 `skuTierPrices` 与会员价隔离，支持同一 SKU 在散客与特定 BrandMembership 下显示不同价格
 - [ ] 里程碑 3：引入 Mock Payment 模拟支付，前端付款后由后端写入成功的 `paymentCallbackLogs` 沙盒记录
 - [ ] 里程碑 3：补齐订单状态机流转测试，覆盖 `pending_payment -> paid -> processing -> shipped -> completed`
-- [ ] 里程碑 3：支持后台对沙盒订单执行发货操作并录入虚拟物流单号
-- [ ] 里程碑 4：为 4 个品牌收口独立 H5 访问入口与品牌化初始化配置
-- [ ] 里程碑 4：确保各 H5 站点加载时按品牌拉取 `siteContactConfigs`、主题色、Logo 与文案
-- [ ] 登录与权限：设计并落地更符合中国大陆运营场景的登录方式路线图，优先手机号验证码、邮箱验证码、微信登录，并区分员工后台账号与前端用户权限分级
+- [x] 里程碑 3：支持后台对沙盒订单执行发货操作并录入虚拟物流单号
+- [x] 里程碑 4：为 4 个品牌收口独立 H5 访问入口与品牌化初始化配置
+- [x] 里程碑 4：确保各 H5 站点加载时按品牌拉取 `siteContactConfigs`、主题色、Logo 与文案
+- [x] 登录与权限：设计并落地更符合中国大陆运营场景的登录方式路线图，优先手机号验证码、邮箱验证码、微信登录，并区分员工后台账号与前端用户权限分级
 - [x] Phase 3 沙盒订单状态机收口：在 OMS 与 API Gateway 补齐 `paid -> processing -> shipped -> completed` 显式推进能力，并保持品牌作用域隔离
 - [x] Phase 3 后台履约模拟：在 Admin 订单视图接入发货操作、虚拟物流单号录入与完成订单动作
 - [x] Phase 3 回归补测：扩展 api-gateway / admin 相关 Vitest，覆盖沙盒订单 processing、shipped、completed 与物流单号保存/展示

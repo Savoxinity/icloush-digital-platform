@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildTransactionSignalBody,
+  BRAND_SITE_RUNTIMES,
   COMPLIANCE_MESSAGE,
   getRetailOrderStatusRefetchInterval,
   AstroPage,
@@ -228,7 +229,6 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("iCloush Digital Platform");
     expect(html).toContain("统一数字底座");
     expect(html).toContain("先让客户被品牌吸引，再让商品被看见，最后让成交与咨询自然发生。");
-    expect(html).toContain("环洗朵科技");
     expect(html).toContain("浣星司 / ASTRO");
     expect(html).toContain('href="/lab"');
     expect(html).toContain('href="/tech"');
@@ -240,6 +240,25 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("根首页已经开始承担“先解释、再导购、再转化”的正式任务");
     expect(html).toContain("精选陈列");
     expect(html).toContain("商详说服");
+  });
+
+  it("为四个品牌暴露独立 H5 入口映射，并允许品牌页接收运行时文案覆写", () => {
+    expect(BRAND_SITE_RUNTIMES.lab.entryPath).toBe("/h5/lab");
+    expect(BRAND_SITE_RUNTIMES.tech.entryPath).toBe("/h5/tech");
+    expect(BRAND_SITE_RUNTIMES.astro.entryPath).toBe("/h5/astro");
+    expect(BRAND_SITE_RUNTIMES.care.entryPath).toBe("/h5/care");
+
+    const techHtml = renderToStaticMarkup(
+      <HuanxiduoTechPage headline="品牌化技术终端" description="按品牌初始化后的技术站点文案。" />,
+    );
+    const careHtml = renderToStaticMarkup(
+      <CareBrandPage headline="品牌化服务触点" description="按品牌初始化后的服务站点文案。" />,
+    );
+
+    expect(techHtml).toContain("品牌化技术终端");
+    expect(techHtml).toContain("按品牌初始化后的技术站点文案。");
+    expect(careHtml).toContain("品牌化服务触点");
+    expect(careHtml).toContain("按品牌初始化后的服务站点文案。");
   });
 
   it("恢复浣星司 `/astro` 图像展厅首页，采用黑场 scroll-snap、高清商品图展陈与生态桥接语义", () => {

@@ -206,23 +206,108 @@ export const PAYMENT_API_INVENTORY: PaymentApiInventoryItem[] = [
   },
 ];
 
-const PAYMENT_GATEWAY_CONFIG_REQUIREMENTS: Record<PaymentGateway, string[]> = {
-  wechat_pay_v3: [
-    "WECHAT_PAY_MCHID",
-    "WECHAT_PAY_APPID",
-    "WECHAT_PAY_SERIAL_NO",
-    "WECHAT_PAY_PRIVATE_KEY",
-    "WECHAT_PAY_API_V3_KEY",
-    "WECHAT_PAY_PLATFORM_CERT_PATH_OR_PUBLIC_KEY",
-  ],
-  alipay_openapi: [
-    "ALIPAY_APP_ID",
-    "ALIPAY_PRIVATE_KEY",
-    "ALIPAY_PUBLIC_KEY",
-    "ALIPAY_NOTIFY_URL",
-    "ALIPAY_SIGN_TYPE",
-  ],
+const PAYMENT_GATEWAY_CREATE_CONFIG_REQUIREMENTS: Record<PaymentGateway, string[]> = {
+  wechat_pay_v3: ["WECHAT_PAY_MCHID", "WECHAT_PAY_APPID", "WECHAT_PAY_CERT_SERIAL_NO", "WECHAT_PAY_PRIVATE_KEY_PEM"],
+  alipay_openapi: ["ALIPAY_APP_ID", "ALIPAY_PRIVATE_KEY", "ALIPAY_NOTIFY_URL", "ALIPAY_SIGN_TYPE"],
 };
+
+const PAYMENT_GATEWAY_CALLBACK_CONFIG_REQUIREMENTS: Record<PaymentGateway, string[]> = {
+  wechat_pay_v3: ["WECHAT_PAY_API_V3_KEY", "WECHAT_PAY_PLATFORM_CERT_PEM"],
+  alipay_openapi: ["ALIPAY_PUBLIC_KEY", "ALIPAY_SIGN_TYPE"],
+};
+
+type RuntimePaymentMode = "sandbox" | "production_ready" | "production_live";
+
+const WECHAT_GATEWAY_ENV_ALIASES: Record<string, string[]> = {
+  WECHAT_PAY_MCHID: ["WECHAT_PAY_MCHID"],
+  WECHAT_PAY_APPID: ["WECHAT_PAY_APPID"],
+  WECHAT_PAY_CERT_SERIAL_NO: ["WECHAT_PAY_CERT_SERIAL_NO", "WECHAT_PAY_CERT_SERIAL_NO", "WECHAT_PAY_SERIAL_NO"],
+  WECHAT_PAY_PRIVATE_KEY_PEM: ["WECHAT_PAY_PRIVATE_KEY_PEM", "WECHAT_PAY_PRIVATE_KEY"],
+  WECHAT_PAY_API_V3_KEY: ["WECHAT_PAY_API_V3_KEY"],
+  WECHAT_PAY_PLATFORM_CERT_PEM: ["WECHAT_PAY_PLATFORM_CERT_PEM", "WECHAT_PAY_PLATFORM_CERT_PATH_OR_PUBLIC_KEY"],
+};
+
+function normalizeRequestSnapshot(input: PaymentGatewayCreateOrderInput) {
+  return {
+    brandId: input.brandId,
+    orderId: input.orderId,
+    orderNo: input.orderNo,
+    amount: input.amount,
+    currency: input.currency,
+    description: input.description,
+    notifyUrl: input.notifyUrl,
+    returnUrl: input.returnUrl ?? null,
+    payer: input.payer ?? null,
+    metadata: input.metadata ?? null,
+  };
+}
+
+function normalizeCallbackSnapshot(input: PaymentWebhookCallbackInput) {
+  return {
+    headers: input.headers,
+    query: input.query ?? null,
+    rawBodyPreview: input.rawBody.slice(0, 1000),
+  };
+}
+
+function readEnvironmentValue(names: string[]) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function resolveWechatConfigValue(configKey: string) {
+  return readEnvironmentValue(WECHAT_GATEWAY_ENV_ALIASES[configKey] ?? [configKey]);
+}
+
+function collectMissingWechatConfigs(configKeys: string[]) {
+  return configKeys.filter((configKey) => !resolveWechatConfigValue(configKey));
+}
+
+function resolveRuntimePaymentMode(metadata: Record<string, unknown> | null | undefined): RuntimePaymentMode {
+  const value = metadata?.paymentMode;
+  return value === "production_ready" || value === "production_live" ? value : "sandbox";
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function readStringCandidate(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function readNumberCandidate(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
+function parseWebhookBody(rawBody: string) {
+  try {
+    return toRecord(JSON.parse(rawBody));
+  } catch {
+    return null;
+  }
+}
 
 function buildPendingGatewayOrderResult(input: PaymentGatewayCreateOrderInput): PaymentGatewayCreateOrderResult {
   return {
@@ -230,19 +315,8 @@ function buildPendingGatewayOrderResult(input: PaymentGatewayCreateOrderInput): 
     stage: "pending_configuration",
     providerOrderId: null,
     clientPayload: null,
-    requiredConfigs: PAYMENT_GATEWAY_CONFIG_REQUIREMENTS[input.gateway],
-    requestSnapshot: {
-      brandId: input.brandId,
-      orderId: input.orderId,
-      orderNo: input.orderNo,
-      amount: input.amount,
-      currency: input.currency,
-      description: input.description,
-      notifyUrl: input.notifyUrl,
-      returnUrl: input.returnUrl ?? null,
-      payer: input.payer ?? null,
-      metadata: input.metadata ?? null,
-    },
+    requiredConfigs: PAYMENT_GATEWAY_CREATE_CONFIG_REQUIREMENTS[input.gateway],
+    requestSnapshot: normalizeRequestSnapshot(input),
     notes:
       input.gateway === "wechat_pay_v3"
         ? [
@@ -280,14 +354,124 @@ function buildPendingGatewayCallbackResult(input: PaymentWebhookCallbackInput): 
   };
 }
 
+function buildWechatGatewayOrderResult(input: PaymentGatewayCreateOrderInput): PaymentGatewayCreateOrderResult {
+  const mode = resolveRuntimePaymentMode(input.metadata);
+  if (mode === "sandbox") {
+    return buildPendingGatewayOrderResult(input);
+  }
+
+  const missingConfigs = collectMissingWechatConfigs(PAYMENT_GATEWAY_CREATE_CONFIG_REQUIREMENTS.wechat_pay_v3);
+  const hasOpenId = typeof input.payer?.openId === "string" && input.payer.openId.trim().length > 0;
+  const requestSnapshot = normalizeRequestSnapshot(input);
+
+  if (mode === "production_ready" || missingConfigs.length > 0 || !hasOpenId) {
+    const requiredConfigs = [...missingConfigs, ...(hasOpenId ? [] : ["WECHAT_PAYER_OPENID"])] as string[];
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "ready_for_sdk",
+      providerOrderId: null,
+      clientPayload: {
+        mode,
+        integration: "wechat_pay_v3_preflight",
+        notifyUrl: input.notifyUrl,
+        returnUrl: input.returnUrl ?? null,
+      },
+      requiredConfigs,
+      requestSnapshot,
+      notes: [
+        mode === "production_ready"
+          ? "当前商品处于 production_ready，链路已切到正式支付预备分支，但不会真正调用微信网关创建交易。"
+          : "当前商品处于 production_live，但正式微信建单所需配置或 openId 仍不完整，因此回退到可诊断的 ready_for_sdk 阶段。",
+        "此返回不再是统一占位分支，已明确区分生产预备与正式开关，并输出缺失配置清单。",
+      ],
+    };
+  }
+
+  return {
+    gateway: "wechat_pay_v3",
+    stage: "processing",
+    providerOrderId: `wechat-live-intent:${input.orderNo}`,
+    clientPayload: {
+      mode,
+      integration: "wechat_pay_v3_live_preactivation",
+      appId: resolveWechatConfigValue("WECHAT_PAY_APPID"),
+      mchId: resolveWechatConfigValue("WECHAT_PAY_MCHID"),
+      orderNo: input.orderNo,
+      notifyUrl: input.notifyUrl,
+      returnUrl: input.returnUrl ?? null,
+    },
+    requiredConfigs: [],
+    requestSnapshot,
+    notes: [
+      "production_live 已切入正式支付创建分支，并输出供后续真实 JSAPI 下单替换的服务端壳层结果。",
+      "下一步只需把此分支替换为真实微信支付 SDK/API 请求，即可完成正式接入。",
+    ],
+  };
+}
+
+function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): PaymentWebhookCallbackResult {
+  const parsedBody = parseWebhookBody(input.rawBody);
+  const resource = toRecord(parsedBody?.resource);
+  const missingConfigs = collectMissingWechatConfigs(PAYMENT_GATEWAY_CALLBACK_CONFIG_REQUIREMENTS.wechat_pay_v3);
+  const orderNo = readStringCandidate(
+    input.query?.out_trade_no,
+    parsedBody?.out_trade_no,
+    parsedBody?.orderNo,
+    resource?.out_trade_no,
+    resource?.orderNo,
+  );
+  const providerOrderId = readStringCandidate(parsedBody?.transaction_id, parsedBody?.providerOrderId, resource?.transaction_id);
+  const eventType = readStringCandidate(parsedBody?.event_type, parsedBody?.eventType, parsedBody?.type);
+  const amount = readNumberCandidate(
+    toRecord(parsedBody?.amount)?.total,
+    parsedBody?.amount,
+    toRecord(resource?.amount)?.total,
+    resource?.amount,
+  );
+
+  if (missingConfigs.length > 0) {
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "ready_for_sdk",
+      verified: false,
+      eventType,
+      providerOrderId,
+      orderNo,
+      amount,
+      responseStatus: 202,
+      responseBody: "callback_verification_not_ready",
+      notes: [
+        "production 回调入口已生效，但当前仍缺少微信平台证书或 APIv3 Key，暂时只能受理并暴露诊断信息，不能执行正式验签与解密。",
+        `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
+      ],
+    };
+  }
+
+  return {
+    gateway: "wechat_pay_v3",
+    stage: "processing",
+    verified: false,
+    eventType,
+    providerOrderId,
+    orderNo,
+    amount,
+    responseStatus: 202,
+    responseBody: "callback_received_pending_verification",
+    notes: [
+      "production_live 回调链路已进入正式处理分支，当前先完成原始事件受理与字段提取，后续将补上平台证书验签与 resource 解密。",
+      `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
+    ],
+  };
+}
+
 const paymentGateways: Record<PaymentGateway, PaymentGatewayInterface> = {
   wechat_pay_v3: {
     gateway: "wechat_pay_v3",
     async createPaymentOrder(input) {
-      return buildPendingGatewayOrderResult(input);
+      return buildWechatGatewayOrderResult(input);
     },
     async paymentWebhookCallback(input) {
-      return buildPendingGatewayCallbackResult(input);
+      return buildWechatGatewayCallbackResult(input);
     },
   },
   alipay_openapi: {

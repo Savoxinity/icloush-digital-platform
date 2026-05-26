@@ -343,7 +343,7 @@ async function resolveRetailOrderProfile(params: {
     : modes.includes("production_ready")
       ? ("production_ready" as const)
       : ("sandbox" as const);
-  const productTypes = [...new Set(products.map((product) => product?.productType ?? "physical"))];
+  const productTypes = Array.from(new Set(products.map((product) => product?.productType ?? "physical")));
 
   if (productTypes.length > 1) {
     throw new TRPCError({
@@ -359,12 +359,15 @@ async function resolveRetailOrderProfile(params: {
   let appendedNote: string | null = null;
 
   if (primaryType === "subscription") {
-    const activePlans = (primaryProduct?.subscriptionPlans ?? []).filter((plan) => plan.status !== "inactive");
+    const subscriptionPlans = Array.isArray((primaryProduct as { subscriptionPlans?: Array<{ status?: string | null; billingCycle?: string | null; name?: string | null }> } | null)?.subscriptionPlans)
+      ? ((primaryProduct as { subscriptionPlans?: Array<{ status?: string | null; billingCycle?: string | null; name?: string | null }> }).subscriptionPlans ?? [])
+      : [];
+    const activePlans = subscriptionPlans.filter((plan) => plan.status !== "inactive");
     const preferredPlan = activePlans.find((plan) => plan.billingCycle === "monthly") ?? activePlans[0] ?? null;
     paymentScenario = paymentMode === "production_ready" ? "offline_review" : "installment";
-    installmentPlanCode = buildInstallmentPlanCode(primaryProduct?.id ?? params.items[0]?.productId ?? params.brandId, preferredPlan);
+    installmentPlanCode = buildInstallmentPlanCode(primaryProduct?.id ?? params.items[0]?.productId ?? params.brandId, preferredPlan as never);
     appendedNote = preferredPlan
-      ? `订阅计划：${preferredPlan.name}（${getBillingCycleLabel(preferredPlan.billingCycle)}）`
+      ? `订阅计划：${preferredPlan.name}（${getBillingCycleLabel((preferredPlan.billingCycle as "weekly" | "monthly" | "quarterly" | undefined) ?? "monthly")}）`
       : "订阅计划：默认按月结算";
   } else if (primaryType === "rental") {
     appendedNote = "租赁方案：设备免押，需由顾问确认设备排期与月结账期。";
@@ -486,6 +489,8 @@ const retailRouter = router({
       items: input.items,
       payment: {
         provider: mapRetailGatewayToProvider(input.gateway),
+        gateway: input.gateway,
+        paymentMode: retailProfile.paymentMode,
         paymentScenario: retailProfile.paymentScenario,
         installmentPlanCode: retailProfile.installmentPlanCode,
       },
@@ -536,9 +541,9 @@ const retailRouter = router({
                 channel: "web-b2b-retail",
                 paymentMode: retailProfile.paymentMode,
                 productType: retailProfile.productType,
+                paymentScenario: retailProfile.paymentScenario,
+                installmentPlanCode: retailProfile.installmentPlanCode ?? null,
               },
-              paymentScenario: retailProfile.paymentScenario,
-              installmentPlanCode: retailProfile.installmentPlanCode,
             });
 
     return {
@@ -572,17 +577,38 @@ const retailRouter = router({
       });
     }
 
+    const latestPayment = detail.summary.latestPayment ?? detail.payments[0] ?? null;
+    const latestPaymentMeta =
+      latestPayment?.metaJson && typeof latestPayment.metaJson === "object" && !Array.isArray(latestPayment.metaJson)
+        ? (latestPayment.metaJson as Record<string, unknown>)
+        : null;
+    const paymentMode =
+      latestPaymentMeta?.paymentMode === "production_ready" || latestPaymentMeta?.paymentMode === "production_live"
+        ? latestPaymentMeta.paymentMode
+        : "sandbox";
+    const paymentGateway = typeof latestPaymentMeta?.paymentGateway === "string" ? latestPaymentMeta.paymentGateway : null;
     const transactionState =
       detail.summary.paymentStatus === "paid"
         ? "successful"
         : detail.summary.status === "cancelled" || detail.summary.status === "closed"
           ? "closed"
           : "pending";
+    const paymentGatewayStage =
+      transactionState !== "pending"
+        ? null
+        : paymentMode === "production_ready"
+          ? "ready_for_sdk"
+          : paymentMode === "production_live"
+            ? "processing"
+            : "processing";
 
     return {
       tenant: { brandId: input.brandId },
       summary: detail.summary,
-      latestPayment: detail.summary.latestPayment ?? detail.payments[0] ?? null,
+      latestPayment,
+      paymentMode,
+      paymentGateway,
+      paymentGatewayStage,
       transactionState,
       terminal: transactionState !== "pending",
       prompt:
@@ -590,7 +616,11 @@ const retailRouter = router({
           ? "// TRANSACTION SUCCESSFUL //"
           : transactionState === "closed"
             ? "// TRANSACTION CLOSED //"
-            : "// WAITING FOR PAYMENT CONFIRMATION //",
+            : paymentMode === "production_ready"
+              ? "// PAYMENT CHANNEL PREPARING FOR PRODUCTION //"
+              : paymentMode === "production_live"
+                ? "// WAITING FOR OFFICIAL PAYMENT CALLBACK //"
+                : "// WAITING FOR PAYMENT CONFIRMATION //",
     };
   }),
 });

@@ -473,6 +473,54 @@ describe("admin orders router", () => {
     expect(result.gateway.stage).toBe("pending_configuration");
   });
 
+  it("surfaces production_live payment metadata in retail order status", async () => {
+    vi.spyOn(omsModule, "getOrderDetail").mockResolvedValue({
+      summary: {
+        id: 7301,
+        brandId: 2,
+        userId: 1,
+        orderNo: "ORD-RET-LIVE-STATUS",
+        status: "pending_payment",
+        paymentStatus: "pending",
+        fulfillmentStatus: "unfulfilled",
+        currency: "CNY",
+        totalAmount: 3680,
+        payableAmount: 3680,
+        latestPayment: {
+          id: 9301,
+          provider: "wechat_jsapi",
+          status: "pending",
+          metaJson: {
+            paymentMode: "production_live",
+            paymentGateway: "wechat_pay_v3",
+          },
+        },
+      },
+      items: [],
+      payments: [
+        {
+          id: 9301,
+          provider: "wechat_jsapi",
+          status: "pending",
+          metaJson: {
+            paymentMode: "production_live",
+            paymentGateway: "wechat_pay_v3",
+          },
+        },
+      ],
+      receipts: [],
+    } as Awaited<ReturnType<typeof omsModule.getOrderDetail>>);
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
+    const result = await caller.retail.retailOrderStatus({ brandId: 2, orderNo: "ORD-RET-LIVE-STATUS" });
+
+    expect(result.paymentMode).toBe("production_live");
+    expect(result.paymentGateway).toBe("wechat_pay_v3");
+    expect(result.paymentGatewayStage).toBe("processing");
+    expect(result.transactionState).toBe("pending");
+    expect(result.prompt).toContain("OFFICIAL PAYMENT CALLBACK");
+  });
+
   it("passes Huanxiduo brand context into retail order creation for the sample shelf flow", async () => {
     getManagedProductDetailMock.mockResolvedValue({
       id: 601,

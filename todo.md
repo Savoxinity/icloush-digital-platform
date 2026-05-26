@@ -264,10 +264,13 @@
 - [x] 落地页分发预览第一版：为商品页自动生成 H5 跳转链接与二维码预览
 - [x] 落地页二维码与短链自动生成器：完成 shortCode/shortUrl 落库、`/s/:code` 重定向与不存在短码错误处理，并运行对应联通测试
 - [x] 支付通道模式预留第一版：在 admin / PDP 中加入 sandbox、production_ready、production_live 三态元数据与提示
-- [ ] 支付通道真实开关准备：让 production_ready / production_live 真正影响支付创建、状态查询与回调链路，并补充服务端测试证明不是占位分支
+- [x] 支付通道真实开关准备：让 production_ready / production_live 真正影响支付创建、状态查询与回调链路，并补充服务端测试证明不是占位分支
 - [ ] 微信支付正式接入：仅推进微信支付 production_live 链路，支付宝接入暂缓至后续凭据齐备后再启动
 - [ ] 微信支付平台证书处理：评估并实现 `WECHAT_PAY_PLATFORM_CERT_PEM` 自动拉取或动态刷新方案，尽量减少人工维护成本
 - [ ] 微信支付阻塞诊断：定位 `WECHAT_PAY_PRIVATE_KEY_PEM` 在运行环境中的解析失败原因，区分是 PEM 格式、加密口令、换行转义还是 Node/OpenSSL 兼容问题
+- [x] 补充微信商户私钥诊断脚本/测试：在运行环境中验证 `WECHAT_PAY_PRIVATE_KEY_PEM` 是否可被 Node 成功解析、是否需要口令、规范化换行后是否发生变化，并输出明确结论
+- [ ] 补充商户证书-私钥配对校验：用运行环境中的私钥推导公钥/指纹并与当前 `WECHAT_PAY_CERT_SERIAL_NO` 对应证书核对，确认是否为密钥与证书序列号不匹配
+- [x] 将 `wechat.credentials.test.ts` 或独立诊断用例扩展为可区分 PEM 格式错误、换行转义问题、加密私钥问题、Node/OpenSSL 兼容问题的自动化断言，再同步 todo 状态
 - [x] 网站打磨冲刺首轮：已完成官网化首页叙事、多品牌入口重构、壳层元信息升级与首屏 CTA 可见性修复，达到可对外演示水准
 - [x] 商城陈列页完善首轮：已补强商城首页陈列语义、商品详情购买理由/服务承诺模块与从首页到商详的展示动线
 

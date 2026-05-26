@@ -37,18 +37,26 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  const [{ registerOAuthRoutes }, { appRouter }, { createContext }, { serveStatic, setupVite }, { getManagedProductByShortCode }] =
-    await Promise.all([
-      import("./oauth"),
-      import("../routers"),
-      import("./context"),
-      import("./vite"),
-      import("../db"),
-    ]);
+  const [
+    { registerOAuthRoutes },
+    { appRouter },
+    { createContext },
+    { serveStatic, setupVite },
+    { getManagedProductByShortCode },
+    { registerPaymentWebhookRoutes },
+  ] = await Promise.all([
+    import("./oauth"),
+    import("../routers"),
+    import("./context"),
+    import("./vite"),
+    import("../db"),
+    import("../paymentWebhook"),
+  ]);
 
   const app = express();
   const server = createServer(app);
 
+  registerPaymentWebhookRoutes(app);
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);

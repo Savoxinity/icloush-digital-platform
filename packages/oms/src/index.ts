@@ -40,7 +40,7 @@ type CommerceProductType = "physical" | "service" | "rental" | "subscription";
 type ResolvedOrderType = "b2b_purchase" | "b2c_purchase" | "service" | "rental" | "subscription";
 
 function resolveOrderTypeFromProductTypes(productTypes: CommerceProductType[], customerType: CustomerType): ResolvedOrderType {
-  const uniqueProductTypes = [...new Set(productTypes)];
+  const uniqueProductTypes = Array.from(new Set(productTypes));
 
   if (uniqueProductTypes.length === 0) {
     return customerType === "b2b" ? "b2b_purchase" : "b2c_purchase";
@@ -101,7 +101,7 @@ async function lockInventoryRowsForUpdate(args: {
   brandId: number;
   skuIds: number[];
 }) {
-  const uniqueSkuIds = [...new Set(args.skuIds)].sort((left, right) => left - right);
+  const uniqueSkuIds = Array.from(new Set(args.skuIds)).sort((left, right) => left - right);
   if (uniqueSkuIds.length === 0) {
     return {
       lockMode: "skipped" as const,
@@ -218,7 +218,7 @@ export async function settleSandboxOrderPayment(args: {
       .where(eq(orders.id, order.id));
 
     if (typeof (tx as { insert?: unknown }).insert === "function") {
-      await (tx as typeof args.db)
+      await ((tx as unknown) as DatabaseClient)
         .insert(paymentCallbackLogs)
         .values({
           brandId: args.brandId,
@@ -567,6 +567,8 @@ export async function createOrder(args: {
   }>;
   payment?: {
     provider?: "wechat_jsapi" | "offline_bank_transfer" | "alipay";
+    gateway?: "wechat_pay_v3" | "alipay_openapi" | null;
+    paymentMode?: "sandbox" | "production_ready" | "production_live" | null;
     paymentScenario?: "full_payment" | "installment" | "credit_card" | "deposit" | "offline_review";
     installmentPlanCode?: string | null;
     allowCreditCard?: boolean;
@@ -654,12 +656,12 @@ export async function createOrder(args: {
     );
 
     if (orderTypeRequiresInventoryReservation(resolvedOrderType)) {
-      const skuIds = [...requestedQtyBySku.keys()];
+      const skuIds = Array.from(requestedQtyBySku.keys());
       // 在支持原生 SQL 的 MySQL 事务里，先用 `FOR UPDATE` 锁住对应 SKU 行，
       // 让高并发下的零售建单优先串行化到同一批库存记录；若运行环境或测试桩不支持 execute，
       // 仍会退回到下面的条件更新 + affectedRows 校验，保持最小可用的防超卖保护。
       await lockInventoryRowsForUpdate({
-        tx,
+        tx: (tx as unknown) as DatabaseClient,
         brandId: args.brandId,
         skuIds,
       });
@@ -679,7 +681,7 @@ export async function createOrder(args: {
         }
       }
 
-      for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
+      for (const [skuId, requestedQty] of Array.from(requestedQtyBySku.entries())) {
         const matchedSku = skuStockById.get(skuId);
         const sampleItem = pricing.pricedItems.find((priced) => priced.sku.id === skuId);
         if (!matchedSku || !sampleItem) {
@@ -696,7 +698,7 @@ export async function createOrder(args: {
         }
       }
 
-      for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
+      for (const [skuId, requestedQty] of Array.from(requestedQtyBySku.entries())) {
         const matchedSku = skuStockById.get(skuId)!;
         // 这里使用“读取到的旧 stockQty 仍然相等”作为条件更新的一部分，
         // 本质上是最小可用的乐观并发保护：若同一时刻其他订单已占用库存，affectedRows 会变成 0，
@@ -772,6 +774,8 @@ export async function createOrder(args: {
         amount: pricing.subtotalAmount,
         status: "created",
         metaJson: {
+          paymentGateway: args.payment?.gateway ?? null,
+          paymentMode: args.payment?.paymentMode ?? (args.sandbox?.autoSettle ? "sandbox" : null),
           installmentPlanCode: args.payment?.installmentPlanCode ?? null,
           allowCreditCard: args.payment?.allowCreditCard ?? false,
           payerOpenId: args.payment?.payerOpenId ?? null,
@@ -1079,6 +1083,145 @@ export async function completeOrder(args: {
     const orderRows = await tx.select().from(orders).where(eq(orders.id, order.id)).limit(1);
     return {
       order: orderRows[0],
+    };
+  });
+}
+
+function resolvePaymentProviderFromGateway(gateway: "wechat_pay_v3" | "alipay_openapi") {
+  return gateway === "wechat_pay_v3" ? "wechat_jsapi" : "alipay";
+}
+
+function isSuccessfulGatewayEvent(eventType?: string | null) {
+  if (!eventType) {
+    return false;
+  }
+
+  const normalized = eventType.trim().toUpperCase();
+  return (
+    normalized.includes("SUCCESS")
+    || normalized.includes("PAID")
+    || normalized.includes("TRANSACTION.SUCCESS")
+    || normalized.includes("TRADE_SUCCESS")
+  );
+}
+
+export async function recordGatewayPaymentCallback(args: {
+  db: DatabaseClient;
+  gateway: "wechat_pay_v3" | "alipay_openapi";
+  orderNo?: string | null;
+  eventType?: string | null;
+  providerOrderId?: string | null;
+  amount?: number | null;
+  rawBody: string;
+  headers?: Record<string, unknown> | null;
+  verified: boolean;
+  signatureStatus: "pending" | "verified" | "failed" | "skipped";
+  stage?: string | null;
+  responseStatus?: number | null;
+  notes?: string[];
+}) {
+  const provider = resolvePaymentProviderFromGateway(args.gateway);
+  const orderNo = typeof args.orderNo === "string" && args.orderNo.trim().length > 0 ? args.orderNo.trim() : null;
+  const matchedOrder = orderNo
+    ? (await args.db.select().from(orders).where(eq(orders.orderNo, orderNo)).limit(1))[0] ?? null
+    : null;
+  const matchedPayment = matchedOrder
+    ? (
+        await args.db
+          .select()
+          .from(payments)
+          .where(and(eq(payments.brandId, matchedOrder.brandId), eq(payments.orderId, matchedOrder.id)))
+          .orderBy(desc(payments.id))
+          .limit(1)
+      )[0] ?? null
+    : null;
+
+  if (!matchedOrder || !matchedPayment) {
+    return {
+      accepted: false,
+      matched: false,
+      orderNo,
+      paymentId: null,
+      orderId: matchedOrder?.id ?? null,
+      notes: [
+        "未能根据回调中的订单号定位到订单或支付记录，当前仅返回诊断结果。",
+        ...(args.notes ?? []),
+      ],
+    };
+  }
+
+  const shouldMarkPaid = args.verified && isSuccessfulGatewayEvent(args.eventType);
+  const processStatus = shouldMarkPaid ? "processed" : args.verified ? "ignored" : "received";
+  const processResultJson = {
+    gateway: args.gateway,
+    stage: args.stage ?? null,
+    verified: args.verified,
+    eventType: args.eventType ?? null,
+    amount: args.amount ?? null,
+    responseStatus: args.responseStatus ?? null,
+    notes: args.notes ?? [],
+    shouldMarkPaid,
+  };
+
+  return args.db.transaction(async (tx) => {
+    if (typeof (tx as { insert?: unknown }).insert === "function") {
+      await ((tx as unknown) as DatabaseClient)
+        .insert(paymentCallbackLogs)
+        .values({
+          brandId: matchedOrder.brandId,
+          paymentId: matchedPayment.id,
+          orderId: matchedOrder.id,
+          provider,
+          callbackType: "payment_notify",
+          providerEventId: args.providerOrderId ?? `${args.gateway}:${matchedOrder.orderNo}:${args.eventType ?? "received"}`,
+          providerTransactionId: args.providerOrderId ?? null,
+          signatureStatus: args.signatureStatus,
+          processStatus,
+          requestHeadersJson: args.headers ?? null,
+          payloadText: args.rawBody,
+          processResultJson,
+          processedAt: new Date(),
+        });
+    }
+
+    if (shouldMarkPaid) {
+      assertOrderStatusTransition(matchedOrder.status as OrderStatus, "paid");
+      await tx
+        .update(payments)
+        .set({
+          status: "paid",
+          paidAt: new Date(),
+          externalTransactionId: args.providerOrderId ?? matchedPayment.externalTransactionId ?? null,
+          metaJson: {
+            ...normalizeMetaJson(matchedPayment.metaJson),
+            paymentMode: normalizeMetaJson(matchedPayment.metaJson).paymentMode ?? "production_live",
+            paymentGateway: args.gateway,
+            gatewayCallbackStage: args.stage ?? null,
+            gatewayLastEventType: args.eventType ?? null,
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, matchedPayment.id));
+
+      await tx
+        .update(orders)
+        .set({
+          status: "paid",
+          paymentStatus: "paid",
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, matchedOrder.id));
+    }
+
+    return {
+      accepted: true,
+      matched: true,
+      shouldMarkPaid,
+      orderId: matchedOrder.id,
+      paymentId: matchedPayment.id,
+      orderNo: matchedOrder.orderNo,
+      processStatus,
+      notes: args.notes ?? [],
     };
   });
 }

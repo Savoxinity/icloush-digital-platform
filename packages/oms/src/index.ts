@@ -9,6 +9,7 @@ import {
   orders,
   paymentCallbackLogs,
   payments,
+  products,
   productSkus,
 } from "../../database/schema";
 import { priceOrderItems, type CustomerType } from "../../pim/src/index";
@@ -34,6 +35,35 @@ export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
   closed: [],
 };
+
+type CommerceProductType = "physical" | "service" | "rental" | "subscription";
+type ResolvedOrderType = "b2b_purchase" | "b2c_purchase" | "service" | "rental" | "subscription";
+
+function resolveOrderTypeFromProductTypes(productTypes: CommerceProductType[], customerType: CustomerType): ResolvedOrderType {
+  const uniqueProductTypes = [...new Set(productTypes)];
+
+  if (uniqueProductTypes.length === 0) {
+    return customerType === "b2b" ? "b2b_purchase" : "b2c_purchase";
+  }
+
+  if (uniqueProductTypes.length > 1) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "当前订单暂不支持将实物、服务、订阅或租赁商品混合结算，请按单一商品类型分别创建订单。",
+    });
+  }
+
+  const [productType] = uniqueProductTypes;
+  if (productType === "subscription" || productType === "service" || productType === "rental") {
+    return productType;
+  }
+
+  return customerType === "b2b" ? "b2b_purchase" : "b2c_purchase";
+}
+
+function orderTypeRequiresInventoryReservation(orderType: ResolvedOrderType) {
+  return orderType === "b2b_purchase" || orderType === "b2c_purchase";
+}
 
 const buildOrderNo = (brandId: number) =>
   `ORD-${brandId}-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -564,61 +594,88 @@ export async function createOrder(args: {
 
   const result = await args.db.transaction(async (tx) => {
     const orderNo = buildOrderNo(args.brandId);
-    const skuIds = [...requestedQtyBySku.keys()];
-    const skuRows = await tx
-      .select()
-      .from(productSkus)
-      .where(and(eq(productSkus.brandId, args.brandId), inArray(productSkus.id, skuIds)));
-    const skuStockById = new Map(skuRows.map((sku) => [sku.id, sku]));
+    const productIds = Array.from(new Set(pricing.pricedItems.map((priced) => priced.product.id)));
+    const productRows = await tx
+      .select({
+        id: products.id,
+        name: products.name,
+        productType: products.productType,
+      })
+      .from(products)
+      .where(and(eq(products.brandId, args.brandId), inArray(products.id, productIds)));
+    const productById = new Map(productRows.map((product) => [product.id, product]));
 
     for (const priced of pricing.pricedItems) {
-      const matchedSku = skuStockById.get(priced.sku.id);
-      if (!matchedSku) {
+      if (!productById.get(priced.product.id)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `SKU ${priced.sku.id} 不存在或不属于当前品牌。`,
+          message: `商品 ${priced.product.id} 不存在或不属于当前品牌。`,
         });
       }
     }
 
-    for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
-      const matchedSku = skuStockById.get(skuId);
-      const sampleItem = pricing.pricedItems.find((priced) => priced.sku.id === skuId);
-      if (!matchedSku || !sampleItem) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `SKU ${skuId} 不存在或不属于当前品牌。`,
-        });
-      }
-      if (matchedSku.stockQty < requestedQty) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `${sampleItem.product.name} 库存不足，当前可售 ${matchedSku.stockQty}，请求 ${requestedQty}。`,
-        });
-      }
-    }
+    const resolvedOrderType = resolveOrderTypeFromProductTypes(
+      pricing.pricedItems.map((priced) => productById.get(priced.product.id)?.productType ?? "physical"),
+      customerType,
+    );
 
-    for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
-      const matchedSku = skuStockById.get(skuId)!;
-      const inventoryUpdate = await tx
-        .update(productSkus)
-        .set({
-          stockQty: matchedSku.stockQty - requestedQty,
-        })
-        .where(and(eq(productSkus.id, skuId), eq(productSkus.brandId, args.brandId), eq(productSkus.stockQty, matchedSku.stockQty)));
-      const affectedRows = Number(
-        (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.affectedRows
-          ?? (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.rowsAffected
-          ?? (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.changedRows
-          ?? 0,
-      );
+    if (orderTypeRequiresInventoryReservation(resolvedOrderType)) {
+      const skuIds = [...requestedQtyBySku.keys()];
+      const skuRows = await tx
+        .select()
+        .from(productSkus)
+        .where(and(eq(productSkus.brandId, args.brandId), inArray(productSkus.id, skuIds)));
+      const skuStockById = new Map(skuRows.map((sku) => [sku.id, sku]));
 
-      if (affectedRows < 1) {
+      for (const priced of pricing.pricedItems) {
+        const matchedSku = skuStockById.get(priced.sku.id);
+        if (!matchedSku) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `SKU ${priced.sku.id} 不存在或不属于当前品牌。`,
+          });
+        }
+      }
+
+      for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
+        const matchedSku = skuStockById.get(skuId);
         const sampleItem = pricing.pricedItems.find((priced) => priced.sku.id === skuId);
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `${sampleItem?.product.name ?? `SKU ${skuId}`} 库存已被其他订单占用，请刷新后重试。`,
-        });
+        if (!matchedSku || !sampleItem) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `SKU ${skuId} 不存在或不属于当前品牌。`,
+          });
+        }
+        if (matchedSku.stockQty < requestedQty) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${sampleItem.product.name} 库存不足，当前可售 ${matchedSku.stockQty}，请求 ${requestedQty}。`,
+          });
+        }
+      }
+
+      for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
+        const matchedSku = skuStockById.get(skuId)!;
+        const inventoryUpdate = await tx
+          .update(productSkus)
+          .set({
+            stockQty: matchedSku.stockQty - requestedQty,
+          })
+          .where(and(eq(productSkus.id, skuId), eq(productSkus.brandId, args.brandId), eq(productSkus.stockQty, matchedSku.stockQty)));
+        const affectedRows = Number(
+          (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.affectedRows
+            ?? (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.rowsAffected
+            ?? (inventoryUpdate as { affectedRows?: number; rowsAffected?: number; changedRows?: number } | undefined)?.changedRows
+            ?? 0,
+        );
+
+        if (affectedRows < 1) {
+          const sampleItem = pricing.pricedItems.find((priced) => priced.sku.id === skuId);
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `${sampleItem?.product.name ?? `SKU ${skuId}`} 库存已被其他订单占用，请刷新后重试。`,
+          });
+        }
       }
     }
 
@@ -629,7 +686,7 @@ export async function createOrder(args: {
         userId: args.userId,
         membershipId: args.membershipId ?? null,
         orderNo,
-        orderType: customerType === "b2b" ? "b2b_purchase" : "b2c_purchase",
+        orderType: resolvedOrderType,
         channel: "web",
         status: "pending_payment",
         paymentStatus: "unpaid",

@@ -1,8 +1,55 @@
 import "dotenv/config";
 import express from "express";
+import type { Request } from "express";
 import { TRPCError } from "@trpc/server";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter, createContext, createRestContext } from "./gateway";
+
+function normalizeRequestedBrandId(value: unknown): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === null || typeof raw === "undefined") {
+    return null;
+  }
+
+  const normalized = String(raw).trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `非法 brandId：${normalized}`,
+    });
+  }
+
+  return String(parsed);
+}
+
+function enforceRouteBrandId(req: Request, routeBrandId: unknown) {
+  const headerBrandId = normalizeRequestedBrandId(
+    req.headers["x-brand-id"] ?? req.headers["brand_id"] ?? req.headers["brand-id"],
+  );
+  const normalizedRouteBrandId = normalizeRequestedBrandId(routeBrandId);
+
+  if (!headerBrandId && !normalizedRouteBrandId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "缺少 brandId。请在请求头 `x-brand-id` 或当前路由参数中显式提供 brandId。",
+    });
+  }
+
+  if (headerBrandId && normalizedRouteBrandId && headerBrandId !== normalizedRouteBrandId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `brandId 不一致：header=${headerBrandId}，route=${normalizedRouteBrandId}`,
+    });
+  }
+
+  req.headers["x-brand-id"] = headerBrandId ?? normalizedRouteBrandId ?? "";
+}
+
 
 export const app = express();
 const port = Number(process.env.API_GATEWAY_PORT ?? process.env.PORT ?? 3010);
@@ -20,9 +67,7 @@ app.get("/health", (_req, res) => {
 
 app.post("/api/orders/retail", async (req, res) => {
   try {
-    if (!req.headers["x-brand-id"] && typeof req.body?.brandId !== "undefined") {
-      req.headers["x-brand-id"] = String(req.body.brandId);
-    }
+    enforceRouteBrandId(req, req.body?.brandId);
 
     const caller = appRouter.createCaller(await createRestContext(req, res));
     const gateway = req.body?.gateway === "alipay_openapi" ? "alipay_openapi" : "wechat_pay_v3";
@@ -80,9 +125,7 @@ app.post("/api/orders/retail", async (req, res) => {
 
 app.get("/api/orders/retail/:orderNo/status", async (req, res) => {
   try {
-    if (!req.headers["x-brand-id"] && typeof req.query?.brandId !== "undefined") {
-      req.headers["x-brand-id"] = String(req.query.brandId);
-    }
+    enforceRouteBrandId(req, req.query?.brandId);
 
     const caller = appRouter.createCaller(await createRestContext(req, res));
     const result = await caller.orders.detail({ orderNo: String(req.params.orderNo) });

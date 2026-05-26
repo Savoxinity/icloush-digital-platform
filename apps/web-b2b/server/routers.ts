@@ -312,21 +312,75 @@ function extractRetailPaymentMode(specs: Array<{ key: string; value: string }>):
   return matched === "production_live" || matched === "production_ready" ? matched : "sandbox";
 }
 
-async function resolveRetailOrderPaymentMode(params: {
+function getBillingCycleLabel(cycle: "weekly" | "monthly" | "quarterly" | undefined) {
+  if (cycle === "weekly") {
+    return "按周";
+  }
+  if (cycle === "quarterly") {
+    return "按季";
+  }
+  return "按月";
+}
+
+function buildInstallmentPlanCode(productId: number, plan?: { id?: number; billingCycle?: "weekly" | "monthly" | "quarterly"; name?: string | null } | null) {
+  const normalizedCycle = plan?.billingCycle ?? "monthly";
+  const normalizedName = (plan?.name ?? "plan").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "plan";
+  const normalizedId = typeof plan?.id === "number" ? String(plan.id) : normalizedName;
+  return `RET-${productId}-${normalizedCycle}-${normalizedId}`.toUpperCase();
+}
+
+async function resolveRetailOrderProfile(params: {
   brandId: number;
   items: Array<{ productId: number; skuId: number; quantity: number }>;
+  note?: string | null;
 }) {
   const products = await Promise.all(
     params.items.map((item) => getManagedProductDetail({ id: item.productId, brandId: params.brandId })),
   );
   const modes = products.map((product) => extractRetailPaymentMode(product?.specs ?? []));
-  if (modes.includes("production_live")) {
-    return "production_live" as const;
+  const paymentMode = modes.includes("production_live")
+    ? ("production_live" as const)
+    : modes.includes("production_ready")
+      ? ("production_ready" as const)
+      : ("sandbox" as const);
+  const productTypes = [...new Set(products.map((product) => product?.productType ?? "physical"))];
+
+  if (productTypes.length > 1) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "当前订单暂不支持把零售、服务、租赁与订阅对象混合结算，请按单一交易类型分别下单。",
+    });
   }
-  if (modes.includes("production_ready")) {
-    return "production_ready" as const;
+
+  const primaryType = productTypes[0] ?? "physical";
+  const primaryProduct = products[0] ?? null;
+  let paymentScenario: "full_payment" | "installment" | "offline_review" = paymentMode === "production_ready" ? "offline_review" : "full_payment";
+  let installmentPlanCode: string | undefined;
+  let appendedNote: string | null = null;
+
+  if (primaryType === "subscription") {
+    const activePlans = (primaryProduct?.subscriptionPlans ?? []).filter((plan) => plan.status !== "inactive");
+    const preferredPlan = activePlans.find((plan) => plan.billingCycle === "monthly") ?? activePlans[0] ?? null;
+    paymentScenario = paymentMode === "production_ready" ? "offline_review" : "installment";
+    installmentPlanCode = buildInstallmentPlanCode(primaryProduct?.id ?? params.items[0]?.productId ?? params.brandId, preferredPlan);
+    appendedNote = preferredPlan
+      ? `订阅计划：${preferredPlan.name}（${getBillingCycleLabel(preferredPlan.billingCycle)}）`
+      : "订阅计划：默认按月结算";
+  } else if (primaryType === "rental") {
+    appendedNote = "租赁方案：设备免押，需由顾问确认设备排期与月结账期。";
+  } else if (primaryType === "service") {
+    appendedNote = "服务方案：需由顾问确认交付范围、排期与服务节奏。";
   }
-  return "sandbox" as const;
+
+  const mergedNote = [params.note?.trim(), appendedNote].filter((entry): entry is string => Boolean(entry)).join("｜") || null;
+
+  return {
+    paymentMode,
+    paymentScenario,
+    installmentPlanCode,
+    note: mergedNote,
+    productType: primaryType,
+  };
 }
 
 function buildRetailGatewayRequirements(gateway: z.infer<typeof retailGatewaySchema>) {
@@ -418,23 +472,25 @@ const retailRouter = router({
   }),
   createRetailOrder: protectedProcedure.input(retailCreateOrderSchema).mutation(async ({ ctx, input }) => {
     const db = requireDb(await getDb());
-    const paymentMode = await resolveRetailOrderPaymentMode({
+    const retailProfile = await resolveRetailOrderProfile({
       brandId: input.brandId,
       items: input.items,
+      note: input.note ?? null,
     });
     const created = await createOrder({
       db,
       brandId: input.brandId,
       userId: ctx.user.id,
       customerType: "b2c",
-      note: input.note ?? null,
+      note: retailProfile.note,
       items: input.items,
       payment: {
         provider: mapRetailGatewayToProvider(input.gateway),
-        paymentScenario: paymentMode === "production_ready" ? "offline_review" : "full_payment",
+        paymentScenario: retailProfile.paymentScenario,
+        installmentPlanCode: retailProfile.installmentPlanCode,
       },
       sandbox: {
-        autoSettle: paymentMode === "sandbox",
+        autoSettle: retailProfile.paymentMode === "sandbox",
         delayMs: 6_000,
         outcome: "successful",
       },
@@ -446,7 +502,7 @@ const retailRouter = router({
       `Brand ${input.brandId}`;
     const paymentDescription = `${paymentBrandLabel} ${created.items.map((item) => item.product.name).join(" / ")}`.slice(0, 120);
     const gateway =
-      paymentMode === "sandbox"
+      retailProfile.paymentMode === "sandbox"
         ? buildSandboxGatewayResult({
             gateway: input.gateway,
             brandId: input.brandId,
@@ -455,7 +511,7 @@ const retailRouter = router({
             amount: created.order.payableAmount,
             currency: created.order.currency,
           })
-        : paymentMode === "production_ready"
+        : retailProfile.paymentMode === "production_ready"
           ? buildProductionReadyGatewayResult({
               gateway: input.gateway,
               brandId: input.brandId,
@@ -478,8 +534,11 @@ const retailRouter = router({
                 paymentId: created.payment.id,
                 userId: ctx.user.id,
                 channel: "web-b2b-retail",
-                paymentMode,
+                paymentMode: retailProfile.paymentMode,
+                productType: retailProfile.productType,
               },
+              paymentScenario: retailProfile.paymentScenario,
+              installmentPlanCode: retailProfile.installmentPlanCode,
             });
 
     return {
@@ -487,13 +546,13 @@ const retailRouter = router({
       order: created.order,
       items: created.items,
       payment: created.payment,
-      paymentMode,
+      paymentMode: retailProfile.paymentMode,
       gateway,
       paymentPolling: {
         orderId: created.order.id,
         orderNo: created.order.orderNo,
-        recommendedIntervalMs: paymentMode === "sandbox" ? 2000 : 5000,
-        sandboxExpectedSettlementMs: paymentMode === "sandbox" ? 6000 : null,
+        recommendedIntervalMs: retailProfile.paymentMode === "sandbox" ? 2000 : 5000,
+        sandboxExpectedSettlementMs: retailProfile.paymentMode === "sandbox" ? 6000 : null,
       },
     };
   }),

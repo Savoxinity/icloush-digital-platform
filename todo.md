@@ -283,16 +283,16 @@
 - [x] 完成 Admin 商品上架/编辑中的品牌归属选择能力，支持运营明确指定商品所属品牌
 - [x] 以“环洗朵”作为样板品牌，打通 Admin 上架商品经 `apps/api-gateway` 到前端 `/shop` 货架与 PDP 的展示链路
 - [x] 落实样板商品的库存扣减/预占闭环，确保加入购物车或提交测试订单后后台库存正确响应并避免超卖
-- [ ] 形成“手动在 Admin 上传测试商品，并在前端正确看到”的端到端验证证据与回归测试
+- [x] 形成“手动在 Admin 上传测试商品，并在前端正确看到”的端到端验证证据与回归测试
 - [x] 把样板商品真实挂入可交互购物袋/测试下单链路，验证前端动作会驱动后台库存响应与订单创建
-- [ ] 里程碑 1：建设全域中后台“品牌隔离舱”，支持超级管理员总览四品牌全局大盘
-- [ ] 里程碑 1：完成品牌独立工作台切换，确保商品、订单、客户在切换品牌后即时严格过滤
-- [ ] 里程碑 1：补齐 API Gateway 路由级 `brandId` 强制携带与校验，防止跨品牌越权拉取商品
-- [ ] 里程碑 2：完善实物零售模型，确保浣星司 / iCloush LAB. 商品可走购物车、订单与 `productSkus.stockQty` 扣减链路
-- [ ] 里程碑 2：打通服务 / 订阅模型，支持环洗朵 DaaS / 香氛 FaaS 的 `subscriptionPlans` 下单逻辑、按月结算与设备免押租赁表达
-- [ ] 里程碑 2：激活 `skuTierPrices` 与会员价隔离，支持同一 SKU 在散客与特定 BrandMembership 下显示不同价格
-- [ ] 里程碑 3：引入 Mock Payment 模拟支付，前端付款后由后端写入成功的 `paymentCallbackLogs` 沙盒记录
-- [ ] 里程碑 3：补齐订单状态机流转测试，覆盖 `pending_payment -> paid -> processing -> shipped -> completed`
+- [x] 里程碑 1：建设全域中后台“品牌隔离舱”，支持超级管理员总览四品牌全局大盘
+- [x] 里程碑 1：完成品牌独立工作台切换，确保商品、订单、客户在切换品牌后即时严格过滤
+- [x] 里程碑 1：补齐 API Gateway 路由级 `brandId` 强制携带与校验，防止跨品牌越权拉取商品
+- [x] 里程碑 2：完善实物零售模型，确保浣星司 / iCloush LAB. 商品可走购物车、订单与 `productSkus.stockQty` 扣减链路
+- [x] 里程碑 2：打通服务 / 订阅模型，支持环洗朵 DaaS / 香氛 FaaS 的 `subscriptionPlans` 下单逻辑、按月结算与设备免押租赁表达
+- [x] 里程碑 2：激活 `skuTierPrices` 与会员价隔离，支持同一 SKU 在散客与特定 BrandMembership 下显示不同价格
+- [x] 里程碑 3：引入 Mock Payment 模拟支付，前端付款后由后端写入成功的 `paymentCallbackLogs` 沙盒记录
+- [x] 里程碑 3：补齐订单状态机流转测试，覆盖 `pending_payment -> paid -> processing -> shipped -> completed`
 - [x] 里程碑 3：支持后台对沙盒订单执行发货操作并录入虚拟物流单号
 - [x] 里程碑 4：为 4 个品牌收口独立 H5 访问入口与品牌化初始化配置
 - [x] 里程碑 4：确保各 H5 站点加载时按品牌拉取 `siteContactConfigs`、主题色、Logo 与文案

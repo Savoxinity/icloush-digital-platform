@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 
@@ -35,6 +35,12 @@ describe("api-gateway retail REST endpoints", () => {
     await new Promise<void>((resolve) => server.once("listening", () => resolve()));
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
+  });
+
+  beforeEach(() => {
+    createOrderMock.mockReset();
+    getOrderDetailMock.mockReset();
+    createRestContextMock.mockClear();
   });
 
   afterAll(async () => {
@@ -115,6 +121,47 @@ describe("api-gateway retail REST endpoints", () => {
     expect(payload).toMatchObject({ ok: false, message: "零售订单创建失败。" });
   });
 
+  it("rejects retail order creation when route brandId is missing", async () => {
+    const response = await fetch(`${baseUrl}/api/orders/retail`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ userId: 7, items: [{ skuId: 19001, quantity: 1 }] }),
+    });
+    const payload = (await response.json()) as any;
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({
+      ok: false,
+      message: "缺少 brandId。请在请求头 `x-brand-id` 或当前路由参数中显式提供 brandId。",
+    });
+    expect(createRestContextMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects retail order creation when header and body brandId mismatch", async () => {
+    const response = await fetch(`${baseUrl}/api/orders/retail`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-brand-id": "2",
+      },
+      body: JSON.stringify({
+        brandId: 3,
+        userId: 7,
+        items: [{ skuId: 19001, quantity: 1 }],
+      }),
+    });
+    const payload = (await response.json()) as any;
+
+    expect(response.status).toBe(403);
+    expect(payload).toMatchObject({
+      ok: false,
+      message: "brandId 不一致：header=2，route=3",
+    });
+    expect(createRestContextMock).not.toHaveBeenCalled();
+  });
+
   it("returns translated transaction state for status polling", async () => {
     getOrderDetailMock.mockResolvedValueOnce({
       tenant: { brandId: 2, source: "header" },
@@ -168,5 +215,21 @@ describe("api-gateway retail REST endpoints", () => {
     expect(response.status).toBe(200);
     expect(payload.transactionState).toBe("closed");
     expect(payload.prompt).toBe("// TRANSACTION CLOSED //");
+  });
+
+  it("rejects status polling when header and query brandId mismatch", async () => {
+    const response = await fetch(`${baseUrl}/api/orders/retail/RTL-20260419-003/status?brandId=3`, {
+      headers: {
+        "x-brand-id": "2",
+      },
+    });
+    const payload = (await response.json()) as any;
+
+    expect(response.status).toBe(403);
+    expect(payload).toMatchObject({
+      ok: false,
+      message: "brandId 不一致：header=2，route=3",
+    });
+    expect(getOrderDetailMock).not.toHaveBeenCalled();
   });
 });

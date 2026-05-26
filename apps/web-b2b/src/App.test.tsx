@@ -183,7 +183,7 @@ describe("web storefront sprint 3 中文化重构", () => {
 
     expect(html).toContain("Service Access");
     expect(html).toContain("服务方案");
-    expect(html).toContain("Request consultation / 申请方案");
+    expect(html).toContain("Start service order / 发起方案下单");
     expect(html).not.toContain("SKU OPTION");
     expect(html).not.toContain("Add to bag / 加入购物袋");
   });
@@ -212,7 +212,7 @@ describe("web storefront sprint 3 中文化重构", () => {
     expect(html).toContain("月度焕新计划");
     expect(html).toContain("按月");
     expect(html).toContain("阶梯价低至 ¥1099 · 12件起");
-    expect(html).toContain("Request subscription / 申请订阅");
+    expect(html).toContain("Start subscription order / 发起订阅下单");
     expect(html).not.toContain("Add to bag / 加入购物袋");
   });
 

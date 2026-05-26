@@ -2471,7 +2471,7 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
               </div>
               <p className="font-zh-sans text-[1.8rem] font-light leading-none tracking-[0.16em] text-[#f3efe6]">{formatCurrency(selectedSku?.price ?? product.price)}</p>
             </div>
-            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">{product.productType === "physical" ? "先选择 SKU 并加入购物袋；当前页面已具备价格、SKU、详情长图、外部渠道与顾问式配额申请的完整陈列顺序，可先承接线上浏览与销售咨询，再随着支付与库存能力继续升级为完整商城成交页。" : product.productType === "subscription" ? "该对象当前按订阅计划承接：本轮先把商品类型、品牌归属与前后端字段打通，后续会继续接入 subscriptionPlans、按月结算与设备免押租赁细则。" : "该对象当前按服务方案承接：展示价格用于建立预算感，成交动作先进入顾问式确认与配额申请，随后再补全标准化服务履约与订阅计划链路。"}</p>
+            <p className="mt-5 font-zh-serif text-sm leading-8 text-[#a89f94]">{product.productType === "physical" ? "先选择 SKU 并加入购物袋；当前页面已具备价格、SKU、详情长图、外部渠道与顾问式配额申请的完整陈列顺序，可先承接线上浏览与销售咨询，再随着支付与库存能力继续升级为完整商城成交页。" : product.productType === "subscription" ? "该对象已可沿统一购物袋进入真实下单链路：系统会按品牌与商品类型自动切到订阅订单，并在支持月付计划时写入 installment 语义，便于继续衔接按月结算。" : product.productType === "rental" ? "该对象已可沿统一购物袋进入真实下单链路：系统会保留品牌隔离与租赁订单类型，并在订单备注中表达设备免押与后续月结确认，便于顾问继续承接。" : "该对象已可沿统一购物袋进入服务型下单链路：系统会保留品牌隔离与服务订单类型，再由顾问确认交付范围、排期与履约细节。"}</p>
             {product.productType === "physical" ? (
               <div className="mt-6">
                 <SkuSelector options={skuOptions} selectedSkuId={selectedSkuId} onSelect={setSelectedSkuId} />
@@ -2479,8 +2479,10 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
             ) : (
               <div className="mt-6 rounded-2xl border border-[#111111] bg-[#050505] px-4 py-5 font-zh-serif text-sm leading-8 text-[#9b9388]">
                 {product.productType === "subscription"
-                  ? "当前商品将进一步绑定订阅计划、周期与履约规则；本页现阶段先承接品牌表达、预算锚点与方案咨询。"
-                  : "当前商品将进一步绑定服务包、交付节奏与顾问确认步骤；本页现阶段先承接需求沟通与方案咨询。"}
+                  ? "当前商品已可先走统一下单链路，并默认写入订阅计划备注与月付语义；后续会继续补充更细的计划选择、周期切换与履约规则。"
+                  : product.productType === "rental"
+                    ? "当前商品已可先走统一下单链路，并在订单备注中表达设备免押与月结确认；后续会继续补充租期、设备排期与履约细则。"
+                    : "当前商品已可先走统一下单链路，并由顾问确认服务包、交付节奏与执行边界；后续会继续补全标准化服务履约字段。"}
               </div>
             )}
             {product.subscriptionLabel || product.tierPriceLabel ? (
@@ -2509,9 +2511,8 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
               <button
                 type="button"
                 onClick={() =>
-                  product.productType === "physical"
-                    ? selectedSku &&
-                      cart.addItem({
+                  selectedSku && selectedSku.backendProductId && selectedSku.backendSkuId
+                    ? cart.addItem({
                         productId: product.id,
                         productCode: product.code,
                         productName: product.name,
@@ -2527,7 +2528,13 @@ export function ProductDetailPage(props: { id: string; product?: ShowroomProduct
                 }
                 className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]"
               >
-                {product.productType === "physical" ? "Add to bag / 加入购物袋" : product.productType === "subscription" ? "Request subscription / 申请订阅" : "Request consultation / 申请方案"}
+                {product.productType === "physical"
+                  ? "Add to bag / 加入购物袋"
+                  : product.productType === "subscription"
+                    ? "Start subscription order / 发起订阅下单"
+                    : product.productType === "rental"
+                      ? "Start rental order / 发起租赁下单"
+                      : "Start service order / 发起方案下单"}
               </button>
               <button type="button" onClick={() => setDialogOpen(true)} className="monolith-button inline-flex h-14 items-center justify-center px-7 text-xs font-medium tracking-[0.34em]">
                 Request allocation / 申请配额

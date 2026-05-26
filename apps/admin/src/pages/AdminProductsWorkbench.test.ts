@@ -12,6 +12,8 @@ const invalidateMock = vi.fn(async () => undefined);
 const managedProductsRefetchMock = vi.fn(async () => undefined);
 const uploadMutateAsyncMock = vi.fn(async () => ({ url: "https://cdn.example.com/product.png" }));
 const upsertMutateMock = vi.fn();
+const managedProductsDataMock = vi.hoisted(() => ({ products: [] as Array<Record<string, unknown>> }));
+const managedProductsQueryStateMock = vi.hoisted(() => ({ isLoading: false, isError: false }));
 
 vi.mock("sonner", () => ({
   toast: {
@@ -34,9 +36,9 @@ vi.mock("@/lib/trpc", () => ({
     admin: {
       managedProducts: {
         useQuery: () => ({
-          data: { products: [] },
-          isLoading: false,
-          isError: false,
+          data: managedProductsDataMock,
+          isLoading: managedProductsQueryStateMock.isLoading,
+          isError: managedProductsQueryStateMock.isError,
           refetch: managedProductsRefetchMock,
         }),
       },
@@ -62,6 +64,9 @@ describe("AdminProductsWorkbench detail image helpers", () => {
     managedProductsRefetchMock.mockClear();
     uploadMutateAsyncMock.mockClear();
     upsertMutateMock.mockClear();
+    managedProductsDataMock.products = [];
+    managedProductsQueryStateMock.isLoading = false;
+    managedProductsQueryStateMock.isError = false;
   });
 
   it("normalizes multiline detail image input while preserving order", () => {
@@ -112,5 +117,76 @@ describe("AdminProductsWorkbench detail image helpers", () => {
     expect(html).toContain("Subscription Plans / 服务订阅与周期计划");
     expect(html).toContain("新增 SKU");
     expect(html).toContain("新增订阅计划");
+  });
+
+  it("shows brand-scoped inventory signals for tracked products", () => {
+    managedProductsDataMock.products = [
+      {
+        id: 101,
+        brandId: 1,
+        brandName: "环洗朵",
+        code: "HXD-LINEN-01",
+        name: "高浓缩织物洁净剂",
+        slug: "hxd-linen-01",
+        series: "AP",
+        productType: "physical",
+        price: 1280,
+        status: "active",
+        imageUrl: "https://cdn.example.com/linen.png",
+        subtitle: "酒店布草主力清洁剂",
+        description: "用于库存隔离测试",
+        specs: [],
+        updatedAt: "2026-05-26T00:00:00.000Z",
+        skus: [
+          { skuCode: "HXD-LINEN-01-A", stockQty: 4, status: "active" },
+          { skuCode: "HXD-LINEN-01-B", stockQty: 0, status: "active" },
+        ],
+        subscriptionPlans: [],
+      },
+    ];
+
+    const html = renderToStaticMarkup(
+      React.createElement(AdminProductsWorkbench, {
+        activeBrandId: 1,
+        selectedBrandName: "环洗朵",
+        brandOptions: [{ id: 1, code: "huanxiduo", name: "环洗朵", shortName: "Huanxiduo" }],
+      }),
+    );
+
+    expect(html).toContain("库存跟踪 SKU");
+    expect(html).toContain("低库存 / 缺货");
+    expect(html).toContain("可售库存 4");
+    expect(html).toContain("低库存预警 1 个");
+    expect(html).toContain("缺货 SKU 1 个");
+    expect(html).toContain("环洗朵");
+  });
+
+  it("renders empty state for brand-scoped product pool", () => {
+    managedProductsDataMock.products = [];
+
+    const html = renderToStaticMarkup(
+      React.createElement(AdminProductsWorkbench, {
+        activeBrandId: 1,
+        selectedBrandName: "环洗朵",
+        brandOptions: [{ id: 1, code: "huanxiduo", name: "环洗朵", shortName: "Huanxiduo" }],
+      }),
+    );
+
+    expect(html).toContain("当前筛选结果为空");
+    expect(html).toContain("录入首个测试商品");
+  });
+
+  it("renders error state when managed product query fails", () => {
+    managedProductsQueryStateMock.isError = true;
+
+    const html = renderToStaticMarkup(
+      React.createElement(AdminProductsWorkbench, {
+        activeBrandId: 1,
+        selectedBrandName: "环洗朵",
+        brandOptions: [{ id: 1, code: "huanxiduo", name: "环洗朵", shortName: "Huanxiduo" }],
+      }),
+    );
+
+    expect(html).toContain("商品池读取失败，请重试后继续录入");
   });
 });

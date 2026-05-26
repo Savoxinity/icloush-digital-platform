@@ -149,6 +149,30 @@ function priceLabel(value: number | null | undefined) {
   return `¥ ${value.toLocaleString("zh-CN")}`;
 }
 
+const LOW_STOCK_THRESHOLD = 5;
+
+function getInventorySignal(product: {
+  productType?: string | null;
+  skus?: Array<{ stockQty?: number | null; status?: string | null }>;
+}) {
+  const activeSkus = (product.skus ?? []).filter((sku) => sku.status !== "inactive");
+  const totalStockQty = activeSkus.reduce((sum, sku) => sum + Math.max(sku.stockQty ?? 0, 0), 0);
+  const lowStockSkuCount = activeSkus.filter((sku) => {
+    const stockQty = Math.max(sku.stockQty ?? 0, 0);
+    return stockQty > 0 && stockQty <= LOW_STOCK_THRESHOLD;
+  }).length;
+  const outOfStockSkuCount = activeSkus.filter((sku) => Math.max(sku.stockQty ?? 0, 0) === 0).length;
+  const isInventoryTracked = product.productType === "physical" || product.productType === "rental";
+
+  return {
+    isInventoryTracked,
+    activeSkuCount: activeSkus.length,
+    totalStockQty,
+    lowStockSkuCount,
+    outOfStockSkuCount,
+  };
+}
+
 const PRODUCT_META_SPEC_KEYS = {
   taobaoUrl: "__retail_taobao_url",
   tmallUrl: "__retail_tmall_url",
@@ -352,6 +376,29 @@ export default function AdminProductsWorkbench(props: {
   });
 
   const products = useMemo(() => managedProductsQuery.data?.products ?? [], [managedProductsQuery.data]);
+  const inventorySummary = useMemo(
+    () =>
+      products.reduce(
+        (summary, product) => {
+          const signal = getInventorySignal(product);
+          return {
+            trackedProductCount: summary.trackedProductCount + (signal.isInventoryTracked ? 1 : 0),
+            activeSkuCount: summary.activeSkuCount + signal.activeSkuCount,
+            totalStockQty: summary.totalStockQty + signal.totalStockQty,
+            lowStockSkuCount: summary.lowStockSkuCount + signal.lowStockSkuCount,
+            outOfStockSkuCount: summary.outOfStockSkuCount + signal.outOfStockSkuCount,
+          };
+        },
+        {
+          trackedProductCount: 0,
+          activeSkuCount: 0,
+          totalStockQty: 0,
+          lowStockSkuCount: 0,
+          outOfStockSkuCount: 0,
+        },
+      ),
+    [products],
+  );
   const selectedBrandOption = useMemo(
     () => brandOptions.find((item) => item.id === (formState.brandId ?? activeBrandId)) ?? null,
     [activeBrandId, brandOptions, formState.brandId],
@@ -682,11 +729,12 @@ export default function AdminProductsWorkbench(props: {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
+        <div className="mt-6 grid gap-4 md:grid-cols-5">
           {[
             { label: "当前结果", value: `${products.length} 条` },
             { label: "ACTIVE", value: `${products.filter((item) => item.status === "active").length} 条` },
-            { label: "DRAFT", value: `${products.filter((item) => item.status === "draft").length} 条` },
+            { label: "库存跟踪 SKU", value: `${inventorySummary.activeSkuCount} 个` },
+            { label: "低库存 / 缺货", value: `${inventorySummary.lowStockSkuCount} / ${inventorySummary.outOfStockSkuCount}` },
             { label: "已挂主图", value: `${products.filter((item) => item.imageUrl).length} 条` },
             {
               label: "已挂详情长图",
@@ -738,12 +786,33 @@ export default function AdminProductsWorkbench(props: {
                       {product.subtitle || product.description || "该条目已进入商品池，但仍可补充更具转化力的副标题与实验室说明。"}
                     </p>
                     <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{priceLabel(product.price)}</span>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Specs {product.specs.length} 项</span>
-                      {product.specs.some((spec) => spec.key === PRODUCT_META_SPEC_KEYS.detailImageUrls && spec.value.trim()) ? (
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">详情长图已挂载</span>
-                      ) : null}
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">更新于 {product.updatedAt ? new Date(product.updatedAt).toLocaleDateString("zh-CN") : "待同步"}</span>
+                      {(() => {
+                        const inventorySignal = getInventorySignal(product);
+                        return (
+                          <>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{priceLabel(product.price)}</span>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Specs {product.specs.length} 项</span>
+                            {inventorySignal.isInventoryTracked ? (
+                              <>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">SKU {inventorySignal.activeSkuCount} 个</span>
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">可售库存 {inventorySignal.totalStockQty}</span>
+                                {inventorySignal.lowStockSkuCount > 0 ? (
+                                  <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">低库存预警 {inventorySignal.lowStockSkuCount} 个</span>
+                                ) : null}
+                                {inventorySignal.outOfStockSkuCount > 0 ? (
+                                  <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">缺货 SKU {inventorySignal.outOfStockSkuCount} 个</span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">非库存型商品</span>
+                            )}
+                            {product.specs.some((spec) => spec.key === PRODUCT_META_SPEC_KEYS.detailImageUrls && spec.value.trim()) ? (
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">详情长图已挂载</span>
+                            ) : null}
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">更新于 {product.updatedAt ? new Date(product.updatedAt).toLocaleDateString("zh-CN") : "待同步"}</span>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div className="flex flex-col items-start gap-3 lg:items-end">

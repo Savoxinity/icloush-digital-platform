@@ -656,6 +656,9 @@ export async function createOrder(args: {
 
       for (const [skuId, requestedQty] of requestedQtyBySku.entries()) {
         const matchedSku = skuStockById.get(skuId)!;
+        // 这里使用“读取到的旧 stockQty 仍然相等”作为条件更新的一部分，
+        // 本质上是最小可用的乐观并发保护：若同一时刻其他订单已占用库存，affectedRows 会变成 0，
+        // 从而阻止基于过期库存快照的重复扣减，避免仅靠预检造成的超卖。
         const inventoryUpdate = await tx
           .update(productSkus)
           .set({

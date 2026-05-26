@@ -39,7 +39,13 @@ function createThenableRows<T>(rows: T[]) {
   };
 }
 
-function createFakeDb(initialStockQty: number, productType: FakeProductRow["productType"] = "physical") {
+function createFakeDb(
+  initialStockQty: number,
+  productType: FakeProductRow["productType"] = "physical",
+  options?: {
+    failInventoryUpdate?: boolean;
+  },
+) {
   const state = {
     products: [
       {
@@ -95,6 +101,9 @@ function createFakeDb(initialStockQty: number, productType: FakeProductRow["prod
           return {
             async where() {
               if (tableName === "productSkus" && typeof values.stockQty === "number") {
+                if (options?.failInventoryUpdate) {
+                  return { affectedRows: 0 };
+                }
                 state.productSkus[0].stockQty = values.stockQty;
                 return { affectedRows: 1 };
               }
@@ -218,6 +227,38 @@ describe("OMS createOrder inventory guard", () => {
         items: [{ productId: 101, skuId: 11, quantity: 6 }],
       }),
     ).rejects.toThrow("库存不足");
+
+    expect(state.productSkus[0].stockQty).toBe(5);
+    expect(state.orders).toHaveLength(0);
+    expect(state.payments).toHaveLength(0);
+  });
+
+  it("returns conflict when conditional inventory update is preempted by another order", async () => {
+    priceOrderItemsMock.mockResolvedValue({
+      pricedItems: [
+        {
+          item: { productId: 101, skuId: 11, quantity: 2 },
+          sku: { id: 11, productId: 101, specName: "500ml", packSize: "瓶" },
+          product: { id: 101, name: "库存验证样品" },
+          unitPrice: 199,
+          lineAmount: 398,
+          matchedTier: null,
+        },
+      ],
+      subtotalAmount: 398,
+    });
+
+    const { db, state } = createFakeDb(5, "physical", { failInventoryUpdate: true });
+
+    await expect(
+      createOrder({
+        db: db as never,
+        brandId: 2,
+        userId: 88,
+        customerType: "b2c",
+        items: [{ productId: 101, skuId: 11, quantity: 2 }],
+      }),
+    ).rejects.toThrow("库存已被其他订单占用，请刷新后重试");
 
     expect(state.productSkus[0].stockQty).toBe(5);
     expect(state.orders).toHaveLength(0);

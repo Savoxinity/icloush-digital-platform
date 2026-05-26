@@ -47,6 +47,7 @@ function createFakeDb(
   },
 ) {
   const state = {
+    executedQueries: [] as unknown[],
     products: [
       {
         id: 101,
@@ -72,6 +73,10 @@ function createFakeDb(
   let nextPaymentId = 1200;
 
   const tx = {
+    async execute(query: unknown) {
+      state.executedQueries.push(query);
+      return [];
+    },
     select() {
       return {
         from(table: { brand?: string; [key: string]: unknown }) {
@@ -233,7 +238,7 @@ describe("OMS createOrder inventory guard", () => {
     expect(state.payments).toHaveLength(0);
   });
 
-  it("returns conflict when conditional inventory update is preempted by another order", async () => {
+  it("returns conflict when inventory changed during deduction", async () => {
     priceOrderItemsMock.mockResolvedValue({
       pricedItems: [
         {
@@ -263,6 +268,34 @@ describe("OMS createOrder inventory guard", () => {
     expect(state.productSkus[0].stockQty).toBe(5);
     expect(state.orders).toHaveLength(0);
     expect(state.payments).toHaveLength(0);
+  });
+
+  it("locks physical sku rows before deducting inventory when native execute is available", async () => {
+    priceOrderItemsMock.mockResolvedValue({
+      pricedItems: [
+        {
+          item: { productId: 101, skuId: 11, quantity: 1 },
+          sku: { id: 11, productId: 101, specName: "500ml", packSize: "瓶" },
+          product: { id: 101, name: "库存验证样品" },
+          unitPrice: 199,
+          lineAmount: 199,
+          matchedTier: null,
+        },
+      ],
+      subtotalAmount: 199,
+    });
+
+    const { db, state } = createFakeDb(5, "physical");
+
+    await createOrder({
+      db: db as never,
+      brandId: 2,
+      userId: 88,
+      customerType: "b2c",
+      items: [{ productId: 101, skuId: 11, quantity: 1 }],
+    });
+
+    expect(state.executedQueries).toHaveLength(1);
   });
 
   it("creates subscription orders without reserving physical inventory", async () => {

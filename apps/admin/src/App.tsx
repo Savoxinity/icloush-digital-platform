@@ -64,6 +64,39 @@ type ShopProduct = {
 
 type PlatformSiteKey = "shop" | "lab" | "tech" | "astro" | "care";
 
+export function resolveAdminActiveSiteKey(brandCode: string | null | undefined): PlatformSiteKey {
+  const code = brandCode?.trim().toLowerCase();
+  if (code === "huanxiduo" || code === "tech" || code === "icloush-tech") {
+    return "tech";
+  }
+  if (code === "astro" || code === "icloush-astro") {
+    return "astro";
+  }
+  if (code === "icloush-care" || code === "care") {
+    return "care";
+  }
+  if (code === "shop") {
+    return "shop";
+  }
+  return "lab";
+}
+
+export function resolveAdminWorkspaceContext(selectedBrand: { id: number; code?: string | null } | null) {
+  return {
+    activeBrandId: selectedBrand?.id ?? null,
+    scopedOrderBrandId: selectedBrand?.id ?? 0,
+    activeSiteKey: resolveAdminActiveSiteKey(selectedBrand?.code),
+  } as const;
+}
+
+export function getAdminContentSupportProfile(siteKey: PlatformSiteKey) {
+  return {
+    solution: siteKey === "tech",
+    caseStudy: siteKey === "tech" || siteKey === "care",
+    clientLogo: siteKey === "tech",
+  } as const;
+}
+
 type PlatformSiteSummary = {
   siteKey: PlatformSiteKey;
   title: string;
@@ -3749,27 +3782,14 @@ export function AdminContent() {
   }, [availableBrands, canUseGlobalAdminView, selectedBrandId]);
 
   const activeBrandId = selectedBrandId ?? (canUseGlobalAdminView ? null : availableBrands[0]?.id ?? null);
-  const scopedOrderBrandId = activeBrandId ?? 0;
   const selectedBrand = useMemo(
     () => availableBrands.find((brand) => brand.id === activeBrandId) ?? null,
     [activeBrandId, availableBrands],
   );
-  const activeSiteKey = useMemo<PlatformSiteKey>(() => {
-    const code = selectedBrand?.code?.trim().toLowerCase();
-    if (code === "huanxiduo" || code === "tech" || code === "icloush-tech") {
-      return "tech";
-    }
-    if (code === "astro" || code === "icloush-astro") {
-      return "astro";
-    }
-    if (code === "icloush-care" || code === "care") {
-      return "care";
-    }
-    if (code === "shop") {
-      return "shop";
-    }
-    return "lab";
-  }, [selectedBrand?.code]);
+  const workspaceContext = useMemo(() => resolveAdminWorkspaceContext(selectedBrand), [selectedBrand]);
+  const scopedOrderBrandId = workspaceContext.scopedOrderBrandId;
+  const activeSiteKey = workspaceContext.activeSiteKey;
+  const contentSupportProfile = useMemo(() => getAdminContentSupportProfile(activeSiteKey), [activeSiteKey]);
 
   const shouldLoadOrderInsights = (isOverviewSection || isOrdersSection) && Boolean(activeBrandId);
   const shouldLoadAdminOperations = canUseGlobalAdminView || Boolean(activeBrandId);
@@ -3782,6 +3802,7 @@ export function AdminContent() {
   );
 
   const adminOperations = adminOperationsQuery.data as AdminOperationsSnapshot | undefined;
+  const activeContentBrandLabel = selectedBrand?.name ?? adminOperations?.scope.brandName ?? "当前品牌";
   const productSnapshot = adminOperations?.products;
   const customerSnapshot = adminOperations?.customers;
   const contentSnapshot = adminOperations?.content;
@@ -3792,15 +3813,15 @@ export function AdminContent() {
   );
   const techSolutionModulesQuery = trpc.site.solutionModules.useQuery(
     { siteKey: activeSiteKey, limit: 6 },
-    { enabled: isContentSection && Boolean(activeBrandId) },
+    { enabled: isContentSection && Boolean(activeBrandId) && contentSupportProfile.solution },
   );
   const techCaseStudiesQuery = trpc.site.caseStudies.useQuery(
     { siteKey: activeSiteKey, limit: 6 },
-    { enabled: isContentSection && Boolean(activeBrandId) },
+    { enabled: isContentSection && Boolean(activeBrandId) && contentSupportProfile.caseStudy },
   );
   const techClientLogosQuery = trpc.site.clientLogos.useQuery(
     { siteKey: activeSiteKey, limit: 8 },
-    { enabled: isContentSection && Boolean(activeBrandId) },
+    { enabled: isContentSection && Boolean(activeBrandId) && contentSupportProfile.clientLogo },
   );
   const [labContactDraft, setLabContactDraft] = useState<LabContactDraft>({
     headline: "",
@@ -4828,14 +4849,21 @@ export function AdminContent() {
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">环洗朵科技行业解决方案</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">行业解决方案治理</p>
               <div className="mt-5 space-y-4">
                 <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-                  当前维护的是环洗朵科技官网的行业解决方案模块，保存后前台会优先展示后台内容；若数据库为空，则自动回退默认内容。
+                  {contentSupportProfile.solution
+                    ? `当前维护的是 ${activeContentBrandLabel} 站点的行业解决方案模块，保存后前台会优先展示后台内容；若数据库为空，则自动回退默认内容。`
+                    : `${activeContentBrandLabel} 当前暂未启用行业解决方案治理，建议先维护联系卡片与基础转化入口。`}
                 </div>
-                {techSolutionModulesQuery.isLoading ? (
+                {!contentSupportProfile.solution ? (
                   <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
-                    正在载入环洗朵科技行业解决方案。
+                    当前品牌暂无行业解决方案配置入口。
+                  </div>
+                ) : techSolutionModulesQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                      正在载入当前品牌的行业解决方案。
+
                   </div>
                 ) : (
                   <form
@@ -4950,7 +4978,7 @@ export function AdminContent() {
                 )}
                 {techSolutionModulesQuery.isError ? (
                   <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p>环洗朵科技行业解决方案读取失败，当前仍可编辑并重新保存。</p>
+                    <p>行业解决方案读取失败，当前仍可编辑并重新保存。</p>
                     <button
                       type="button"
                       onClick={() => techSolutionModulesQuery.refetch()}
@@ -4963,14 +4991,21 @@ export function AdminContent() {
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">环洗朵科技客户案例</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户案例治理</p>
               <div className="mt-5 space-y-4">
                 <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-                  当前维护的是环洗朵科技官网客户案例模块，支持项目标题、案例摘要、项目类型、地点与合作对象等真实字段。
+                  {contentSupportProfile.caseStudy
+                    ? `当前维护的是 ${activeContentBrandLabel} 站点的客户案例模块，支持项目标题、案例摘要、项目类型、地点与合作对象等真实字段。`
+                    : `${activeContentBrandLabel} 当前暂未启用客户案例治理，可先通过联系卡片承接转化线索。`}
                 </div>
-                {techCaseStudiesQuery.isLoading ? (
+                {!contentSupportProfile.caseStudy ? (
                   <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
-                    正在载入环洗朵科技客户案例。
+                    当前品牌暂无客户案例配置入口。
+                  </div>
+                ) : techCaseStudiesQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                      正在载入当前品牌的客户案例。
+
                   </div>
                 ) : (
                   <form
@@ -5132,7 +5167,7 @@ export function AdminContent() {
                 )}
                 {techCaseStudiesQuery.isError ? (
                   <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p>环洗朵科技客户案例读取失败，当前仍可编辑并重新保存。</p>
+                    <p>客户案例读取失败，当前仍可编辑并重新保存。</p>
                     <button
                       type="button"
                       onClick={() => techCaseStudiesQuery.refetch()}
@@ -5145,14 +5180,21 @@ export function AdminContent() {
               </div>
             </div>
             <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">环洗朵科技客户 Logo 墙</p>
+              <p className="text-sm uppercase tracking-[0.2em] text-slate-500">客户 Logo 墙治理</p>
               <div className="mt-5 space-y-4">
                 <div className="rounded-3xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-                  当前维护的是环洗朵科技官网合作品牌背书模块，支持客户名称、Logo 文案、标签语、品牌色与排序等字段。
+                  {contentSupportProfile.clientLogo
+                    ? `当前维护的是 ${activeContentBrandLabel} 站点的合作品牌背书模块，支持客户名称、Logo 文案、标签语、品牌色与排序等字段。`
+                    : `${activeContentBrandLabel} 当前暂未启用客户 Logo 墙治理，可在后续品牌背书模块上线时再接入。`}
                 </div>
-                {techClientLogosQuery.isLoading ? (
+                {!contentSupportProfile.clientLogo ? (
                   <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
-                    正在载入环洗朵科技客户 Logo 墙。
+                    当前品牌暂无客户 Logo 墙配置入口。
+                  </div>
+                ) : techClientLogosQuery.isLoading ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 p-4 text-sm leading-7 text-slate-500">
+                      正在载入当前品牌的客户 Logo 墙。
+
                   </div>
                 ) : (
                   <form
@@ -5286,7 +5328,7 @@ export function AdminContent() {
                 )}
                 {techClientLogosQuery.isError ? (
                   <div className="flex items-center justify-between rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p>环洗朵科技客户 Logo 墙读取失败，当前仍可编辑并重新保存。</p>
+                    <p>客户 Logo 墙读取失败，当前仍可编辑并重新保存。</p>
                     <button
                       type="button"
                       onClick={() => techClientLogosQuery.refetch()}

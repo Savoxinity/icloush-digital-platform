@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   bankTransferReceipts,
@@ -95,6 +95,40 @@ const latestByCreatedAt = <T extends { createdAt: Date | null }>(rows: T[]) =>
     const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
     return rightTime - leftTime;
   })[0] ?? null;
+
+async function lockInventoryRowsForUpdate(args: {
+  tx: DatabaseClient | { execute?: (query: unknown) => Promise<unknown> };
+  brandId: number;
+  skuIds: number[];
+}) {
+  const uniqueSkuIds = [...new Set(args.skuIds)].sort((left, right) => left - right);
+  if (uniqueSkuIds.length === 0) {
+    return {
+      lockMode: "skipped" as const,
+      lockedSkuIds: uniqueSkuIds,
+    };
+  }
+
+  const executableTx = args.tx as { execute?: (query: unknown) => Promise<unknown> };
+  if (typeof executableTx.execute !== "function") {
+    return {
+      lockMode: "skipped" as const,
+      lockedSkuIds: uniqueSkuIds,
+    };
+  }
+
+  await executableTx.execute(sql`
+    SELECT ${productSkus.id}
+    FROM ${productSkus}
+    WHERE ${and(eq(productSkus.brandId, args.brandId), inArray(productSkus.id, uniqueSkuIds))}
+    FOR UPDATE
+  `);
+
+  return {
+    lockMode: "for_update" as const,
+    lockedSkuIds: uniqueSkuIds,
+  };
+}
 
 export type SandboxPaymentOutcome = "successful" | "closed";
 
@@ -621,6 +655,14 @@ export async function createOrder(args: {
 
     if (orderTypeRequiresInventoryReservation(resolvedOrderType)) {
       const skuIds = [...requestedQtyBySku.keys()];
+      // 在支持原生 SQL 的 MySQL 事务里，先用 `FOR UPDATE` 锁住对应 SKU 行，
+      // 让高并发下的零售建单优先串行化到同一批库存记录；若运行环境或测试桩不支持 execute，
+      // 仍会退回到下面的条件更新 + affectedRows 校验，保持最小可用的防超卖保护。
+      await lockInventoryRowsForUpdate({
+        tx,
+        brandId: args.brandId,
+        skuIds,
+      });
       const skuRows = await tx
         .select()
         .from(productSkus)

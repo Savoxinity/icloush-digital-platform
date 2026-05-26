@@ -732,6 +732,9 @@ import {
   buildHomepageEntrySnapshots,
   buildLabContactConfigPayload,
   formatMetricValue,
+  getAdminContentSupportProfile,
+  resolveAdminActiveSiteKey,
+  resolveAdminWorkspaceContext,
   getCatalogSourceCode,
   getLabContactUpdateErrorMessage,
   getLabContactUpdateSuccessMessage,
@@ -1220,12 +1223,12 @@ describe("admin front-stage skeleton pages", () => {
     expect(html).toContain("内容工作队列");
     expect(html).toContain("补齐 LAB 样品申请页");
     expect(html).toContain("LAB 联系配置");
-    expect(html).toContain("环洗朵科技行业解决方案");
-    expect(html).toContain("保存行业解决方案");
-    expect(html).toContain("环洗朵科技客户案例");
-    expect(html).toContain("保存客户案例");
-    expect(html).toContain("环洗朵科技客户 Logo 墙");
-    expect(html).toContain("保存客户 Logo 墙");
+    expect(html).toContain("行业解决方案治理");
+    expect(html).toContain("当前品牌暂无行业解决方案配置入口。");
+    expect(html).toContain("客户案例治理");
+    expect(html).toContain("当前品牌暂无客户案例配置入口。");
+    expect(html).toContain("客户 Logo 墙治理");
+    expect(html).toContain("当前品牌暂无客户 Logo 墙配置入口。");
     expect(html).toContain("内容治理提醒");
   });
 
@@ -1631,7 +1634,57 @@ describe("responsive affordances", () => {
   });
 });
 
+describe("admin workspace brand context helpers", () => {
+  it("maps LAB TECH ASTRO brand codes to the expected site configuration scope", () => {
+    expect(resolveAdminActiveSiteKey("icloush-lab")).toBe("lab");
+    expect(resolveAdminActiveSiteKey("tech")).toBe("tech");
+    expect(resolveAdminActiveSiteKey("icloush-astro")).toBe("astro");
+  });
+
+  it("keeps product order and conversion scopes aligned for selected brands", () => {
+    expect(resolveAdminWorkspaceContext({ id: 1, code: "icloush-lab" })).toEqual({
+      activeBrandId: 1,
+      scopedOrderBrandId: 1,
+      activeSiteKey: "lab",
+    });
+    expect(resolveAdminWorkspaceContext({ id: 2, code: "tech" })).toEqual({
+      activeBrandId: 2,
+      scopedOrderBrandId: 2,
+      activeSiteKey: "tech",
+    });
+    expect(resolveAdminWorkspaceContext({ id: 4, code: "icloush-astro" })).toEqual({
+      activeBrandId: 4,
+      scopedOrderBrandId: 4,
+      activeSiteKey: "astro",
+    });
+    expect(resolveAdminWorkspaceContext(null)).toEqual({
+      activeBrandId: null,
+      scopedOrderBrandId: 0,
+      activeSiteKey: "lab",
+    });
+  });
+
+  it("exposes explicit content governance support boundaries for astro", () => {
+    expect(getAdminContentSupportProfile("tech")).toEqual({
+      solution: true,
+      caseStudy: true,
+      clientLogo: true,
+    });
+    expect(getAdminContentSupportProfile("care")).toEqual({
+      solution: false,
+      caseStudy: true,
+      clientLogo: false,
+    });
+    expect(getAdminContentSupportProfile("astro")).toEqual({
+      solution: false,
+      caseStudy: false,
+      clientLogo: false,
+    });
+  });
+});
+
 describe("lab contact config update helpers", () => {
+
   const draft = {
     headline: "为合作、研发共创与技术交流提供可执行的咨询路径",
     description: "支持经销合作、联合研发、样品打样与场景测试沟通，线索将进入统一后台进行跟进与归档。",
@@ -1647,9 +1700,19 @@ describe("lab contact config update helpers", () => {
     responseSla: "1 个工作日内答复",
   };
 
-  it("builds a lab-scoped payload for contact config updates", () => {
+  it("builds isolated site-scoped payloads for LAB TECH and ASTRO contact config updates", () => {
     expect(buildLabContactConfigPayload("lab", draft)).toEqual({
       siteKey: "lab",
+      contactScene: "business",
+      ...draft,
+    });
+    expect(buildLabContactConfigPayload("tech", draft)).toEqual({
+      siteKey: "tech",
+      contactScene: "business",
+      ...draft,
+    });
+    expect(buildLabContactConfigPayload("astro", draft)).toEqual({
+      siteKey: "astro",
       contactScene: "business",
       ...draft,
     });
@@ -1658,9 +1721,9 @@ describe("lab contact config update helpers", () => {
   it("submits the normalized payload through the provided mutation callback", () => {
     const mutate = vi.fn();
 
-    submitLabContactConfigUpdate(mutate, "lab", draft);
+    submitLabContactConfigUpdate(mutate, "astro", draft);
 
-    expect(mutate).toHaveBeenCalledWith(buildLabContactConfigPayload("lab", draft));
+    expect(mutate).toHaveBeenCalledWith(buildLabContactConfigPayload("astro", draft));
   });
 
   it("returns explicit success and failure feedback copy for lab contact updates", () => {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createPublicKey, createVerify, randomUUID } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
@@ -65,6 +65,7 @@ export type PaymentWebhookCallbackResult = {
   amount: number | null;
   responseStatus: number;
   responseBody: string;
+  requiredConfigs?: string[];
   notes: string[];
 };
 
@@ -212,7 +213,7 @@ const PAYMENT_GATEWAY_CREATE_CONFIG_REQUIREMENTS: Record<PaymentGateway, string[
 };
 
 const PAYMENT_GATEWAY_CALLBACK_CONFIG_REQUIREMENTS: Record<PaymentGateway, string[]> = {
-  wechat_pay_v3: ["WECHAT_PAY_API_V3_KEY", "WECHAT_PAY_PLATFORM_CERT_PEM"],
+  wechat_pay_v3: ["WECHAT_PAY_API_V3_KEY", "WECHAT_PAY_PLATFORM_CERT_PEM or (WECHAT_PAY_PUBLIC_KEY_PEM + WECHAT_PAY_PUBLIC_KEY_ID)"],
   alipay_openapi: ["ALIPAY_PUBLIC_KEY", "ALIPAY_SIGN_TYPE"],
 };
 
@@ -224,8 +225,20 @@ const WECHAT_GATEWAY_ENV_ALIASES: Record<string, string[]> = {
   WECHAT_PAY_CERT_SERIAL_NO: ["WECHAT_PAY_CERT_SERIAL_NO", "WECHAT_PAY_CERT_SERIAL_NO", "WECHAT_PAY_SERIAL_NO"],
   WECHAT_PAY_PRIVATE_KEY_PEM: ["WECHAT_PAY_PRIVATE_KEY_PEM", "WECHAT_PAY_PRIVATE_KEY"],
   WECHAT_PAY_API_V3_KEY: ["WECHAT_PAY_API_V3_KEY"],
-  WECHAT_PAY_PLATFORM_CERT_PEM: ["WECHAT_PAY_PLATFORM_CERT_PEM", "WECHAT_PAY_PLATFORM_CERT_PATH_OR_PUBLIC_KEY"],
+  WECHAT_PAY_PLATFORM_CERT_PEM: ["WECHAT_PAY_PLATFORM_CERT_PEM"],
+  WECHAT_PAY_PUBLIC_KEY_PEM: [
+    "WECHAT_PAY_PUBLIC_KEY_PEM",
+    "WECHAT_PAY_PLATFORM_PUBLIC_KEY_PEM",
+    "WECHAT_PAY_PLATFORM_CERT_PATH_OR_PUBLIC_KEY",
+  ],
+  WECHAT_PAY_PUBLIC_KEY_ID: ["WECHAT_PAY_PUBLIC_KEY_ID", "WECHAT_PAY_PLATFORM_PUBLIC_KEY_ID"],
 };
+
+const WECHAT_PEM_CONFIG_KEYS = new Set([
+  "WECHAT_PAY_PRIVATE_KEY_PEM",
+  "WECHAT_PAY_PLATFORM_CERT_PEM",
+  "WECHAT_PAY_PUBLIC_KEY_PEM",
+]);
 
 function normalizeRequestSnapshot(input: PaymentGatewayCreateOrderInput) {
   return {
@@ -260,12 +273,192 @@ function readEnvironmentValue(names: string[]) {
   return null;
 }
 
+function formatPemLabel(label: string) {
+  return label
+    .replace(/ENCRYPTEDPRIVATEKEY/g, "ENCRYPTED PRIVATE KEY")
+    .replace(/RSAPRIVATEKEY/g, "RSA PRIVATE KEY")
+    .replace(/ECPRIVATEKEY/g, "EC PRIVATE KEY")
+    .replace(/PRIVATEKEY/g, "PRIVATE KEY")
+    .replace(/PUBLICKEY/g, "PUBLIC KEY")
+    .replace(/CERTIFICATE/g, "CERTIFICATE");
+}
+
+export function normalizePemEnvironmentValue(value: string) {
+  const normalized = value.trim().replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+  if (normalized.includes("BEGIN ") && normalized.includes("\n")) {
+    return normalized;
+  }
+
+  const compact = normalized.replace(/\s+/g, "");
+  const match = compact.match(/^-----BEGIN([A-Z0-9]+)-----([A-Za-z0-9+/=]+)-----END([A-Z0-9]+)-----$/);
+  if (!match) {
+    return normalized;
+  }
+
+  const beginLabel = formatPemLabel(match[1]);
+  const endLabel = formatPemLabel(match[3]);
+  const body = (match[2].match(/.{1,64}/g) ?? [match[2]]).join("\n");
+  return `-----BEGIN ${beginLabel}-----\n${body}\n-----END ${endLabel}-----`;
+}
+
 function resolveWechatConfigValue(configKey: string) {
-  return readEnvironmentValue(WECHAT_GATEWAY_ENV_ALIASES[configKey] ?? [configKey]);
+  const value = readEnvironmentValue(WECHAT_GATEWAY_ENV_ALIASES[configKey] ?? [configKey]);
+  if (!value) {
+    return null;
+  }
+  return WECHAT_PEM_CONFIG_KEYS.has(configKey) ? normalizePemEnvironmentValue(value) : value;
 }
 
 function collectMissingWechatConfigs(configKeys: string[]) {
   return configKeys.filter((configKey) => !resolveWechatConfigValue(configKey));
+}
+
+function hasWechatCallbackVerificationMaterial() {
+  const hasPlatformCert = Boolean(resolveWechatConfigValue("WECHAT_PAY_PLATFORM_CERT_PEM"));
+  const hasPublicKeyPem = Boolean(resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_PEM"));
+  const hasPublicKeyId = Boolean(resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_ID"));
+
+  return {
+    hasPlatformCert,
+    hasPublicKeyPem,
+    hasPublicKeyId,
+    hasPublicKeyBundle: hasPublicKeyPem && hasPublicKeyId,
+    isReady: hasPlatformCert || (hasPublicKeyPem && hasPublicKeyId),
+  };
+}
+
+function collectMissingWechatCallbackConfigs() {
+  const missingConfigs: string[] = [];
+  const hasApiV3Key = Boolean(resolveWechatConfigValue("WECHAT_PAY_API_V3_KEY"));
+  const verificationMaterial = hasWechatCallbackVerificationMaterial();
+
+  if (!hasApiV3Key) {
+    missingConfigs.push("WECHAT_PAY_API_V3_KEY");
+  }
+
+  if (verificationMaterial.isReady) {
+    return missingConfigs;
+  }
+
+  if (!verificationMaterial.hasPlatformCert && !verificationMaterial.hasPublicKeyPem && !verificationMaterial.hasPublicKeyId) {
+    missingConfigs.push("WECHAT_PAY_PLATFORM_CERT_PEM or (WECHAT_PAY_PUBLIC_KEY_PEM + WECHAT_PAY_PUBLIC_KEY_ID)");
+    return missingConfigs;
+  }
+
+  if (!verificationMaterial.hasPlatformCert) {
+    if (!verificationMaterial.hasPublicKeyPem) {
+      missingConfigs.push("WECHAT_PAY_PUBLIC_KEY_PEM");
+    }
+    if (!verificationMaterial.hasPublicKeyId) {
+      missingConfigs.push("WECHAT_PAY_PUBLIC_KEY_ID");
+    }
+  }
+
+  return missingConfigs;
+}
+
+type WechatCallbackVerificationMaterial =
+  | {
+      mode: "platform_cert";
+      pem: string;
+      keyId: null;
+    }
+  | {
+      mode: "public_key";
+      pem: string;
+      keyId: string;
+    };
+
+type WechatSignatureVerificationResult = {
+  ok: boolean;
+  mode: WechatCallbackVerificationMaterial["mode"];
+  reason: string;
+};
+
+function readSingleHeaderValue(headers: Record<string, string | string[] | undefined>, key: string) {
+  const value = headers[key.toLowerCase()] ?? headers[key];
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function resolveWechatCallbackVerificationMode(): WechatCallbackVerificationMaterial | null {
+  const platformCertPem = resolveWechatConfigValue("WECHAT_PAY_PLATFORM_CERT_PEM");
+  if (platformCertPem) {
+    return {
+      mode: "platform_cert",
+      pem: platformCertPem,
+      keyId: null,
+    };
+  }
+
+  const publicKeyPem = resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_PEM");
+  const publicKeyId = resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_ID");
+  if (publicKeyPem && publicKeyId) {
+    return {
+      mode: "public_key",
+      pem: publicKeyPem,
+      keyId: publicKeyId,
+    };
+  }
+
+  return null;
+}
+
+function buildWechatSignatureMessage(timestamp: string, nonce: string, rawBody: string) {
+  return `${timestamp}\n${nonce}\n${rawBody}\n`;
+}
+
+export function verifyWechatCallbackSignature(input: PaymentWebhookCallbackInput): WechatSignatureVerificationResult {
+  const timestamp = readSingleHeaderValue(input.headers, "wechatpay-timestamp");
+  const nonce = readSingleHeaderValue(input.headers, "wechatpay-nonce");
+  const signature = readSingleHeaderValue(input.headers, "wechatpay-signature");
+  const serial = readSingleHeaderValue(input.headers, "wechatpay-serial");
+  const verificationMaterial = resolveWechatCallbackVerificationMode();
+
+  if (!verificationMaterial) {
+    return {
+      ok: false,
+      mode: "public_key",
+      reason: "verification_material_missing",
+    };
+  }
+
+  if (!timestamp || !nonce || !signature || !serial) {
+    return {
+      ok: false,
+      mode: verificationMaterial.mode,
+      reason: "signature_headers_missing",
+    };
+  }
+
+  if (verificationMaterial.mode === "public_key" && serial !== verificationMaterial.keyId) {
+    return {
+      ok: false,
+      mode: verificationMaterial.mode,
+      reason: "wechatpay_serial_mismatch",
+    };
+  }
+
+  try {
+    const verifier = createVerify("RSA-SHA256");
+    verifier.update(buildWechatSignatureMessage(timestamp, nonce, input.rawBody));
+    verifier.end();
+    const publicKey = createPublicKey(verificationMaterial.pem);
+    const ok = verifier.verify(publicKey, signature, "base64");
+    return {
+      ok,
+      mode: verificationMaterial.mode,
+      reason: ok ? "verified" : "signature_invalid",
+    };
+  } catch {
+    return {
+      ok: false,
+      mode: verificationMaterial.mode,
+      reason: "verification_runtime_error",
+    };
+  }
 }
 
 function resolveRuntimePaymentMode(metadata: Record<string, unknown> | null | undefined): RuntimePaymentMode {
@@ -412,7 +605,7 @@ function buildWechatGatewayOrderResult(input: PaymentGatewayCreateOrderInput): P
 function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): PaymentWebhookCallbackResult {
   const parsedBody = parseWebhookBody(input.rawBody);
   const resource = toRecord(parsedBody?.resource);
-  const missingConfigs = collectMissingWechatConfigs(PAYMENT_GATEWAY_CALLBACK_CONFIG_REQUIREMENTS.wechat_pay_v3);
+  const missingConfigs = collectMissingWechatCallbackConfigs();
   const orderNo = readStringCandidate(
     input.query?.out_trade_no,
     parsedBody?.out_trade_no,
@@ -438,10 +631,30 @@ function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): P
       providerOrderId,
       orderNo,
       amount,
+      requiredConfigs: missingConfigs,
       responseStatus: 202,
       responseBody: "callback_verification_not_ready",
       notes: [
-        "production 回调入口已生效，但当前仍缺少微信平台证书或 APIv3 Key，暂时只能受理并暴露诊断信息，不能执行正式验签与解密。",
+        "production 回调入口已生效，但当前仍缺少 APIv3 Key、微信平台证书，或缺少成对的微信支付公钥配置，暂时只能受理并暴露诊断信息，不能执行正式验签与解密。",
+        `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
+      ],
+    };
+  }
+
+  const signatureVerification = verifyWechatCallbackSignature(input);
+  if (!signatureVerification.ok) {
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "ignored",
+      verified: false,
+      eventType,
+      providerOrderId,
+      orderNo,
+      amount,
+      responseStatus: 401,
+      responseBody: "invalid_wechatpay_signature",
+      notes: [
+        `微信 callback 验签失败，当前模式：${signatureVerification.mode}，失败原因：${signatureVerification.reason}。`,
         `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
       ],
     };
@@ -449,16 +662,17 @@ function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): P
 
   return {
     gateway: "wechat_pay_v3",
-    stage: "processing",
-    verified: false,
+    stage: "verified",
+    verified: true,
     eventType,
     providerOrderId,
     orderNo,
     amount,
-    responseStatus: 202,
-    responseBody: "callback_received_pending_verification",
+    responseStatus: 200,
+    responseBody: '{"code":"SUCCESS","message":"成功"}',
     notes: [
-      "production_live 回调链路已进入正式处理分支，当前先完成原始事件受理与字段提取，后续将补上平台证书验签与 resource 解密。",
+      `已通过微信 callback 签名验证，当前模式：${signatureVerification.mode}。`,
+      "当前先完成验签入口收口，后续仍需补上 resource 解密与订单状态落库。",
       `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
     ],
   };

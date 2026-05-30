@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, brandId, name, slug, status, specs FROM products WHERE status = 'active' ORDER BY updatedAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 1ZKxnnqSSfUxbYE.cd97b0e89358 --database aZoDCL9bVdu9QfgMPCYxQJ --execute SELECT id, brandId, name, slug, status, specs FROM products WHERE status = 'active' ORDER BY updatedAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "1",
+      "brandId": "1",
+      "name": "环洗朵高浓缩洁净剂",
+      "slug": "huanxiduo-linen-01",
+      "status": "active",
+      "specs": "[{\"key\": \"适用场景\", \"value\": \"酒店布草洗护\"}, {\"key\": \"建议起订\", \"value\": \"6 桶起订\"}, {\"key\": \"__retail_payment_mode\", \"value\": \"sandbox\"}, {\"key\": \"__retail_detail_image_urls\", \"value\": \"https://cdn.example.com/hxd-linen-01-detail-1.webp\\nhttps://cdn.example.com/hxd-linen-01-detail-2.webp\"}]"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbrandId\tname\tslug\tstatus\tspecs\n1\t1\t环洗朵高浓缩洁净剂\thuanxiduo-linen-01\tactive\t[{\"key\": \"适用场景\", \"value\": \"酒店布草洗护\"}, {\"key\": \"建议起订\", \"value\": \"6 桶起订\"}, {\"key\": \"__retail_payment_mode\", \"value\": \"sandbox\"}, {\"key\": \"__retail_detail_image_urls\", \"value\": \"https://cdn.example.com/hxd-linen-01-detail-1.webp\\nhttps://cdn.example.com/hxd-linen-01-detail-2.webp\"}]\n",
+  "stderr": "",
+  "execution_time_ms": 2703
+}

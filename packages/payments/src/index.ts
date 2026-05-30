@@ -1,4 +1,5 @@
-import { createPublicKey, createVerify, randomUUID } from "node:crypto";
+import { X509Certificate, createDecipheriv, createPublicKey, createSign, createVerify, randomUUID } from "node:crypto";
+import * as https from "node:https";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
@@ -240,6 +241,12 @@ const WECHAT_PEM_CONFIG_KEYS = new Set([
   "WECHAT_PAY_PUBLIC_KEY_PEM",
 ]);
 
+let wechatHttpRequest: typeof https.request = https.request;
+
+export function setWechatHttpRequestForTest(requestImpl: typeof https.request | null) {
+  wechatHttpRequest = requestImpl ?? https.request;
+}
+
 function normalizeRequestSnapshot(input: PaymentGatewayCreateOrderInput) {
   return {
     brandId: input.brandId,
@@ -314,7 +321,8 @@ function collectMissingWechatConfigs(configKeys: string[]) {
 }
 
 function hasWechatCallbackVerificationMaterial() {
-  const hasPlatformCert = Boolean(resolveWechatConfigValue("WECHAT_PAY_PLATFORM_CERT_PEM"));
+  const platformCertPem = resolveWechatConfigValue("WECHAT_PAY_PLATFORM_CERT_PEM");
+  const hasPlatformCert = Boolean(platformCertPem && readWechatCertificateSerial(platformCertPem));
   const hasPublicKeyPem = Boolean(resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_PEM"));
   const hasPublicKeyId = Boolean(resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_ID"));
 
@@ -361,7 +369,7 @@ type WechatCallbackVerificationMaterial =
   | {
       mode: "platform_cert";
       pem: string;
-      keyId: null;
+      keyId: string;
     }
   | {
       mode: "public_key";
@@ -383,14 +391,25 @@ function readSingleHeaderValue(headers: Record<string, string | string[] | undef
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function readWechatCertificateSerial(pem: string) {
+  try {
+    return new X509Certificate(pem).serialNumber.replace(/:/g, "").toUpperCase();
+  } catch {
+    return null;
+  }
+}
+
 function resolveWechatCallbackVerificationMode(): WechatCallbackVerificationMaterial | null {
   const platformCertPem = resolveWechatConfigValue("WECHAT_PAY_PLATFORM_CERT_PEM");
   if (platformCertPem) {
-    return {
-      mode: "platform_cert",
-      pem: platformCertPem,
-      keyId: null,
-    };
+    const platformSerial = readWechatCertificateSerial(platformCertPem);
+    if (platformSerial) {
+      return {
+        mode: "platform_cert",
+        pem: platformCertPem,
+        keyId: platformSerial,
+      };
+    }
   }
 
   const publicKeyPem = resolveWechatConfigValue("WECHAT_PAY_PUBLIC_KEY_PEM");
@@ -433,7 +452,7 @@ export function verifyWechatCallbackSignature(input: PaymentWebhookCallbackInput
     };
   }
 
-  if (verificationMaterial.mode === "public_key" && serial !== verificationMaterial.keyId) {
+  if (serial !== verificationMaterial.keyId) {
     return {
       ok: false,
       mode: verificationMaterial.mode,
@@ -459,6 +478,177 @@ export function verifyWechatCallbackSignature(input: PaymentWebhookCallbackInput
       reason: "verification_runtime_error",
     };
   }
+}
+
+export function decryptWechatCallbackResource(resource: Record<string, unknown>) {
+  const apiV3Key = resolveWechatConfigValue("WECHAT_PAY_API_V3_KEY");
+  const nonce = readStringCandidate(resource.nonce);
+  const ciphertext = readStringCandidate(resource.ciphertext);
+  const associatedData = readStringCandidate(resource.associated_data) ?? "";
+
+  if (!apiV3Key) {
+    throw new Error("WECHAT_PAY_API_V3_KEY_missing");
+  }
+  if (!nonce || !ciphertext) {
+    throw new Error("wechat_callback_resource_incomplete");
+  }
+
+  const ciphertextBuffer = Buffer.from(ciphertext, "base64");
+  const authTag = ciphertextBuffer.subarray(ciphertextBuffer.length - 16);
+  const encrypted = ciphertextBuffer.subarray(0, ciphertextBuffer.length - 16);
+  const decipher = createDecipheriv("aes-256-gcm", Buffer.from(apiV3Key, "utf8"), Buffer.from(nonce, "utf8"));
+  if (associatedData) {
+    decipher.setAAD(Buffer.from(associatedData, "utf8"));
+  }
+  decipher.setAuthTag(authTag);
+  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  return toRecord(JSON.parse(decrypted));
+}
+
+function buildWechatAuthorizationHeader(args: {
+  mchid: string;
+  serialNo: string;
+  privateKeyPem: string;
+  method: string;
+  pathname: string;
+  body?: string;
+}) {
+  const nonce = randomUUID().replace(/-/g, "");
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const message = `${args.method}\n${args.pathname}\n${timestamp}\n${nonce}\n${args.body ?? ""}\n`;
+  const sign = createSign("RSA-SHA256");
+  sign.update(message);
+  sign.end();
+  const signature = sign.sign(args.privateKeyPem, "base64");
+
+  return {
+    nonce,
+    timestamp,
+    authorization: `WECHATPAY2-SHA256-RSA2048 mchid="${args.mchid}",nonce_str="${nonce}",signature="${signature}",timestamp="${timestamp}",serial_no="${args.serialNo}"`,
+  };
+}
+
+function buildWechatJsapiOrderRequest(input: PaymentGatewayCreateOrderInput) {
+  const mchid = resolveWechatConfigValue("WECHAT_PAY_MCHID");
+  const appId = resolveWechatConfigValue("WECHAT_PAY_APPID");
+  const serialNo = resolveWechatConfigValue("WECHAT_PAY_CERT_SERIAL_NO");
+  const privateKeyPem = resolveWechatConfigValue("WECHAT_PAY_PRIVATE_KEY_PEM");
+  const payerOpenId = readStringCandidate(input.payer?.openId);
+
+  if (!mchid || !appId || !serialNo || !privateKeyPem || !payerOpenId) {
+    return null;
+  }
+
+  const pathname = "/v3/pay/transactions/jsapi";
+  const body = JSON.stringify({
+    appid: appId,
+    mchid,
+    description: input.description,
+    out_trade_no: input.orderNo,
+    notify_url: input.notifyUrl,
+    amount: {
+      total: input.amount,
+      currency: input.currency,
+    },
+    payer: {
+      openid: payerOpenId,
+    },
+  });
+  const authorization = buildWechatAuthorizationHeader({
+    mchid,
+    serialNo,
+    privateKeyPem,
+    method: "POST",
+    pathname,
+    body,
+  });
+
+  return {
+    method: "POST" as const,
+    pathname,
+    body,
+    headers: {
+      Accept: "application/json",
+      Authorization: authorization.authorization,
+      "Content-Type": "application/json",
+      "User-Agent": "iCloush-WechatPay/1.0",
+      "Wechatpay-Serial": serialNo,
+      "X-Request-Nonce": authorization.nonce,
+      "X-Request-Timestamp": authorization.timestamp,
+    },
+  };
+}
+
+function buildWechatJsapiClientPayload(prepayId: string) {
+  const appId = resolveWechatConfigValue("WECHAT_PAY_APPID");
+  const mchId = resolveWechatConfigValue("WECHAT_PAY_MCHID");
+  const privateKeyPem = resolveWechatConfigValue("WECHAT_PAY_PRIVATE_KEY_PEM");
+
+  if (!appId || !mchId || !privateKeyPem) {
+    return null;
+  }
+
+  const timeStamp = Math.floor(Date.now() / 1000).toString();
+  const nonceStr = randomUUID().replace(/-/g, "");
+  const packageValue = `prepay_id=${prepayId}`;
+  const sign = createSign("RSA-SHA256");
+  sign.update(`${appId}\n${timeStamp}\n${nonceStr}\n${packageValue}\n`);
+  sign.end();
+
+  return {
+    appId,
+    mchId,
+    timeStamp,
+    nonceStr,
+    package: packageValue,
+    signType: "RSA",
+    paySign: sign.sign(privateKeyPem, "base64"),
+    prepayId,
+  };
+}
+
+async function sendWechatJsonRequest(args: {
+  method: "POST";
+  pathname: string;
+  headers: Record<string, string>;
+  body: string;
+}) {
+  return await new Promise<{
+    status: number;
+    body: string;
+    json: Record<string, unknown> | null;
+  }>((resolve, reject) => {
+    const req = wechatHttpRequest(
+      {
+        protocol: "https:",
+        hostname: "api.mch.weixin.qq.com",
+        method: args.method,
+        path: args.pathname,
+        headers: {
+          ...args.headers,
+          "Content-Length": Buffer.byteLength(args.body).toString(),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        res.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf8");
+          resolve({
+            status: res.statusCode ?? 0,
+            body,
+            json: parseWebhookBody(body),
+          });
+        });
+      },
+    );
+
+    req.on("error", (error) => reject(error));
+    req.write(args.body);
+    req.end();
+  });
 }
 
 function resolveRuntimePaymentMode(metadata: Record<string, unknown> | null | undefined): RuntimePaymentMode {
@@ -547,7 +737,7 @@ function buildPendingGatewayCallbackResult(input: PaymentWebhookCallbackInput): 
   };
 }
 
-function buildWechatGatewayOrderResult(input: PaymentGatewayCreateOrderInput): PaymentGatewayCreateOrderResult {
+async function buildWechatGatewayOrderResult(input: PaymentGatewayCreateOrderInput): Promise<PaymentGatewayCreateOrderResult> {
   const mode = resolveRuntimePaymentMode(input.metadata);
   if (mode === "sandbox") {
     return buildPendingGatewayOrderResult(input);
@@ -568,61 +758,137 @@ function buildWechatGatewayOrderResult(input: PaymentGatewayCreateOrderInput): P
         integration: "wechat_pay_v3_preflight",
         notifyUrl: input.notifyUrl,
         returnUrl: input.returnUrl ?? null,
+        missingPayerOpenId: !hasOpenId,
       },
       requiredConfigs,
       requestSnapshot,
       notes: [
         mode === "production_ready"
           ? "当前商品处于 production_ready，链路已切到正式支付预备分支，但不会真正调用微信网关创建交易。"
-          : "当前商品处于 production_live，但正式微信建单所需配置或 openId 仍不完整，因此回退到可诊断的 ready_for_sdk 阶段。",
-        "此返回不再是统一占位分支，已明确区分生产预备与正式开关，并输出缺失配置清单。",
+          : !hasOpenId
+            ? "当前商品已处于 production_live，服务端正式 JSAPI 建单能力已就绪，但缺少 payerOpenId，因此不会向微信网关发起真实建单。"
+            : "当前商品处于 production_live，但正式微信建单所需配置仍不完整，因此回退到可诊断的 ready_for_sdk 阶段。",
+        "此返回已显式区分缺失配置与缺少 payerOpenId 两类阻塞，便于后续联调直接补齐真实付款人标识。",
       ],
     };
   }
 
-  return {
-    gateway: "wechat_pay_v3",
-    stage: "processing",
-    providerOrderId: `wechat-live-intent:${input.orderNo}`,
-    clientPayload: {
-      mode,
-      integration: "wechat_pay_v3_live_preactivation",
-      appId: resolveWechatConfigValue("WECHAT_PAY_APPID"),
-      mchId: resolveWechatConfigValue("WECHAT_PAY_MCHID"),
-      orderNo: input.orderNo,
-      notifyUrl: input.notifyUrl,
-      returnUrl: input.returnUrl ?? null,
-    },
-    requiredConfigs: [],
-    requestSnapshot,
-    notes: [
-      "production_live 已切入正式支付创建分支，并输出供后续真实 JSAPI 下单替换的服务端壳层结果。",
-      "下一步只需把此分支替换为真实微信支付 SDK/API 请求，即可完成正式接入。",
-    ],
-  };
+  const request = buildWechatJsapiOrderRequest(input);
+  if (!request) {
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "ready_for_sdk",
+      providerOrderId: null,
+      clientPayload: {
+        mode,
+        integration: "wechat_pay_v3_preflight",
+        notifyUrl: input.notifyUrl,
+        returnUrl: input.returnUrl ?? null,
+        missingPayerOpenId: !hasOpenId,
+      },
+      requiredConfigs: [...missingConfigs, ...(hasOpenId ? [] : ["WECHAT_PAYER_OPENID"])],
+      requestSnapshot,
+      notes: ["当前已进入 production_live，但建单请求在服务端组装阶段失败，通常意味着商户配置或 payerOpenId 仍未满足微信 JSAPI 要求。"],
+    };
+  }
+
+  try {
+    const response = await sendWechatJsonRequest(request);
+    const prepayId = readStringCandidate(response.json?.prepay_id);
+    if (response.status >= 200 && response.status < 300 && prepayId) {
+      const clientPayload = buildWechatJsapiClientPayload(prepayId);
+      if (!clientPayload) {
+        return {
+          gateway: "wechat_pay_v3",
+          stage: "ready_for_sdk",
+          providerOrderId: null,
+          clientPayload: {
+            mode,
+            integration: "wechat_pay_v3_live_error",
+            httpStatus: response.status,
+            prepayId,
+          },
+          requiredConfigs: PAYMENT_GATEWAY_CREATE_CONFIG_REQUIREMENTS.wechat_pay_v3,
+          requestSnapshot,
+          notes: ["微信已成功返回 prepay_id，但服务端无法生成前端调起签名参数，需检查商户私钥或 AppID 读取是否一致。"],
+        };
+      }
+
+      return {
+        gateway: "wechat_pay_v3",
+        stage: "processing",
+        providerOrderId: prepayId,
+        clientPayload: {
+          mode,
+          integration: "wechat_pay_v3_live",
+          orderNo: input.orderNo,
+          notifyUrl: input.notifyUrl,
+          returnUrl: input.returnUrl ?? null,
+          ...clientPayload,
+        },
+        requiredConfigs: [],
+        requestSnapshot,
+        notes: [
+          "production_live 已成功调用微信 `/v3/pay/transactions/jsapi` 并拿到 prepay_id。",
+          "当前返回已包含前端可直接调起支付所需的二次签名参数。",
+        ],
+      };
+    }
+
+    const errorCode = readStringCandidate(response.json?.code, response.json?.err_code);
+    const errorMessage = readStringCandidate(response.json?.message, response.json?.err_code_des, response.body);
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "ready_for_sdk",
+      providerOrderId: null,
+      clientPayload: {
+        mode,
+        integration: "wechat_pay_v3_live_error",
+        httpStatus: response.status,
+        errorCode: errorCode ?? null,
+        errorMessage: errorMessage ?? null,
+      },
+      requiredConfigs: [],
+      requestSnapshot,
+      notes: [
+        `微信 JSAPI 正式建单已发起，但上游返回 ${response.status}${errorCode ? ` / ${errorCode}` : ""}。`,
+        errorMessage ? `上游消息：${errorMessage}` : "上游未返回可读错误消息。",
+      ],
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "ready_for_sdk",
+      providerOrderId: null,
+      clientPayload: {
+        mode,
+        integration: "wechat_pay_v3_live_network_error",
+        errorMessage: message,
+      },
+      requiredConfigs: [],
+      requestSnapshot,
+      notes: [
+        "微信 JSAPI 正式建单请求在网络层失败，服务端已保留可诊断结果，便于继续区分 TLS、网关策略或参数问题。",
+        `网络层错误：${message}`,
+      ],
+    };
+  }
 }
 
 function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): PaymentWebhookCallbackResult {
   const parsedBody = parseWebhookBody(input.rawBody);
   const resource = toRecord(parsedBody?.resource);
   const missingConfigs = collectMissingWechatCallbackConfigs();
-  const orderNo = readStringCandidate(
-    input.query?.out_trade_no,
-    parsedBody?.out_trade_no,
-    parsedBody?.orderNo,
-    resource?.out_trade_no,
-    resource?.orderNo,
-  );
-  const providerOrderId = readStringCandidate(parsedBody?.transaction_id, parsedBody?.providerOrderId, resource?.transaction_id);
+  let decryptedResource: Record<string, unknown> | null = null;
+  let decryptionFailureReason: string | null = null;
   const eventType = readStringCandidate(parsedBody?.event_type, parsedBody?.eventType, parsedBody?.type);
-  const amount = readNumberCandidate(
-    toRecord(parsedBody?.amount)?.total,
-    parsedBody?.amount,
-    toRecord(resource?.amount)?.total,
-    resource?.amount,
-  );
 
   if (missingConfigs.length > 0) {
+    const orderNo = readStringCandidate(input.query?.out_trade_no, parsedBody?.out_trade_no, parsedBody?.orderNo, resource?.out_trade_no, resource?.orderNo);
+    const providerOrderId = readStringCandidate(parsedBody?.transaction_id, parsedBody?.providerOrderId, resource?.transaction_id);
+    const amount = readNumberCandidate(toRecord(parsedBody?.amount)?.total, parsedBody?.amount, toRecord(resource?.amount)?.total, resource?.amount);
+
     return {
       gateway: "wechat_pay_v3",
       stage: "ready_for_sdk",
@@ -643,6 +909,10 @@ function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): P
 
   const signatureVerification = verifyWechatCallbackSignature(input);
   if (!signatureVerification.ok) {
+    const orderNo = readStringCandidate(input.query?.out_trade_no, parsedBody?.out_trade_no, parsedBody?.orderNo, resource?.out_trade_no, resource?.orderNo);
+    const providerOrderId = readStringCandidate(parsedBody?.transaction_id, parsedBody?.providerOrderId, resource?.transaction_id);
+    const amount = readNumberCandidate(toRecord(parsedBody?.amount)?.total, parsedBody?.amount, toRecord(resource?.amount)?.total, resource?.amount);
+
     return {
       gateway: "wechat_pay_v3",
       stage: "ignored",
@@ -660,6 +930,57 @@ function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): P
     };
   }
 
+  if (resource) {
+    try {
+      decryptedResource = decryptWechatCallbackResource(resource);
+    } catch (error) {
+      decryptionFailureReason = error instanceof Error ? error.message : "wechat_callback_resource_decrypt_failed";
+    }
+  }
+
+  const orderNo = readStringCandidate(
+    input.query?.out_trade_no,
+    parsedBody?.out_trade_no,
+    parsedBody?.orderNo,
+    decryptedResource?.out_trade_no,
+    decryptedResource?.orderNo,
+    resource?.out_trade_no,
+    resource?.orderNo,
+  );
+  const providerOrderId = readStringCandidate(
+    parsedBody?.transaction_id,
+    parsedBody?.providerOrderId,
+    decryptedResource?.transaction_id,
+    resource?.transaction_id,
+  );
+  const amount = readNumberCandidate(
+    toRecord(parsedBody?.amount)?.total,
+    parsedBody?.amount,
+    toRecord(decryptedResource?.amount)?.total,
+    decryptedResource?.amount,
+    toRecord(resource?.amount)?.total,
+    resource?.amount,
+  );
+
+  if (resource && !decryptedResource) {
+    return {
+      gateway: "wechat_pay_v3",
+      stage: "processing",
+      verified: true,
+      eventType,
+      providerOrderId,
+      orderNo,
+      amount,
+      responseStatus: 202,
+      responseBody: "callback_verified_but_resource_decrypt_pending",
+      notes: [
+        `已通过微信 callback 签名验证，但 resource 解密失败：${decryptionFailureReason ?? "unknown"}。`,
+        "这通常意味着 APIv3 Key 不匹配、resource 字段不完整，或当前回调并非加密资源体。",
+        `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
+      ],
+    };
+  }
+
   return {
     gateway: "wechat_pay_v3",
     stage: "verified",
@@ -672,7 +993,7 @@ function buildWechatGatewayCallbackResult(input: PaymentWebhookCallbackInput): P
     responseBody: '{"code":"SUCCESS","message":"成功"}',
     notes: [
       `已通过微信 callback 签名验证，当前模式：${signatureVerification.mode}。`,
-      "当前先完成验签入口收口，后续仍需补上 resource 解密与订单状态落库。",
+      decryptedResource ? "已完成 resource 解密并提取交易字段，下一步可直接接入订单状态落库。" : "当前回调未包含可解密的 resource 体，但验签入口已经就绪。",
       `回调快照：${JSON.stringify(normalizeCallbackSnapshot(input))}`,
     ],
   };

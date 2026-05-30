@@ -134,6 +134,7 @@ const retailCreateOrderSchema = z.object({
   note: z.string().trim().max(500).nullish(),
   origin: z.string().url().nullish(),
   returnUrl: z.string().url().nullish(),
+  payerOpenId: z.string().trim().min(1).max(128).nullish(),
 });
 const retailOrderStatusSchema = z
   .object({
@@ -535,6 +536,7 @@ const retailRouter = router({
               description: paymentDescription,
               notifyUrl: buildRetailNotifyUrl(input.origin, input.gateway),
               returnUrl: input.returnUrl ?? null,
+              payer: input.payerOpenId ? { openId: input.payerOpenId } : undefined,
               metadata: {
                 paymentId: created.payment.id,
                 userId: ctx.user.id,

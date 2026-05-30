@@ -266,7 +266,7 @@
 - [x] 支付通道模式预留第一版：在 admin / PDP 中加入 sandbox、production_ready、production_live 三态元数据与提示
 - [x] 支付通道真实开关准备：让 production_ready / production_live 真正影响支付创建、状态查询与回调链路，并补充服务端测试证明不是占位分支
 - [ ] 微信支付正式接入：仅推进微信支付 production_live 链路，支付宝接入暂缓至后续凭据齐备后再启动
-- [ ] 微信支付公钥模式适配：引入 `WECHAT_PAY_PUBLIC_KEY_PEM` / `WECHAT_PAY_PUBLIC_KEY_ID`，并让支付验签支持平台证书与公钥双模兼容，适配当前商户“无可用平台证书”的正式链路
+- [x] 微信支付公钥模式适配：引入 `WECHAT_PAY_PUBLIC_KEY_PEM` / `WECHAT_PAY_PUBLIC_KEY_ID`，并让支付验签支持平台证书与公钥双模兼容，适配当前商户“无可用平台证书”的正式链路
 - [x] 微信支付阻塞诊断：定位 `WECHAT_PAY_PRIVATE_KEY_PEM` 在运行环境中的解析失败原因，区分是 PEM 格式、加密口令、换行转义还是 Node/OpenSSL 兼容问题
 - [x] 补充微信商户私钥诊断脚本/测试：在运行环境中验证 `WECHAT_PAY_PRIVATE_KEY_PEM` 是否可被 Node 成功解析、是否需要口令、规范化换行后是否发生变化，并输出明确结论
 - [x] 补充商户证书-私钥配对校验：用运行环境中的私钥推导公钥/指纹并与当前 `WECHAT_PAY_CERT_SERIAL_NO` 对应证书核对，确认是否为密钥与证书序列号不匹配
@@ -309,3 +309,6 @@
 - [x] 多品牌运营上下文补测：补充 ASTRO 对应的转化配置支持范围或显式空态/错误态验证，避免品牌切换后出现伪联通
 - [x] 微信支付公钥 secret 注入校验：已确认 `WECHAT_PAY_PUBLIC_KEY_PEM` / `WECHAT_PAY_PUBLIC_KEY_ID` 可写入环境，并通过 PEM 归一化后被运行时正确识别
 - [x] 微信 callback 公钥模式验签入口基础：已接入 `wechatpay-*` 头读取、签名消息拼装、公钥/平台证书双模验签入口，并补齐回归测试
+- [x] 微信 JSAPI 正式建单服务端接入：在 `production_live` 下补齐真实 `/v3/pay/transactions/jsapi` 请求、签名头构造、响应解析与 clientPayload 映射
+- [x] 微信 production_live 缺少 `payerOpenId` 的服务端诊断：在无真实 payer 时返回明确的缺参状态、下一步指引与可联调上下文，避免误判为网关故障
+- [x] 为微信 JSAPI 正式建单与缺少 `payerOpenId` 分支补充回归测试，并验证不破坏现有公钥/平台证书双模 callback 能力

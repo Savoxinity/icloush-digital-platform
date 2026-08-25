@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  AllocationPage,
   ArchivePage,
   BINGZHU_ARCHIVE,
   BingzhuHeroPage,
@@ -69,6 +70,16 @@ describe("BINGZHU 国际化策展前台", () => {
     expect(html).toContain("瓶身画纸 / BODY");
     expect(html).toContain("底座 / BASE");
     expect(html).toContain("BUILD CUSTOM SKU");
+  });
+
+  it("在预制款配额页明确显示 Sandbox 收口与规格选择", () => {
+    setLocation("/zh-cn/allocation/tanchuang");
+    const html = renderToStaticMarkup(<AllocationPage />);
+    expect(html).toContain("ALLOCATION DESK / SANDBOX MODE / CNY");
+    expect(html).toContain("15ml");
+    expect(html).toContain("50ml");
+    expect(html).toContain("REQUEST IN SANDBOX");
+    expect(html).toContain("NO LIVE CHARGE");
   });
 
   it("在未知 slug 时安全回退到首个香气档案", () => {

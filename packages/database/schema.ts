@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  index,
   int,
   json,
   mysqlEnum,
@@ -96,6 +97,7 @@ export const products = mysqlTable(
     description: text("description"),
     unit: varchar("unit", { length: 64 }),
     price: bigint("price", { mode: "number", unsigned: true }),
+    priceUsd: bigint("price_usd", { mode: "number", unsigned: true }),
     imageUrl: text("image_url"),
     specs: json("specs"),
     status: mysqlEnum("status", ["draft", "active", "inactive", "archived"]).notNull().default("draft"),
@@ -110,6 +112,28 @@ export const products = mysqlTable(
   }),
 );
 
+export const productComponents = mysqlTable(
+  "product_components",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    brandId: int("brandId").notNull(),
+    type: mysqlEnum("type", ["HEAD", "BODY_WRAP", "BASE"]).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    material: varchar("material", { length: 255 }),
+    extraPrice: bigint("extraPrice", { mode: "number", unsigned: true }).notNull().default(0),
+    extraPriceUsd: bigint("extra_price_usd", { mode: "number", unsigned: true }),
+    imageUrl: text("image_url"),
+    specs: json("specs"),
+    status: mysqlEnum("status", ["active", "inactive", "archived"]).notNull().default("active"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => ({
+    brandTypeNameUnique: uniqueIndex("product_components_brand_type_name_unique").on(table.brandId, table.type, table.name),
+    brandTypeStatusIndex: index("product_components_brand_type_status_index").on(table.brandId, table.type, table.status),
+  }),
+);
+
 export const productSkus = mysqlTable(
   "productSkus",
   {
@@ -120,6 +144,7 @@ export const productSkus = mysqlTable(
     specName: varchar("specName", { length: 255 }),
     packSize: varchar("packSize", { length: 100 }),
     basePrice: bigint("basePrice", { mode: "number", unsigned: true }).notNull(),
+    priceUsd: bigint("price_usd", { mode: "number", unsigned: true }),
     marketPrice: bigint("marketPrice", { mode: "number", unsigned: true }),
     stockQty: int("stockQty").notNull().default(0),
     minOrderQty: int("minOrderQty").notNull().default(1),
@@ -188,12 +213,13 @@ export const orders = mysqlTable("orders", {
   status: mysqlEnum("status", ["pending_payment", "paid", "under_review", "processing", "shipped", "completed", "cancelled", "closed"]).notNull().default("pending_payment"),
   paymentStatus: mysqlEnum("paymentStatus", ["unpaid", "paid", "part_paid", "offline_review", "refunded"]).notNull().default("unpaid"),
   fulfillmentStatus: mysqlEnum("fulfillmentStatus", ["unfulfilled", "processing", "partial_shipped", "shipped", "delivered"]).notNull().default("unfulfilled"),
-  currency: varchar("currency", { length: 16 }).notNull().default("CNY"),
+  currency: mysqlEnum("currency", ["CNY", "USD"]).notNull().default("CNY"),
   subtotalAmount: bigint("subtotalAmount", { mode: "number", unsigned: true }).notNull(),
   discountAmount: bigint("discountAmount", { mode: "number", unsigned: true }).notNull().default(0),
   shippingAmount: bigint("shippingAmount", { mode: "number", unsigned: true }).notNull().default(0),
   payableAmount: bigint("payableAmount", { mode: "number", unsigned: true }).notNull(),
   note: text("note"),
+  logisticsJson: json("logisticsJson"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -206,6 +232,7 @@ export const orderItems = mysqlTable("orderItems", {
   skuId: int("skuId").notNull(),
   productName: varchar("productName", { length: 255 }).notNull(),
   skuLabel: varchar("skuLabel", { length: 255 }),
+  customizationJson: json("customizationJson"),
   unitPrice: bigint("unitPrice", { mode: "number", unsigned: true }).notNull(),
   quantity: int("quantity").notNull(),
   lineAmount: bigint("lineAmount", { mode: "number", unsigned: true }).notNull(),

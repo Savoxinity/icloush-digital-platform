@@ -174,6 +174,13 @@ a { color: inherit; text-decoration: none; }
 .bz-volume-selector button:last-child { border-right: 0; }
 .bz-volume-selector button.is-selected { background: var(--vermilion); color: var(--moon); }
 .bz-sandbox-notice { padding: 13px; border-left: 1px solid var(--vermilion); color: var(--gold); font-family: var(--mono); font-size: 10px; letter-spacing: .11em; }
+.bz-logistics-panel { display: grid; gap: 0; border: 1px solid var(--line); color: var(--ash); font-family: var(--mono); font-size: 10px; letter-spacing: .08em; }
+.bz-logistics-panel > span { padding: 11px 13px; border-bottom: 1px solid var(--line); color: var(--gold); }
+.bz-logistics-panel select, .bz-logistics-panel input { min-width: 0; min-height: 44px; padding: 0 13px; border: 0; border-bottom: 1px solid var(--line-soft); border-radius: 0; outline: 0; background: transparent; color: var(--moon); font: inherit; letter-spacing: .04em; }
+.bz-logistics-panel input { border-bottom: 0; }
+.bz-logistics-panel select:focus, .bz-logistics-panel input:focus { background: rgba(201,162,39,.06); box-shadow: inset 2px 0 0 var(--vermilion); }
+.bz-logistics-panel option { background: var(--lacquer); color: var(--moon); }
+.bz-request-status { margin: 0; color: var(--gold); line-height: 1.6; }
 .bz-request-button { align-self: start; background: transparent; }
 
 .bz-builder-shell { display: grid; min-height: calc(100vh - 78px); grid-template-columns: minmax(260px, .62fr) minmax(340px, 1fr) minmax(280px, .72fr); }

@@ -7,6 +7,7 @@ import {
   orderItems,
   orders,
   payments,
+  productComponents,
   productCategories,
   products,
   productSkus,
@@ -18,6 +19,7 @@ export const brandsRelations = relations(brands, ({ many }) => ({
   memberships: many(brandMemberships),
   categories: many(productCategories),
   products: many(products),
+  productComponents: many(productComponents),
   skus: many(productSkus),
   orders: many(orders),
   payments: many(payments),
@@ -60,6 +62,13 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   }),
   skus: many(productSkus),
   orderItems: many(orderItems),
+}));
+
+export const productComponentsRelations = relations(productComponents, ({ one }) => ({
+  brand: one(brands, {
+    fields: [productComponents.brandId],
+    references: [brands.id],
+  }),
 }));
 
 export const productSkusRelations = relations(productSkus, ({ one, many }) => ({

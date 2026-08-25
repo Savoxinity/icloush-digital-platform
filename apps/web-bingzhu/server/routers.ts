@@ -16,6 +16,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import {
   getAdminOperationsSnapshot,
+  getBingzhuCatalog,
   getDb,
   getManagedProductDetail,
   getPlatformSnapshot,
@@ -106,6 +107,10 @@ const adminOperationsSchema = z.object({
 const managedProductSeriesSchema = z.enum(["AP", "FC"]);
 const managedProductStatusSchema = z.enum(["draft", "active", "archived"]);
 const retailGatewaySchema = z.enum(["wechat_pay_v3", "alipay_openapi"]);
+const retailCurrencySchema = z.enum(["CNY", "USD"]);
+const customSkuComponentSchema = z.object({
+  componentId: z.number().int().positive(),
+});
 const managedProductListSchema = z.object({
   brandId: z.number().int().positive().optional(),
   series: z.union([managedProductSeriesSchema, z.literal("all")]).optional(),
@@ -132,6 +137,15 @@ const retailCreateOrderSchema = z.object({
   items: z.array(retailOrderItemSchema).min(1).max(20),
   gateway: retailGatewaySchema.default("wechat_pay_v3"),
   note: z.string().trim().max(500).nullish(),
+  currency: retailCurrencySchema.default("CNY"),
+  customization: z.object({
+    components: z.array(customSkuComponentSchema).min(3).max(3),
+  }).nullish(),
+  logistics: z.object({
+    fulfillmentMethod: z.enum(["ground_delivery", "instant_pickup"]).default("ground_delivery"),
+    recipientRegion: z.string().trim().max(255).nullish(),
+    addressLine: z.string().trim().max(500).nullish(),
+  }).nullish(),
   origin: z.string().url().nullish(),
   returnUrl: z.string().url().nullish(),
   payerOpenId: z.string().trim().min(1).max(128).nullish(),
@@ -487,6 +501,9 @@ const retailRouter = router({
       userId: ctx.user.id,
       customerType: "b2c",
       note: retailProfile.note,
+      currency: input.currency,
+      customization: input.customization ?? null,
+      logistics: input.logistics ?? null,
       items: input.items,
       payment: {
         provider: mapRetailGatewayToProvider(input.gateway),
@@ -554,6 +571,7 @@ const retailRouter = router({
       items: created.items,
       payment: created.payment,
       paymentMode: retailProfile.paymentMode,
+      logisticsCompliance: created.logisticsCompliance,
       gateway,
       paymentPolling: {
         orderId: created.order.id,
@@ -629,6 +647,9 @@ const retailRouter = router({
 
 export const appRouter = router({
   system: systemRouter,
+  bingzhu: router({
+    catalog: publicProcedure.query(async () => getBingzhuCatalog()),
+  }),
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

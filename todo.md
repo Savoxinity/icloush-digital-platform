@@ -325,8 +325,10 @@
 - [x] 实现国际化守门员 `/`：提供 Asia/CNY 与 Global/USD 分流，并由 locale context 锁定语言、币种与后续路由前缀
 - [x] 实现 `/:locale/home` 首屏神殿：暗光触觉媒体、极简菜单/Logo/BAG 导航和品牌主张
 - [x] 实现 `/:locale/shop` 名录式香水档案馆：纯文本纵向 SKU 名录与 Hover/Touch 视觉显影交互，禁止传统电商网格布局
-- [ ] 实现预制款 PDP 与 `[ REQUEST ALLOCATION ]` 漏斗，复用 payments 服务端能力并为 15ml / 50ml 设定清晰的沙盒演示路径
-- [ ] 实现 Lantern DIY Builder：按 HEAD、BODY_WRAP、BASE 分步组合、蓝图式线稿界面与自定义 SKU 下单承接
-- [ ] 扩展 `packages/database/schema.ts`：新增 `product_components`，为 products 增加 `price_usd`，为 orders 增加 CNY/USD 双币种数据模型并完成迁移
-- [ ] 在 OMS 中增加 UN1266 易燃液体物流过滤：针对航空禁运区或即时自提输出合规仓调度/危化品陆运专属提示
-- [ ] 为秉烛路由、双币种、组件组装、支付请求与物流合规补齐 Vitest 回归、视觉核验、版本说明和检查点
+- [x] 实现预制款 PDP 与 `[ REQUEST ALLOCATION ]` 漏斗，复用 payments 服务端能力并为 15ml / 50ml 设定清晰的沙盒演示路径
+- [x] 实现 Lantern DIY Builder：按 HEAD、BODY_WRAP、BASE 分步组合、蓝图式线稿界面与自定义 SKU 下单承接
+- [x] 预制款转化漏斗界面首版：完成单品档案、15ml/50ml 配额选择、Sandbox 明示与申请动作界面，并补齐前端回归
+- [x] Lantern DIY Builder 界面首版：完成 HEAD / BODY_WRAP / BASE 三段组合、蓝图线稿与自定义 SKU 表达，并补齐前端回归
+- [x] 扩展 `packages/database/schema.ts`：新增 `product_components`，为 products 增加 `price_usd`，为 orders 增加 CNY/USD 双币种数据模型并完成迁移
+- [x] 在 OMS 中增加 UN1266 易燃液体物流过滤：针对航空禁运区或即时自提输出合规仓调度/危化品陆运专属提示
+- [x] 为秉烛路由、双币种、组件组装、支付请求与物流合规补齐 Vitest 回归、视觉核验、版本说明和检查点

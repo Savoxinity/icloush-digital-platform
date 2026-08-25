@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, Redirect, Route, Switch, useLocation } from "wouter";
+import { trpc } from "./lib/trpc";
 
 export type BingzhuLocale = "zh-cn" | "en-us";
 
@@ -376,6 +377,96 @@ export function AllocationPage() {
   );
 }
 
+function formatMinorCurrency(amount: number, currency: "CNY" | "USD") {
+  return new Intl.NumberFormat(currency === "USD" ? "en-US" : "zh-CN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount / 100);
+}
+
+function ConnectedAllocationPage() {
+  const profile = useLocaleRuntime();
+  const [pathname] = useLocation();
+  const slug = pathname.split("/").at(-1) ?? "";
+  const catalog = trpc.bingzhu.catalog.useQuery();
+  const createOrder = trpc.retail.createRetailOrder.useMutation();
+  const [selectedSkuId, setSelectedSkuId] = useState<number | null>(null);
+  const [resultText, setResultText] = useState<string | null>(null);
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"ground_delivery" | "instant_pickup">("ground_delivery");
+  const [recipientRegion, setRecipientRegion] = useState("");
+  const prefix = `/${profile.locale}`;
+  const brandId = catalog.data?.brandId ?? null;
+  const product = catalog.data?.products.find((item) => item.slug === slug) ?? null;
+  const selectableSkus = product?.skus.filter((sku) => profile.currency === "CNY" || sku.priceUsd !== null) ?? [];
+  const selectedSku = selectableSkus.find((sku) => sku.id === selectedSkuId) ?? selectableSkus[0] ?? null;
+
+  useEffect(() => {
+    setSelectedSkuId(selectableSkus[0]?.id ?? null);
+    setResultText(null);
+  }, [profile.currency, product?.id]);
+
+  if (!product || !brandId) {
+    return <AllocationPage />;
+  }
+
+  const amount = selectedSku ? (profile.currency === "USD" ? selectedSku.priceUsd : selectedSku.basePriceCny) : null;
+  const requestAllocation = () => {
+    if (!selectedSku || amount === null) return;
+    createOrder.mutate(
+      {
+        brandId,
+        items: [{ productId: product.id, skuId: selectedSku.id, quantity: 1 }],
+        gateway: "wechat_pay_v3",
+        currency: profile.currency,
+        logistics: { fulfillmentMethod, recipientRegion: recipientRegion || null },
+        origin: window.location.origin,
+      },
+      {
+        onSuccess: (response) => setResultText(`SANDBOX ORDER ${response.order.orderNo} / ${response.gateway.stage.toUpperCase()} / ${response.logisticsCompliance.dispatchMode.toUpperCase()}`),
+        onError: (error) => setResultText(error.message || "SANDBOX REQUEST FAILED"),
+      },
+    );
+  };
+
+  return (
+    <main className="bz-page bz-allocation-page">
+      <BingzhuNavigation />
+      <section className="bz-allocation-shell">
+        <div className="bz-allocation-heading">
+          <p className="bz-microcopy">ALLOCATION DESK / SANDBOX MODE / {profile.currency}</p>
+          <h1>为一件香气<br />留出位置。</h1>
+          <p>此入口经由秉烛品牌作用域、OMS 和 payments 沙盒主线创建演示订单，不会触发真实扣款。</p>
+        </div>
+        <div className="bz-allocation-summary">
+          <div className="bz-allocation-record"><span>OBJECT</span><b>{product.code} / {product.name}</b></div>
+          <div className="bz-volume-selector" aria-label="选择规格">
+            {selectableSkus.map((sku) => (
+              <button type="button" key={sku.id} onClick={() => setSelectedSkuId(sku.id)} className={selectedSku?.id === sku.id ? "is-selected" : ""} aria-pressed={selectedSku?.id === sku.id}>{sku.packSize ?? sku.specName ?? sku.skuCode}</button>
+            ))}
+          </div>
+          <div className="bz-allocation-record"><span>ALLOCATION</span><b>{amount === null ? "UNAVAILABLE" : formatMinorCurrency(amount, profile.currency)}</b></div>
+          <div className="bz-sandbox-notice">SANDBOX / REQUEST CAPTURE ONLY / NO LIVE CHARGE</div>
+          <label className="bz-logistics-panel">
+            <span>UN1266 / DELIVERY ROUTING</span>
+            <select value={fulfillmentMethod} onChange={(event) => setFulfillmentMethod(event.target.value as "ground_delivery" | "instant_pickup")}>
+              <option value="ground_delivery">合规地面配送 / GROUND</option>
+              <option value="instant_pickup">即时自提 / COMPLIANCE REVIEW</option>
+            </select>
+            <input value={recipientRegion} onChange={(event) => setRecipientRegion(event.target.value)} placeholder="区域摘要（机场/空港区域将转危化品陆运）" />
+          </label>
+          <button type="button" className="bz-allocation-button bz-request-button" disabled={!selectedSku || createOrder.isPending} onClick={requestAllocation}>
+            {createOrder.isPending ? "记录配额中" : "提交配额申请"} <span>REQUEST IN SANDBOX</span>
+          </button>
+          {resultText ? <p className="bz-microcopy bz-request-status" role="status">{resultText}</p> : null}
+          <Link href={`${prefix}/objects/${product.slug}`} className="bz-text-link">BACK TO OBJECT <span>↖</span></Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 const BUILDER_STEPS = [
   { id: "HEAD", title: "冠部 / HEAD", options: ["嫩戗发戗飞檐盖头", "折光铜冠", "素面黑檀冠"] },
   { id: "BODY_WRAP", title: "瓶身画纸 / BODY", options: ["雨窗宣纸", "空白绢本", "来稿上传位"] },
@@ -426,6 +517,114 @@ export function LanternBuilderPage() {
   );
 }
 
+const CUSTOM_COMPONENT_TYPES = ["HEAD", "BODY_WRAP", "BASE"] as const;
+type CustomComponentType = (typeof CUSTOM_COMPONENT_TYPES)[number];
+
+function ConnectedLanternBuilderPage() {
+  const profile = useLocaleRuntime();
+  const catalog = trpc.bingzhu.catalog.useQuery();
+  const createOrder = trpc.retail.createRetailOrder.useMutation();
+  const [selected, setSelected] = useState<Partial<Record<CustomComponentType, number>>>({});
+  const [resultText, setResultText] = useState<string | null>(null);
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<"ground_delivery" | "instant_pickup">("ground_delivery");
+  const [recipientRegion, setRecipientRegion] = useState("");
+  const brandId = catalog.data?.brandId ?? null;
+  const componentsFor = (type: CustomComponentType) => catalog.data?.components.filter((component) => component.type === type) ?? [];
+  const customProduct = catalog.data?.products.find((product) => product.code === "BZ-LT-CUSTOM") ?? null;
+  const customSku = customProduct?.skus.find((sku) => profile.currency === "CNY" || sku.priceUsd !== null) ?? null;
+
+  useEffect(() => {
+    if (!catalog.data?.brandId) return;
+    setSelected((current) => {
+      const next = { ...current };
+      CUSTOM_COMPONENT_TYPES.forEach((type) => {
+        if (!next[type]) next[type] = componentsFor(type)[0]?.id;
+      });
+      return next;
+    });
+    setResultText(null);
+  }, [catalog.data?.brandId]);
+
+  const selectedComponents = CUSTOM_COMPONENT_TYPES.map((type) => componentsFor(type).find((component) => component.id === selected[type]) ?? null);
+  const readyToBuild = Boolean(brandId && customProduct && customSku && selectedComponents.every(Boolean));
+  const basePrice = customSku ? (profile.currency === "USD" ? customSku.priceUsd : customSku.basePriceCny) : null;
+  const componentPrice = selectedComponents.reduce((sum, component) => sum + (component ? (profile.currency === "USD" ? component.extraPriceUsd ?? 0 : component.extraPriceCny) : 0), 0);
+  const total = basePrice === null ? null : basePrice + componentPrice;
+
+  if (!brandId || !customProduct || !customSku) return <LanternBuilderPage />;
+
+  const submitCustomBuild = () => {
+    if (!readyToBuild || total === null) return;
+    createOrder.mutate(
+      {
+        brandId,
+        items: [{ productId: customProduct.id, skuId: customSku.id, quantity: 1 }],
+        gateway: "wechat_pay_v3",
+        currency: profile.currency,
+        customization: { components: selectedComponents.filter(Boolean).map((component) => ({ componentId: component!.id })) },
+        logistics: { fulfillmentMethod, recipientRegion: recipientRegion || null },
+        origin: window.location.origin,
+      },
+      {
+        onSuccess: (response) => setResultText(`CUSTOM SKU ${response.order.orderNo} / ${response.gateway.stage.toUpperCase()} / ${response.logisticsCompliance.dispatchMode.toUpperCase()}`),
+        onError: (error) => setResultText(error.message || "CUSTOM SKU REQUEST FAILED"),
+      },
+    );
+  };
+
+  const labels: Record<CustomComponentType, string> = {
+    HEAD: "冠部 / HEAD",
+    BODY_WRAP: "瓶身画纸 / BODY",
+    BASE: "底座 / BASE",
+  };
+
+  return (
+    <main className="bz-page bz-builder-page">
+      <BingzhuNavigation />
+      <section className="bz-builder-shell">
+        <div className="bz-builder-title">
+          <p className="bz-microcopy">THE LANTERN DIY BUILDER / CUSTOM SKU / SANDBOX</p>
+          <h1>把一盏灯<br />组装成你的气味。</h1>
+          <p>每段材料均从秉烛品牌组件目录读取；提交后将以不可变组件快照写入 Sandbox 订单。</p>
+        </div>
+        <div className="bz-blueprint" aria-label="灯笼香水定制蓝图">
+          <div className="bz-blueprint-scale">0 — 100 / COMPONENT LOCKED</div>
+          <div className="bz-lantern-drawing" aria-hidden="true"><span /><i /><b /></div>
+          <div className="bz-blueprint-label label-head">HEAD / {selectedComponents[0]?.name ?? "—"}</div>
+          <div className="bz-blueprint-label label-body">BODY / {selectedComponents[1]?.name ?? "—"}</div>
+          <div className="bz-blueprint-label label-base">BASE / {selectedComponents[2]?.name ?? "—"}</div>
+        </div>
+        <div className="bz-builder-controls">
+          {CUSTOM_COMPONENT_TYPES.map((type, index) => (
+            <fieldset key={type}>
+              <legend><span>0{index + 1}</span>{labels[type]}</legend>
+              {componentsFor(type).map((component) => (
+                <label key={component.id}>
+                  <input type="radio" name={type} checked={selected[type] === component.id} onChange={() => setSelected((current) => ({ ...current, [type]: component.id }))} />
+                  <span>{component.name} / {component.material ?? "MATERIAL TBC"}</span>
+                </label>
+              ))}
+            </fieldset>
+          ))}
+          <div className="bz-builder-total"><span>EST. CUSTOM BUILD / {profile.currency}</span><b>{total === null ? "UNAVAILABLE" : formatMinorCurrency(total, profile.currency)}</b></div>
+          <label className="bz-logistics-panel">
+            <span>UN1266 / DELIVERY ROUTING</span>
+            <select value={fulfillmentMethod} onChange={(event) => setFulfillmentMethod(event.target.value as "ground_delivery" | "instant_pickup")}>
+              <option value="ground_delivery">合规地面配送 / GROUND</option>
+              <option value="instant_pickup">即时自提 / COMPLIANCE REVIEW</option>
+            </select>
+            <input value={recipientRegion} onChange={(event) => setRecipientRegion(event.target.value)} placeholder="区域摘要（机场/空港区域将转危化品陆运）" />
+          </label>
+          <button type="button" className="bz-allocation-button bz-request-button" disabled={!readyToBuild || createOrder.isPending} onClick={submitCustomBuild}>
+            {createOrder.isPending ? "封存定制中" : "生成定制配额"} <span>BUILD CUSTOM SKU</span>
+          </button>
+          {resultText ? <p className="bz-microcopy bz-request-status" role="status">{resultText}</p> : null}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export function BagPage() {
   const profile = useLocaleRuntime();
   const prefix = `/${profile.locale}`;
@@ -468,8 +667,8 @@ function BingzhuRouter() {
       <Route path="/:locale/home" component={BingzhuHeroPage} />
       <Route path="/:locale/shop" component={ArchivePage} />
       <Route path="/:locale/objects/:slug" component={ArchiveObjectPage} />
-      <Route path="/:locale/allocation/:slug" component={AllocationPage} />
-      <Route path="/:locale/lantern" component={LanternBuilderPage} />
+      <Route path="/:locale/allocation/:slug" component={ConnectedAllocationPage} />
+      <Route path="/:locale/lantern" component={ConnectedLanternBuilderPage} />
       <Route path="/:locale/bag" component={BagPage} />
       <Route path="/:locale" component={LocaleLandingRedirect} />
       <Route component={GatewayPage} />

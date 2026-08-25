@@ -6,6 +6,7 @@ import {
   brands,
   leads,
   orders,
+  productComponents,
   productCategories,
   productSkus,
   products,
@@ -60,6 +61,43 @@ export type PlatformSnapshot = {
     leadCount: number;
     moduleCount: number;
   };
+};
+
+export type BingzhuCatalogProduct = {
+  id: number;
+  code: string | null;
+  slug: string;
+  name: string;
+  subtitle: string | null;
+  description: string | null;
+  priceCny: number | null;
+  priceUsd: number | null;
+  skus: Array<{
+    id: number;
+    skuCode: string;
+    specName: string | null;
+    packSize: string | null;
+    basePriceCny: number;
+    priceUsd: number | null;
+    stockQty: number;
+  }>;
+};
+
+export type BingzhuCatalogComponent = {
+  id: number;
+  type: "HEAD" | "BODY_WRAP" | "BASE";
+  name: string;
+  material: string | null;
+  extraPriceCny: number;
+  extraPriceUsd: number | null;
+  imageUrl: string | null;
+};
+
+export type BingzhuCatalogSnapshot = {
+  source: "database" | "unavailable";
+  brandId: number | null;
+  products: BingzhuCatalogProduct[];
+  components: BingzhuCatalogComponent[];
 };
 
 export type PublicCatalogCategory = {
@@ -943,6 +981,64 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function getBingzhuCatalog(): Promise<BingzhuCatalogSnapshot> {
+  const db = await getDb();
+  if (!db) {
+    return { source: "unavailable", brandId: null, products: [], components: [] };
+  }
+
+  const brandRows = await db.select().from(brands).where(eq(brands.code, "bingzhu")).limit(1);
+  const brand = brandRows[0];
+  if (!brand) {
+    return { source: "unavailable", brandId: null, products: [], components: [] };
+  }
+
+  const [productRows, skuRows, componentRows] = await Promise.all([
+    db.select().from(products).where(and(eq(products.brandId, brand.id), eq(products.status, "active"))),
+    db.select().from(productSkus).where(and(eq(productSkus.brandId, brand.id), eq(productSkus.status, "active"))),
+    db.select().from(productComponents).where(and(eq(productComponents.brandId, brand.id), eq(productComponents.status, "active"))),
+  ]);
+  const skusByProductId = new Map<number, typeof skuRows>();
+  for (const sku of skuRows) {
+    const records = skusByProductId.get(sku.productId) ?? [];
+    records.push(sku);
+    skusByProductId.set(sku.productId, records);
+  }
+
+  return {
+    source: "database",
+    brandId: brand.id,
+    products: productRows.map((product) => ({
+      id: product.id,
+      code: product.code,
+      slug: product.slug,
+      name: product.name,
+      subtitle: product.subtitle,
+      description: product.description,
+      priceCny: product.price,
+      priceUsd: product.priceUsd,
+      skus: (skusByProductId.get(product.id) ?? []).map((sku) => ({
+        id: sku.id,
+        skuCode: sku.skuCode,
+        specName: sku.specName,
+        packSize: sku.packSize,
+        basePriceCny: sku.basePrice,
+        priceUsd: sku.priceUsd,
+        stockQty: sku.stockQty,
+      })),
+    })),
+    components: componentRows.map((component) => ({
+      id: component.id,
+      type: component.type,
+      name: component.name,
+      material: component.material,
+      extraPriceCny: component.extraPrice,
+      extraPriceUsd: component.extraPriceUsd,
+      imageUrl: component.imageUrl,
+    })),
+  };
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {

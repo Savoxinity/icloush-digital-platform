@@ -9,6 +9,7 @@ import {
   orders,
   paymentCallbackLogs,
   payments,
+  productComponents,
   products,
   productSkus,
 } from "../../database/schema";
@@ -38,6 +39,70 @@ export const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 type CommerceProductType = "physical" | "service" | "rental" | "subscription";
 type ResolvedOrderType = "b2b_purchase" | "b2c_purchase" | "service" | "rental" | "subscription";
+export type SupportedOrderCurrency = "CNY" | "USD";
+export type CustomSkuComponentSelection = {
+  componentId: number;
+};
+
+export type Un1266LogisticsInput = {
+  fulfillmentMethod?: "ground_delivery" | "instant_pickup" | null;
+  recipientRegion?: string | null;
+  addressLine?: string | null;
+};
+
+export type Un1266LogisticsDecision = {
+  material: "UN1266";
+  requiresComplianceRouting: boolean;
+  dispatchMode: "standard_dispatch" | "hazmat_ground_delivery" | "compliance_warehouse_dispatch";
+  reasons: string[];
+  notice: string;
+};
+
+const AIR_TRANSPORT_RESTRICTED_TOKENS = ["机场", "空港", "航站楼", "航空", "机场货运", "机场物流"];
+
+export function resolveUn1266LogisticsCompliance(input?: Un1266LogisticsInput | null): Un1266LogisticsDecision {
+  const addressText = `${input?.recipientRegion ?? ""} ${input?.addressLine ?? ""}`.toLowerCase();
+  const airRestricted = AIR_TRANSPORT_RESTRICTED_TOKENS.some((token) => addressText.includes(token));
+  const instantPickup = input?.fulfillmentMethod === "instant_pickup";
+  const reasons = [
+    ...(airRestricted ? ["收货地址命中航空禁运/机场物流区域关键词"] : []),
+    ...(instantPickup ? ["用户选择即时自提，需要转由合规仓确认危化品交接条件"] : []),
+  ];
+  if (airRestricted) {
+    return {
+      material: "UN1266",
+      requiresComplianceRouting: true,
+      dispatchMode: "hazmat_ground_delivery",
+      reasons,
+      notice: "该订单含 UN1266 易燃液体，收货区域不进入航空链路；系统将切换至危化品陆运并由合规仓确认派送。",
+    };
+  }
+  if (instantPickup) {
+    return {
+      material: "UN1266",
+      requiresComplianceRouting: true,
+      dispatchMode: "compliance_warehouse_dispatch",
+      reasons,
+      notice: "该订单含 UN1266 易燃液体，即时自提需由合规仓确认交接条件；系统不会安排普通即时取件。",
+    };
+  }
+  return {
+    material: "UN1266",
+    requiresComplianceRouting: false,
+    dispatchMode: "standard_dispatch",
+    reasons: [],
+    notice: "该订单含 UN1266 易燃液体；默认按合规地面配送规则处理，不进入航空运输链路。",
+  };
+}
+
+function resolveOrderCurrency(currency?: string | null): SupportedOrderCurrency {
+  if (!currency) return "CNY";
+  if (currency === "CNY" || currency === "USD") return currency;
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message: "当前订单仅支持 CNY 或 USD 结算。",
+  });
+}
 
 function resolveOrderTypeFromProductTypes(productTypes: CommerceProductType[], customerType: CustomerType): ResolvedOrderType {
   const uniqueProductTypes = Array.from(new Set(productTypes));
@@ -560,6 +625,11 @@ export async function createOrder(args: {
   customerType?: CustomerType;
   membershipId?: number | null;
   note?: string | null;
+  currency?: SupportedOrderCurrency;
+  customization?: {
+    components: CustomSkuComponentSelection[];
+  } | null;
+  logistics?: Un1266LogisticsInput | null;
   items: Array<{
     productId: number;
     skuId: number;
@@ -586,6 +656,25 @@ export async function createOrder(args: {
       message: "订单至少需要包含一个商品项。",
     });
   }
+
+  const currency = resolveOrderCurrency(args.currency);
+  const selectedComponentIds = args.customization?.components.map((component) => component.componentId) ?? [];
+  if (selectedComponentIds.length > 0 && (args.items.length !== 1 || args.items[0]?.quantity !== 1)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "灯笼定制订单当前仅支持单件单 SKU 结算。",
+    });
+  }
+  if (selectedComponentIds.length > 0 && new Set(selectedComponentIds).size !== selectedComponentIds.length) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "同一灯笼组件不能被重复选择。",
+    });
+  }
+  const logisticsCompliance = resolveUn1266LogisticsCompliance(args.logistics);
+  const orderNote = [args.note?.trim(), logisticsCompliance.requiresComplianceRouting ? `[UN1266] ${logisticsCompliance.notice}` : null]
+    .filter((entry): entry is string => Boolean(entry))
+    .join("\n") || null;
 
   if (args.membershipId) {
     const membership = await args.db
@@ -636,6 +725,7 @@ export async function createOrder(args: {
         id: products.id,
         name: products.name,
         productType: products.productType,
+        priceUsd: products.priceUsd,
       })
       .from(products)
       .where(and(eq(products.brandId, args.brandId), inArray(products.id, productIds)));
@@ -654,6 +744,64 @@ export async function createOrder(args: {
       pricing.pricedItems.map((priced) => productById.get(priced.product.id)?.productType ?? "physical"),
       customerType,
     );
+
+    const currencyPricedItems = pricing.pricedItems.map((priced) => {
+      if (currency === "CNY") return priced;
+      const priceUsd = priced.sku.priceUsd ?? productById.get(priced.product.id)?.priceUsd;
+      if (priceUsd === null || priceUsd === undefined) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${priced.product.name} 尚未配置 USD 价格，暂不能使用美元结算。`,
+        });
+      }
+      return { ...priced, unitPrice: priceUsd, lineAmount: priceUsd * priced.item.quantity, matchedTier: null };
+    });
+
+    let customizationJson: Record<string, unknown> | null = null;
+    let customizationSurcharge = 0;
+    if (selectedComponentIds.length > 0) {
+      const components = await tx
+        .select()
+        .from(productComponents)
+        .where(
+          and(
+            eq(productComponents.brandId, args.brandId),
+            inArray(productComponents.id, selectedComponentIds),
+            eq(productComponents.status, "active"),
+          ),
+        );
+      if (components.length !== selectedComponentIds.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "选配组件不存在、已下架，或不属于当前品牌。" });
+      }
+      const requiredTypes = ["HEAD", "BODY_WRAP", "BASE"] as const;
+      const componentTypes = new Set(components.map((component) => component.type));
+      if (components.length !== requiredTypes.length || requiredTypes.some((type) => !componentTypes.has(type))) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "灯笼定制必须各选择一个 HEAD、BODY_WRAP 与 BASE 组件。" });
+      }
+      customizationSurcharge = components.reduce((sum, component) => {
+        const componentPrice = currency === "USD" ? component.extraPriceUsd : component.extraPrice;
+        if (componentPrice === null || componentPrice === undefined) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${component.name} 尚未配置 ${currency} 附加价，暂不能按当前币种结算。`,
+          });
+        }
+        return sum + componentPrice;
+      }, 0);
+      customizationJson = {
+        kind: "bingzhu_lantern",
+        components: components.map((component) => ({
+          id: component.id,
+          type: component.type,
+          name: component.name,
+          material: component.material,
+          extraPrice: component.extraPrice,
+          extraPriceUsd: component.extraPriceUsd,
+        })),
+      };
+    }
+    const merchandiseSubtotal = currencyPricedItems.reduce((sum, priced) => sum + priced.lineAmount, 0);
+    const payableAmount = merchandiseSubtotal + customizationSurcharge;
 
     if (orderTypeRequiresInventoryReservation(resolvedOrderType)) {
       const skuIds = Array.from(requestedQtyBySku.keys());
@@ -738,28 +886,33 @@ export async function createOrder(args: {
         status: "pending_payment",
         paymentStatus: "unpaid",
         fulfillmentStatus: "unfulfilled",
-        currency: "CNY",
-        subtotalAmount: pricing.subtotalAmount,
+        currency,
+        subtotalAmount: payableAmount,
         discountAmount: 0,
         shippingAmount: 0,
-        payableAmount: pricing.subtotalAmount,
-        note: args.note ?? null,
+        payableAmount,
+        note: orderNote,
+        logisticsJson: {
+          input: args.logistics ?? null,
+          compliance: logisticsCompliance,
+        },
       })
       .$returningId();
 
     const orderId = createdOrder[0].id;
 
     await tx.insert(orderItems).values(
-      pricing.pricedItems.map((priced) => ({
+      currencyPricedItems.map((priced, index) => ({
         orderId,
         brandId: args.brandId,
         productId: priced.product.id,
         skuId: priced.sku.id,
         productName: priced.product.name,
         skuLabel: buildSkuLabel(priced.sku.specName, priced.sku.packSize),
-        unitPrice: priced.unitPrice,
+        customizationJson: index === 0 ? customizationJson : null,
+        unitPrice: priced.unitPrice + (index === 0 ? customizationSurcharge : 0),
         quantity: priced.item.quantity,
-        lineAmount: priced.lineAmount,
+        lineAmount: priced.lineAmount + (index === 0 ? customizationSurcharge : 0),
       })),
     );
 
@@ -771,7 +924,7 @@ export async function createOrder(args: {
         paymentNo: buildPaymentNo(args.brandId),
         provider,
         paymentScenario,
-        amount: pricing.subtotalAmount,
+        amount: payableAmount,
         status: "created",
         metaJson: {
           paymentGateway: args.payment?.gateway ?? null,
@@ -779,6 +932,9 @@ export async function createOrder(args: {
           installmentPlanCode: args.payment?.installmentPlanCode ?? null,
           allowCreditCard: args.payment?.allowCreditCard ?? false,
           payerOpenId: args.payment?.payerOpenId ?? null,
+          currency,
+          customization: customizationJson,
+          logisticsCompliance,
           sandboxAutoSettle: args.sandbox?.autoSettle ?? false,
           sandboxOutcome: args.sandbox?.outcome ?? null,
         },
@@ -790,8 +946,14 @@ export async function createOrder(args: {
 
     return {
       order: orderRows[0],
-      items: pricing.pricedItems,
+      items: currencyPricedItems.map((priced, index) => ({
+        ...priced,
+        unitPrice: priced.unitPrice + (index === 0 ? customizationSurcharge : 0),
+        lineAmount: priced.lineAmount + (index === 0 ? customizationSurcharge : 0),
+        customization: index === 0 ? customizationJson : null,
+      })),
       payment: paymentRows[0],
+      logisticsCompliance,
     };
   });
 

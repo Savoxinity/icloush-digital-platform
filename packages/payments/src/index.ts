@@ -28,7 +28,7 @@ export type PaymentGatewayCreateOrderInput = {
   orderId: number;
   orderNo: string;
   amount: number;
-  currency: string;
+  currency: "CNY" | "USD";
   description: string;
   payer?: {
     openId?: string | null;

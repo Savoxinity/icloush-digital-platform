@@ -1,0 +1,1 @@
+ALTER TABLE `product_components` ADD `extra_price_usd` bigint unsigned;

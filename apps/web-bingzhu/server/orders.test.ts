@@ -5,9 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getDbMock = vi.hoisted(() => vi.fn(async () => ({}) as never));
 const getManagedProductDetailMock = vi.hoisted(() => vi.fn(async () => ({ id: 101, specs: [] }) as never));
+const getBingzhuCatalogMock = vi.hoisted(() => vi.fn(async () => ({ source: "database", brandId: 30002, products: [], components: [] }) as never));
 
 vi.mock("./db", () => ({
   getDb: getDbMock,
+  getBingzhuCatalog: getBingzhuCatalogMock,
   getManagedProductDetail: getManagedProductDetailMock,
 }));
 
@@ -50,6 +52,8 @@ function createContext(user: AuthenticatedUser): TrpcContext {
 describe("admin orders router", () => {
   beforeEach(() => {
     getDbMock.mockClear();
+    getBingzhuCatalogMock.mockReset();
+    getBingzhuCatalogMock.mockResolvedValue({ source: "database", brandId: 30002, products: [], components: [] } as never);
     getManagedProductDetailMock.mockReset();
     getManagedProductDetailMock.mockResolvedValue({ id: 101, specs: [] } as never);
     vi.restoreAllMocks();
@@ -91,6 +95,33 @@ describe("admin orders router", () => {
     );
     expect(result.filters.brandId).toBe(2);
     expect(result.records[0]?.orderNo).toBe("ORD-ADMIN-001");
+  });
+
+  it("exposes the BINGZHU catalog with its isolated brand id, USD SKU price, and component directory", async () => {
+    getBingzhuCatalogMock.mockResolvedValue({
+      source: "database",
+      brandId: 30002,
+      products: [{
+        id: 880,
+        code: "BZ-YL-03",
+        slug: "tanchuang",
+        name: "探窗",
+        subtitle: null,
+        description: null,
+        priceCny: 68000,
+        priceUsd: 9500,
+        skus: [{ id: 881, skuCode: "BZ-YL-03-15", specName: "探窗", packSize: "15ml", basePriceCny: 19800, priceUsd: 2800, stockQty: 108 }],
+      }],
+      components: [{ id: 901, type: "HEAD", name: "嫩戗飞檐盖头", material: "手工錾刻铜", extraPriceCny: 12000, extraPriceUsd: 1700, imageUrl: null }],
+    } as never);
+
+    const caller = appRouter.createCaller(createContext(createUser()));
+    const result = await caller.bingzhu.catalog();
+
+    expect(getBingzhuCatalogMock).toHaveBeenCalledTimes(1);
+    expect(result.brandId).toBe(30002);
+    expect(result.products[0]?.skus[0]?.priceUsd).toBe(2800);
+    expect(result.components[0]).toMatchObject({ type: "HEAD", extraPriceCny: 12000 });
   });
 
   it("queries current user orders through OMS with authenticated user id", async () => {
@@ -302,6 +333,42 @@ describe("admin orders router", () => {
     expect(result.paymentMode).toBe("sandbox");
     expect(result.gateway.stage).toBe("processing");
     expect(result.paymentPolling.sandboxExpectedSettlementMs).toBe(6000);
+  });
+
+  it("passes USD and a complete lantern component selection to OMS within the sandbox retail flow", async () => {
+    getManagedProductDetailMock.mockResolvedValue({ id: 504, specs: [] } as never);
+    const createOrderSpy = vi.spyOn(omsModule, "createOrder").mockResolvedValue({
+      order: { id: 7004, orderNo: "ORD-BINGZHU-USD", payableAmount: 81, currency: "USD" },
+      items: [{ product: { name: "秉烛灯笼香水" }, item: { quantity: 1 }, sku: { id: 604 } }],
+      payment: { id: 9004, provider: "wechat_jsapi" },
+      logisticsCompliance: { material: "UN1266", requiresComplianceRouting: true, dispatchMode: "hazmat_ground_delivery", reasons: ["收货地址命中航空禁运/机场物流区域关键词"], notice: "危化品陆运" },
+    } as never);
+
+    const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
+    const result = await caller.retail.createRetailOrder({
+      brandId: 2,
+      items: [{ productId: 504, skuId: 604, quantity: 1 }],
+      gateway: "wechat_pay_v3",
+      currency: "USD",
+      customization: { components: [{ componentId: 201 }, { componentId: 202 }, { componentId: 203 }] },
+      logistics: { fulfillmentMethod: "ground_delivery", recipientRegion: "上海浦东机场物流园" },
+      origin: "https://example.com",
+    });
+
+    expect(createOrderSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        brandId: 2,
+        currency: "USD",
+        customization: {
+          components: [{ componentId: 201 }, { componentId: 202 }, { componentId: 203 }],
+        },
+        logistics: { fulfillmentMethod: "ground_delivery", recipientRegion: "上海浦东机场物流园" },
+        sandbox: expect.objectContaining({ autoSettle: true }),
+      }),
+    );
+    expect(result.order.currency).toBe("USD");
+    expect(result.gateway.stage).toBe("processing");
+    expect(result.logisticsCompliance).toMatchObject({ dispatchMode: "hazmat_ground_delivery", material: "UN1266" });
   });
 
   it("creates retail order in sandbox mode without touching formal gateway", async () => {

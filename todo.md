@@ -316,3 +316,17 @@
 - [x] MVP 演示版收口：暂停真实微信链路联调，并将当前版本定位为“中后台上架 + 前端商城陈列”的演示版本
 - [x] 样板商品默认支付模式：确保演示用样板商品默认开启 Sandbox（沙盒）模式，避免误入 production_live
 - [x] 为样板商品默认 Sandbox 模式补充回归验证，确认演示下单链路稳定落在沙盒模式
+
+## 秉烛 BINGZHU 重构主线
+
+- [x] 冻结原 iCloush 日化 B2B 前台演进，并保留 `packages/oms`、`packages/payments` 与既有多租户底层骨架供秉烛新线复用
+- [x] 克隆 `apps/web-b2b` 为 `apps/web-bingzhu`，补齐 workspace、开发命令、路由入口与独立测试基线
+- [x] 建立秉烛五色珐琅视觉系统：玄漆背景、月白文本、库金/朱砂 1px 交互线、Noto Serif SC、Bodoni Moda、IBM Plex Mono，以及零圆角/零毛玻璃/零发光阴影约束
+- [x] 实现国际化守门员 `/`：提供 Asia/CNY 与 Global/USD 分流，并由 locale context 锁定语言、币种与后续路由前缀
+- [x] 实现 `/:locale/home` 首屏神殿：暗光触觉媒体、极简菜单/Logo/BAG 导航和品牌主张
+- [x] 实现 `/:locale/shop` 名录式香水档案馆：纯文本纵向 SKU 名录与 Hover/Touch 视觉显影交互，禁止传统电商网格布局
+- [ ] 实现预制款 PDP 与 `[ REQUEST ALLOCATION ]` 漏斗，复用 payments 服务端能力并为 15ml / 50ml 设定清晰的沙盒演示路径
+- [ ] 实现 Lantern DIY Builder：按 HEAD、BODY_WRAP、BASE 分步组合、蓝图式线稿界面与自定义 SKU 下单承接
+- [ ] 扩展 `packages/database/schema.ts`：新增 `product_components`，为 products 增加 `price_usd`，为 orders 增加 CNY/USD 双币种数据模型并完成迁移
+- [ ] 在 OMS 中增加 UN1266 易燃液体物流过滤：针对航空禁运区或即时自提输出合规仓调度/危化品陆运专属提示
+- [ ] 为秉烛路由、双币种、组件组装、支付请求与物流合规补齐 Vitest 回归、视觉核验、版本说明和检查点

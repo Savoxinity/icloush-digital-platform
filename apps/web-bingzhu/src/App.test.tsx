@@ -18,7 +18,7 @@ function setLocation(pathname = "/zh-cn/home") {
   Object.defineProperty(globalThis, "location", { value: new URL(`https://example.com${pathname}`), configurable: true });
 }
 
-describe("BINGZHU 神性极简前台", () => {
+describe("BINGZHU 无框悬浮前台", () => {
   beforeEach(() => setLocation());
 
   it("将亚洲与全球入口分别锁定为 CNY 和 USD locale", () => {
@@ -27,34 +27,36 @@ describe("BINGZHU 神性极简前台", () => {
     expect(resolveLocaleProfile("unsupported").currency).toBe("CNY");
   });
 
-  it("渲染羊皮纸 Gateway 的两条无边框市场分流", () => {
+  it("渲染带方括号文本分流的全屏 Gateway", () => {
     const html = renderToStaticMarkup(<GatewayPage />);
     expect(html).toContain("秉烛");
     expect(html).toContain("BINGZHU");
-    expect(html).toContain("ASIA PACIFIC / 简体中文 / CNY ¥");
-    expect(html).toContain("GLOBAL / ENGLISH / USD $");
-    expect(html).toContain("bz-market-choice");
+    expect(html).toContain("[ ASIA PACIFIC / 简体中文 / CNY ¥ ]");
+    expect(html).toContain("[ GLOBAL / ENGLISH / USD $ ]");
+    expect(html).toContain("bz-media-canvas");
   });
 
-  it("渲染明亮神性首页与纯白产品画框，而不保留旧暗场标本结构", () => {
+  it("渲染用户提供器物渲染驱动的全屏首页与无图标导航", () => {
     const html = renderToStaticMarkup(<BingzhuHeroPage />);
-    expect(html).toContain("A SIGNATURE SCENT, HELD IN LIGHT");
+    expect(html).toContain("FzPAlbOQiXnYLWpa.webp");
+    expect(html).toContain("[ MENU ]");
+    expect(html).toContain("[ BAG 0 ]");
     expect(html).toContain("以香为礼");
-    expect(html).toContain("bz-haptic-shelf");
-    expect(html).toContain("bz-shelf-product");
-    expect(html).not.toContain("bz-hero-specimen");
-    expect(html).not.toContain("HAPTIC FIELD / NO SOUND");
+    expect(html).toContain("bz-hero-layout");
+    expect(html).not.toContain("bz-nav-glyph");
+    expect(html).not.toContain("bz-haptic-shelf");
   });
 
-  it("渲染名录式货架、白底产品摄影与可显影的氛围层", () => {
+  it("渲染以无框文字目录控制全屏媒介显影的货架", () => {
     const html = renderToStaticMarkup(<ArchivePage />);
     expect(html).toContain("香气不是货架");
     expect(html).toContain("探窗");
     expect(html).toContain("15ml / BZ-YL-03");
     expect(html).toContain("贺兰荒骨");
     expect(html).toContain("50ml / BZ-JH-02");
-    expect(html).toContain("--shelf-atmosphere");
-    expect(html).toContain("REVEAL");
+    expect(html).toContain("[ REVEAL ]");
+    expect(html).toContain("bz-directory-row");
+    expect(html).toContain("sEGYzeekNnzlfLVT.webp");
     expect(html).not.toContain("rounded-");
     expect(html).not.toContain("backdrop-blur");
   });
@@ -69,14 +71,14 @@ describe("BINGZHU 神性极简前台", () => {
     expect(html).toContain("UN1266 GROUND ROUTING");
   });
 
-  it("在配额页展示15ml/50ml、Sandbox成功语义与UN1266陆运提示", () => {
+  it("在配额页展示15ml/50ml、Sandbox库存预占与UN1266陆运提示", () => {
     setLocation("/zh-cn/allocation/tanchuang");
     const html = renderToStaticMarkup(<AllocationPage />);
     expect(html).toContain("15ml");
     expect(html).toContain("50ml");
-    expect(html).toContain("SIMULATED PAYMENT");
+    expect(html).toContain("STOCK RESERVED");
     expect(html).toContain("AWAITING FULFILLMENT");
-    expect(html).toContain("UN1266 易燃液体");
+    expect(html).toContain("UN1266 / COMPLIANT GROUND ROUTING ONLY");
   });
 
   it("在未知slug时安全回退到首个香气档案", () => {

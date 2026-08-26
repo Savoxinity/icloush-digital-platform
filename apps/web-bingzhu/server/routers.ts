@@ -7,6 +7,7 @@ import {
   listOrderReviewQueue,
   listOrders,
   reviewOrderPayment,
+  settleSandboxOrderPayment,
 } from "../../../packages/oms/src/index";
 import { createPaymentOrder } from "../../../packages/payments/src/index";
 import { COOKIE_NAME } from "../shared/const";
@@ -424,12 +425,14 @@ function buildSandboxGatewayResult(params: {
 }) {
   return {
     gateway: params.gateway,
-    stage: "processing" as const,
+    stage: "completed" as const,
     providerOrderId: `sandbox-${params.orderNo}`,
     clientPayload: {
       mode: "sandbox",
       orderNo: params.orderNo,
-      expectedSettlementMs: 6000,
+      expectedSettlementMs: 0,
+      result: "payment_succeeded",
+      fulfillmentStage: "awaiting_fulfillment",
     },
     requiredConfigs: [],
     requestSnapshot: {
@@ -439,7 +442,7 @@ function buildSandboxGatewayResult(params: {
       amount: params.amount,
       currency: params.currency,
     },
-    notes: ["当前商品处于 SANDBOX 模式，系统不会访问正式支付网关，并会在约 6 秒后自动回写支付成功。"],
+    notes: ["当前商品处于 SANDBOX 模式，系统不会访问正式支付网关；库存已预占、模拟支付已成功，订单现进入待发货队列。"],
   };
 }
 
@@ -513,11 +516,22 @@ const retailRouter = router({
         installmentPlanCode: retailProfile.installmentPlanCode,
       },
       sandbox: {
-        autoSettle: retailProfile.paymentMode === "sandbox",
-        delayMs: 6_000,
+        autoSettle: false,
         outcome: "successful",
       },
     });
+
+    const sandboxSettlement = retailProfile.paymentMode === "sandbox"
+      ? await settleSandboxOrderPayment({
+          db,
+          brandId: input.brandId,
+          orderId: created.order.id,
+          paymentId: created.payment.id,
+          outcome: "successful",
+        })
+      : null;
+    const resolvedOrder = sandboxSettlement?.order ?? created.order;
+    const resolvedPayment = sandboxSettlement?.payment ?? created.payment;
 
     const paymentBrandLabel =
       fallbackBrands.find((brand) => brand.id === input.brandId)?.shortName ??
@@ -529,10 +543,10 @@ const retailRouter = router({
         ? buildSandboxGatewayResult({
             gateway: input.gateway,
             brandId: input.brandId,
-            orderId: created.order.id,
-            orderNo: created.order.orderNo,
-            amount: created.order.payableAmount,
-            currency: created.order.currency,
+            orderId: resolvedOrder.id,
+            orderNo: resolvedOrder.orderNo,
+            amount: resolvedOrder.payableAmount,
+            currency: resolvedOrder.currency,
           })
         : retailProfile.paymentMode === "production_ready"
           ? buildProductionReadyGatewayResult({
@@ -567,17 +581,17 @@ const retailRouter = router({
 
     return {
       tenant: { brandId: input.brandId },
-      order: created.order,
+      order: resolvedOrder,
       items: created.items,
-      payment: created.payment,
+      payment: resolvedPayment,
       paymentMode: retailProfile.paymentMode,
       logisticsCompliance: created.logisticsCompliance,
       gateway,
       paymentPolling: {
-        orderId: created.order.id,
-        orderNo: created.order.orderNo,
-        recommendedIntervalMs: retailProfile.paymentMode === "sandbox" ? 2000 : 5000,
-        sandboxExpectedSettlementMs: retailProfile.paymentMode === "sandbox" ? 6000 : null,
+        orderId: resolvedOrder.id,
+        orderNo: resolvedOrder.orderNo,
+        recommendedIntervalMs: retailProfile.paymentMode === "sandbox" ? 0 : 5000,
+        sandboxExpectedSettlementMs: retailProfile.paymentMode === "sandbox" ? 0 : null,
       },
     };
   }),

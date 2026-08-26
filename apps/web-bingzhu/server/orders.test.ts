@@ -57,6 +57,20 @@ describe("admin orders router", () => {
     getManagedProductDetailMock.mockReset();
     getManagedProductDetailMock.mockResolvedValue({ id: 101, specs: [] } as never);
     vi.restoreAllMocks();
+    vi.spyOn(omsModule, "settleSandboxOrderPayment").mockImplementation(async ({ orderId, paymentId }) => ({
+      order: {
+        id: orderId,
+        orderNo: `ORD-SANDBOX-SETTLED-${orderId}`,
+        payableAmount: 0,
+        currency: "CNY",
+        status: "paid",
+        paymentStatus: "paid",
+        fulfillmentStatus: "unfulfilled",
+      },
+      payment: { id: paymentId, provider: "wechat_jsapi", status: "paid" },
+      skipped: false,
+      outcome: "successful",
+    } as never));
   });
 
   it("queries admin order list through OMS with brand filters", async () => {
@@ -295,47 +309,29 @@ describe("admin orders router", () => {
     expect(result.receipt.reviewStatus).toBe("approved");
   });
 
-  it("defaults retail order to sandbox mode when product payment mode is absent", async () => {
-    getManagedProductDetailMock.mockResolvedValue({
-      id: 500,
-      specs: [],
-    } as never);
+  it("defaults retail order to synchronous sandbox success when product payment mode is absent", async () => {
+    getManagedProductDetailMock.mockResolvedValue({ id: 500, specs: [] } as never);
     const createOrderSpy = vi.spyOn(omsModule, "createOrder").mockResolvedValue({
       order: { id: 7000, orderNo: "ORD-RET-DEFAULT-SANDBOX", payableAmount: 980, currency: "CNY" },
       items: [{ product: { name: "默认沙盒样品" }, item: { quantity: 1 }, sku: { id: 600 } }],
       payment: { id: 9000, provider: "wechat_jsapi" },
     } as never);
     const gatewaySpy = vi.spyOn(paymentsModule, "createPaymentOrder").mockResolvedValue({
-      gateway: "wechat_pay_v3",
-      stage: "pending_configuration",
-      providerOrderId: null,
-      clientPayload: null,
-      requiredConfigs: [],
-      requestSnapshot: {},
-      notes: [],
+      gateway: "wechat_pay_v3", stage: "pending_configuration", providerOrderId: null, clientPayload: null, requiredConfigs: [], requestSnapshot: {}, notes: [],
     });
 
     const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
-    const result = await caller.retail.createRetailOrder({
-      brandId: 2,
-      items: [{ productId: 500, skuId: 600, quantity: 1 }],
-      gateway: "wechat_pay_v3",
-      origin: "https://example.com",
-    });
+    const result = await caller.retail.createRetailOrder({ brandId: 2, items: [{ productId: 500, skuId: 600, quantity: 1 }], gateway: "wechat_pay_v3", origin: "https://example.com" });
 
-    expect(createOrderSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sandbox: expect.objectContaining({ autoSettle: true }),
-        payment: expect.objectContaining({ paymentScenario: "full_payment" }),
-      }),
-    );
+    expect(createOrderSpy).toHaveBeenCalledWith(expect.objectContaining({ sandbox: expect.objectContaining({ autoSettle: false }), payment: expect.objectContaining({ paymentScenario: "full_payment" }) }));
     expect(gatewaySpy).not.toHaveBeenCalled();
     expect(result.paymentMode).toBe("sandbox");
-    expect(result.gateway.stage).toBe("processing");
-    expect(result.paymentPolling.sandboxExpectedSettlementMs).toBe(6000);
+    expect(result.gateway.stage).toBe("completed");
+    expect(result.paymentPolling.sandboxExpectedSettlementMs).toBe(0);
+    expect(result.order).toMatchObject({ status: "paid", paymentStatus: "paid", fulfillmentStatus: "unfulfilled" });
   });
 
-  it("passes USD and a complete lantern component selection to OMS within the sandbox retail flow", async () => {
+  it("passes USD and a complete lantern component selection through synchronous sandbox success", async () => {
     getManagedProductDetailMock.mockResolvedValue({ id: 504, specs: [] } as never);
     const createOrderSpy = vi.spyOn(omsModule, "createOrder").mockResolvedValue({
       order: { id: 7004, orderNo: "ORD-BINGZHU-USD", payableAmount: 81, currency: "USD" },
@@ -343,31 +339,18 @@ describe("admin orders router", () => {
       payment: { id: 9004, provider: "wechat_jsapi" },
       logisticsCompliance: { material: "UN1266", requiresComplianceRouting: true, dispatchMode: "hazmat_ground_delivery", reasons: ["收货地址命中航空禁运/机场物流区域关键词"], notice: "危化品陆运" },
     } as never);
-
+    vi.mocked(omsModule.settleSandboxOrderPayment).mockResolvedValueOnce({
+      order: { id: 7004, orderNo: "ORD-BINGZHU-USD", payableAmount: 81, currency: "USD", status: "paid", paymentStatus: "paid", fulfillmentStatus: "unfulfilled" },
+      payment: { id: 9004, provider: "wechat_jsapi", status: "paid" },
+      skipped: false,
+      outcome: "successful",
+    } as never);
     const caller = appRouter.createCaller(createContext(createUser({ id: 1, globalRole: "user" })));
-    const result = await caller.retail.createRetailOrder({
-      brandId: 2,
-      items: [{ productId: 504, skuId: 604, quantity: 1 }],
-      gateway: "wechat_pay_v3",
-      currency: "USD",
-      customization: { components: [{ componentId: 201 }, { componentId: 202 }, { componentId: 203 }] },
-      logistics: { fulfillmentMethod: "ground_delivery", recipientRegion: "上海浦东机场物流园" },
-      origin: "https://example.com",
-    });
+    const result = await caller.retail.createRetailOrder({ brandId: 2, items: [{ productId: 504, skuId: 604, quantity: 1 }], gateway: "wechat_pay_v3", currency: "USD", customization: { components: [{ componentId: 201 }, { componentId: 202 }, { componentId: 203 }] }, logistics: { fulfillmentMethod: "ground_delivery", recipientRegion: "上海浦东机场物流园" }, origin: "https://example.com" });
 
-    expect(createOrderSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        brandId: 2,
-        currency: "USD",
-        customization: {
-          components: [{ componentId: 201 }, { componentId: 202 }, { componentId: 203 }],
-        },
-        logistics: { fulfillmentMethod: "ground_delivery", recipientRegion: "上海浦东机场物流园" },
-        sandbox: expect.objectContaining({ autoSettle: true }),
-      }),
-    );
+    expect(createOrderSpy).toHaveBeenCalledWith(expect.objectContaining({ brandId: 2, currency: "USD", customization: { components: [{ componentId: 201 }, { componentId: 202 }, { componentId: 203 }] }, logistics: { fulfillmentMethod: "ground_delivery", recipientRegion: "上海浦东机场物流园" }, sandbox: expect.objectContaining({ autoSettle: false }) }));
     expect(result.order.currency).toBe("USD");
-    expect(result.gateway.stage).toBe("processing");
+    expect(result.gateway.stage).toBe("completed");
     expect(result.logisticsCompliance).toMatchObject({ dispatchMode: "hazmat_ground_delivery", material: "UN1266" });
   });
 
@@ -401,14 +384,14 @@ describe("admin orders router", () => {
 
     expect(createOrderSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        sandbox: expect.objectContaining({ autoSettle: true }),
+        sandbox: expect.objectContaining({ autoSettle: false }),
         payment: expect.objectContaining({ paymentScenario: "full_payment" }),
       }),
     );
     expect(gatewaySpy).not.toHaveBeenCalled();
     expect(result.paymentMode).toBe("sandbox");
-    expect(result.gateway.stage).toBe("processing");
-    expect(result.paymentPolling.sandboxExpectedSettlementMs).toBe(6000);
+    expect(result.gateway.stage).toBe("completed");
+    expect(result.paymentPolling.sandboxExpectedSettlementMs).toBe(0);
   });
 
   it("creates subscription retail order with installment metadata in sandbox mode", async () => {
@@ -451,12 +434,12 @@ describe("admin orders router", () => {
           paymentScenario: "installment",
           installmentPlanCode: "RET-601-MONTHLY-9101",
         }),
-        sandbox: expect.objectContaining({ autoSettle: true }),
+        sandbox: expect.objectContaining({ autoSettle: false }),
       }),
     );
     expect(gatewaySpy).not.toHaveBeenCalled();
     expect(result.paymentMode).toBe("sandbox");
-    expect(result.gateway.stage).toBe("processing");
+    expect(result.gateway.stage).toBe("completed");
   });
 
   it("creates retail order in production_ready mode without sandbox auto settle", async () => {
@@ -661,11 +644,11 @@ describe("admin orders router", () => {
     expect(createOrderSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         brandId: 1,
-        sandbox: expect.objectContaining({ autoSettle: true }),
+        sandbox: expect.objectContaining({ autoSettle: false }),
       }),
     );
     expect(gatewaySpy).not.toHaveBeenCalled();
-    expect(result.order.orderNo).toBe("ORD-HXD-SANDBOX");
+    expect(result.order).toMatchObject({ id: 7101, status: "paid", paymentStatus: "paid", fulfillmentStatus: "unfulfilled" });
     expect(result.paymentMode).toBe("sandbox");
   });
 });

@@ -340,6 +340,6 @@
 - [x] 重构根路由 Gateway：提供 Asia Pacific / 简体中文 / CNY 与 Global / English / USD 无边框分流，持久化 locale 偏好并支持自动重定向
 - [x] 在顶部导航加入常驻地区坐标与全屏重选遮罩，允许用户随时重置 CNY/ZH 或 USD/EN 偏好
 - [x] 重构名录式 Haptic Shelf：左侧文字目录、右侧纯白产品画框、白底产品摄影与 Hover/长按交叉显影氛围大片及参数反转
-- [ ] 收紧香水规格至 15ml / 50ml，审查并移除 BINGZHU 演示目录和前端选择器中任何 100ml 选项
-- [ ] 将 REQUEST ALLOCATION Sandbox 下单反馈推进为模拟成功、库存预占结果和“待发货”状态，并保留 UN1266 陆运/保税仓提示
-- [ ] 为新 Gateway、地区偏好、纯白显影货架、15ml/50ml 限制和 Sandbox 成功流补齐 Vitest、桌面/移动核验与主理人验收检查点
+- [x] 收紧香水规格至 15ml / 50ml，审查并移除 BINGZHU 演示目录和前端选择器中任何 100ml 选项
+- [x] 将 REQUEST ALLOCATION Sandbox 下单反馈推进为模拟成功、库存预占结果和“待发货”状态，并保留 UN1266 陆运/保税仓提示
+- [x] 为新 Gateway、地区偏好、纯白显影货架、15ml/50ml 限制和 Sandbox 成功流补齐 Vitest、桌面/移动核验与主理人验收检查点

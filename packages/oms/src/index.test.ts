@@ -24,6 +24,7 @@ type FakeSkuRow = {
 type FakeProductRow = {
   id: number;
   brandId: number;
+  code: string;
   name: string;
   productType: "physical" | "service" | "rental" | "subscription";
   priceUsd?: number | null;
@@ -58,6 +59,7 @@ function createFakeDb(
     failInventoryUpdate?: boolean;
     productPriceUsd?: number | null;
     components?: FakeProductComponentRow[];
+    productCode?: string;
   },
 ) {
   const state = {
@@ -66,6 +68,7 @@ function createFakeDb(
       {
         id: 101,
         brandId: 2,
+        code: options?.productCode ?? "SKU-VALIDATION",
         name: "库存验证样品",
         productType,
         priceUsd: options?.productPriceUsd ?? null,
@@ -279,6 +282,31 @@ describe("OMS createOrder inventory guard", () => {
         currency: "EUR" as never,
       }),
     ).rejects.toThrow("当前订单仅支持 CNY 或 USD 结算。");
+  });
+
+  it("rejects a 100ml BINGZHU prepared-fragrance SKU before reserving inventory", async () => {
+    priceOrderItemsMock.mockResolvedValue({
+      pricedItems: [{
+        item: { productId: 101, skuId: 11, quantity: 1 },
+        sku: { id: 11, productId: 101, specName: "100ml", packSize: "100ml" },
+        product: { id: 101, name: "秉烛探窗" },
+        unitPrice: 128000,
+        lineAmount: 128000,
+        matchedTier: null,
+      }],
+      subtotalAmount: 128000,
+    });
+    const { db, state } = createFakeDb(5, "physical", { productCode: "BZ-TANCHUANG" });
+
+    await expect(createOrder({
+      db: db as never,
+      brandId: 2,
+      userId: 88,
+      items: [{ productId: 101, skuId: 11, quantity: 1 }],
+    })).rejects.toThrow("仅提供 15ml 或 50ml");
+
+    expect(state.productSkus[0].stockQty).toBe(5);
+    expect(state.orders).toHaveLength(0);
   });
 
   it("routes airport-restricted UN1266 orders to hazardous-goods ground delivery", () => {

@@ -723,6 +723,7 @@ export async function createOrder(args: {
     const productRows = await tx
       .select({
         id: products.id,
+        code: products.code,
         name: products.name,
         productType: products.productType,
         priceUsd: products.priceUsd,
@@ -736,6 +737,14 @@ export async function createOrder(args: {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `商品 ${priced.product.id} 不存在或不属于当前品牌。`,
+        });
+      }
+      const product = productById.get(priced.product.id)!;
+      const isBingzhuPreparedFragrance = product.code?.startsWith("BZ-") && product.code !== "BZ-LANTERN-CUSTOM";
+      if (isBingzhuPreparedFragrance && !["15ml", "50ml"].includes(priced.sku.packSize ?? "")) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "BINGZHU 预制香水当前仅提供 15ml 或 50ml 规格。",
         });
       }
     }

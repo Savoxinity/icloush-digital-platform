@@ -332,3 +332,14 @@
 - [x] 扩展 `packages/database/schema.ts`：新增 `product_components`，为 products 增加 `price_usd`，为 orders 增加 CNY/USD 双币种数据模型并完成迁移
 - [x] 在 OMS 中增加 UN1266 易燃液体物流过滤：针对航空禁运区或即时自提输出合规仓调度/危化品陆运专属提示
 - [x] 为秉烛路由、双币种、组件组装、支付请求与物流合规补齐 Vitest 回归、视觉核验、版本说明和检查点
+
+## 秉烛 BINGZHU 神性极简纠偏冲刺
+
+- [x] 停止并移除秉烛旧暗黑/赛博朋克视觉，重建“羊皮纸灰米色 #F5F2EB + 纯白 #FFFFFF + 深炭灰 #2C2A29”的全站 VI 宪法
+- [x] 统一 BINGZHU 字体与物理规则：Noto Serif SC、Bodoni Moda、IBM Plex Mono、直角、零阴影，金/朱砂仅作细微交互点缀
+- [x] 重构根路由 Gateway：提供 Asia Pacific / 简体中文 / CNY 与 Global / English / USD 无边框分流，持久化 locale 偏好并支持自动重定向
+- [x] 在顶部导航加入常驻地区坐标与全屏重选遮罩，允许用户随时重置 CNY/ZH 或 USD/EN 偏好
+- [x] 重构名录式 Haptic Shelf：左侧文字目录、右侧纯白产品画框、白底产品摄影与 Hover/长按交叉显影氛围大片及参数反转
+- [ ] 收紧香水规格至 15ml / 50ml，审查并移除 BINGZHU 演示目录和前端选择器中任何 100ml 选项
+- [ ] 将 REQUEST ALLOCATION Sandbox 下单反馈推进为模拟成功、库存预占结果和“待发货”状态，并保留 UN1266 陆运/保税仓提示
+- [ ] 为新 Gateway、地区偏好、纯白显影货架、15ml/50ml 限制和 Sandbox 成功流补齐 Vitest、桌面/移动核验与主理人验收检查点
